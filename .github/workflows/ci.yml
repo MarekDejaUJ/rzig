@@ -80,6 +80,10 @@ jobs:
         if: failure()
         run: cat rzigtest.Rcheck/00install.out rzigtest.Rcheck/00check.log rzigtest.Rcheck/tests/testthat.Rout* || true
         shell: bash
+      - name: Verify installation with a read-only home
+        if: runner.os == 'Linux'
+        run: ZIG="$(command -v zig)" sh tools/check_readonly_home.sh rzigtest_*.tar.gz
+        shell: bash
       - name: Run GC stress suite
         if: runner.os == 'macOS'
         run: |
