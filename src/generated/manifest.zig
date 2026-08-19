@@ -3,8 +3,9 @@
 
 /// Bind exported function names to the package's root Zig module.
 pub fn Bind(comptime root: type) type {
-    _ = root;
     return struct {
+        const bound_root = root;
+
         /// Metadata for public functions exposed through RZig.
         pub const exports = .{};
     };

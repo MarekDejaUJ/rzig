@@ -13,11 +13,13 @@ error_state.zig
 na.zig
 panic.zig
 protect.zig
+register.zig
 sexp.zig
-c/abi.zig'
+c/abi.zig
+generated/arity.zig'
 
 if test "$mode" = "--write"; then
-    mkdir -p "$framework_dir/c"
+    mkdir -p "$framework_dir/c" "$framework_dir/generated"
 elif test "$mode" != "--check"; then
     printf 'usage: %s [--write|--check]\n' "$0" >&2
     exit 2

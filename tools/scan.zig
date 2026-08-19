@@ -39,8 +39,9 @@ fn renderManifest(allocator: std.mem.Allocator, source: [:0]const u8) ![]u8 {
         \\
         \\/// Bind exported function names to the package's root Zig module.
         \\pub fn Bind(comptime root: type) type {
-        \\    _ = root;
         \\    return struct {
+        \\        const bound_root = root;
+        \\
         \\        /// Metadata for public functions exposed through RZig.
         \\        pub const exports = .{
         \\
@@ -66,7 +67,7 @@ fn renderManifest(allocator: std.mem.Allocator, source: [:0]const u8) ![]u8 {
         try out.print(allocator,
             \\            .{{
             \\                .name = "{f}",
-            \\                .func = root.{s},
+            \\                .func = bound_root.{s},
             \\                .doc = "{f}",
             \\            }},
             \\
@@ -166,10 +167,10 @@ test "manifest contains only marked public functions and preserves documentation
 
     try std.testing.expect(std.mem.indexOf(u8, manifest, "pub fn Bind(comptime root: type) type") != null);
     try std.testing.expect(std.mem.indexOf(u8, manifest, ".name = \"add_values\"") != null);
-    try std.testing.expect(std.mem.indexOf(u8, manifest, ".func = root.add_values") != null);
+    try std.testing.expect(std.mem.indexOf(u8, manifest, ".func = bound_root.add_values") != null);
     try std.testing.expect(std.mem.indexOf(u8, manifest, ".doc = \"Add \\\"values\\\".\\nPreserves \\\\ paths.\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, manifest, "private_helper") == null);
-    try std.testing.expect(std.mem.indexOf(u8, manifest, "root.helper") == null);
+    try std.testing.expect(std.mem.indexOf(u8, manifest, "bound_root.helper") == null);
 }
 
 test "manifest supports marker-only docs and quoted identifiers" {
@@ -183,7 +184,7 @@ test "manifest supports marker-only docs and quoted identifiers" {
     defer std.testing.allocator.free(manifest);
 
     try std.testing.expect(std.mem.indexOf(u8, manifest, ".name = \"r-name\"") != null);
-    try std.testing.expect(std.mem.indexOf(u8, manifest, ".func = root.@\"r-name\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, manifest, ".func = bound_root.@\"r-name\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, manifest, ".doc = \"\"") != null);
 }
 

@@ -119,9 +119,22 @@ pub fn build(b: *std.Build) void {
     const fmt_manifest = b.addSystemCommand(&.{ b.graph.zig_exe, "fmt", "src/generated/manifest.zig" });
     fmt_manifest.step.dependOn(&run_scan.step);
 
+    const run_fixture_scan = b.addRunArtifact(scan);
+    run_fixture_scan.addArgs(&.{
+        "tests/fixtures/rzigtest/src/rzig/src/main.zig",
+        "tests/fixtures/rzigtest/src/rzig/framework/generated/manifest.zig",
+    });
+    const fmt_fixture_manifest = b.addSystemCommand(&.{
+        b.graph.zig_exe,
+        "fmt",
+        "tests/fixtures/rzigtest/src/rzig/framework/generated/manifest.zig",
+    });
+    fmt_fixture_manifest.step.dependOn(&run_fixture_scan.step);
+
     const gen_step = b.step("gen", "Regenerate src/generated/*");
     gen_step.dependOn(&fmt_gen.step);
     gen_step.dependOn(&fmt_manifest.step);
+    gen_step.dependOn(&fmt_fixture_manifest.step);
 
     // --- R ABI verification source -------------------------------------------
     const update_abi_check = b.addUpdateSourceFiles();

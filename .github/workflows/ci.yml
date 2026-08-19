@@ -23,7 +23,7 @@ jobs:
       - run: zig build gen-abi-check
       - run: git diff --exit-code -- tools/abi_check.c tests/fixtures/rzigtest/src/abi_check.c
       - run: zig build gen
-      - run: git diff --exit-code -- src/generated/arity.zig src/generated/manifest.zig
+      - run: git diff --exit-code -- src/generated/arity.zig src/generated/manifest.zig tests/fixtures/rzigtest/src/rzig/framework/generated/manifest.zig
       - run: sh tools/sync_fixture.sh --check
       - run: zig fmt --check build.zig src tools tests/fixtures/rzigtest/src/rzig
       - run: zig build test

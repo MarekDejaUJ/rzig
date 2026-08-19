@@ -10,11 +10,7 @@ pub const raise = @import("error_state.zig").raise;
 pub const Sexp = @import("sexp.zig").Sexp;
 /// Missing-value predicates.
 pub const NA = @import("na.zig");
+/// Generate native wrappers and register every manifest export.
+pub const registerModule = @import("register.zig").registerModule;
 /// Last-resort panic handler used by the fixture root module.
 pub const Panic = @import("panic.zig").Panic;
-
-/// Framework internals needed by hand-written integration wrappers.
-pub const internal = struct {
-    pub const boundary = @import("boundary.zig");
-    pub const c = @import("c/abi.zig");
-};
