@@ -2,7 +2,10 @@
 //!
 //! R errors and warnings can longjmp, so computation records them here and the
 //! outer boundary emits them only after Zig cleanup. Every buffer is fixed-size
-//! and thread-local; an error path never asks an allocator for memory.
+//! and process-local; an error path never asks an allocator for memory. RZig's
+//! single-R-thread rule serializes access. Native TLS is deliberately avoided
+//! because Zig TLS in a static archive is not initialized reliably when Rtools
+//! links that archive into a Windows package DLL.
 
 const std = @import("std");
 
@@ -13,16 +16,16 @@ const MESSAGE_CAPACITY = 1024;
 const MAX_WARNINGS = 8;
 const ELLIPSIS = "...";
 
-threadlocal var error_buffer: [MESSAGE_CAPACITY]u8 = [_]u8{0} ** MESSAGE_CAPACITY;
-threadlocal var error_length: usize = 0;
+var error_buffer: [MESSAGE_CAPACITY]u8 = [_]u8{0} ** MESSAGE_CAPACITY;
+var error_length: usize = 0;
 
-threadlocal var warning_buffers: [MAX_WARNINGS][MESSAGE_CAPACITY]u8 =
+var warning_buffers: [MAX_WARNINGS][MESSAGE_CAPACITY]u8 =
     [_][MESSAGE_CAPACITY]u8{[_]u8{0} ** MESSAGE_CAPACITY} ** MAX_WARNINGS;
-threadlocal var warning_lengths: [MAX_WARNINGS]usize = [_]usize{0} ** MAX_WARNINGS;
-threadlocal var warning_count: usize = 0;
-threadlocal var warning_read: usize = 0;
-threadlocal var warning_dropped: usize = 0;
-threadlocal var overflow_buffer: [MESSAGE_CAPACITY]u8 = [_]u8{0} ** MESSAGE_CAPACITY;
+var warning_lengths: [MAX_WARNINGS]usize = [_]usize{0} ** MAX_WARNINGS;
+var warning_count: usize = 0;
+var warning_read: usize = 0;
+var warning_dropped: usize = 0;
+var overflow_buffer: [MESSAGE_CAPACITY]u8 = [_]u8{0} ** MESSAGE_CAPACITY;
 
 /// Clear state at the beginning of an outer R call.
 pub fn reset() void {
