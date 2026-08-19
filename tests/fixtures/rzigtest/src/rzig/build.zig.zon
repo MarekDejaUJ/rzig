@@ -1,0 +1,12 @@
+.{
+    .name = .rzigtest_native,
+    .version = "0.0.1",
+    .fingerprint = 0xa82bff40abeeacc3,
+    .minimum_zig_version = "0.15.2",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}

@@ -1,0 +1,13 @@
+zig-out/
+.zig-cache/
+.zig-global-cache/
+*.Rcheck/
+*.tar.gz
+*.so
+*.dll
+*.dylib
+*.o
+*.a
+src/Makevars
+tests/fixtures/*/src/Makevars
+.Rproj.user

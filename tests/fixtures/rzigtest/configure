@@ -1,0 +1,46 @@
+#!/bin/sh
+set -eu
+
+zig_path=${ZIG:-}
+if test -z "$zig_path"; then
+    zig_path=$(command -v zig || true)
+fi
+if test -z "$zig_path"; then
+    echo "Zig 0.15.2 or newer is required; see https://ziglang.org/download/" >&2
+    exit 1
+fi
+
+zig_version=$($zig_path version)
+if ! awk -v got="$zig_version" -v min="0.15.2" 'BEGIN {
+    split(got, g, "."); split(min, m, ".");
+    for (i = 1; i <= 3; i++) {
+        if ((g[i] + 0) > (m[i] + 0)) exit 0;
+        if ((g[i] + 0) < (m[i] + 0)) exit 1;
+    }
+    exit 0;
+}'; then
+    echo "Zig $zig_version found, but 0.15.2 or newer is required." >&2
+    exit 1
+fi
+
+zig_target_arg=
+# Keep the Make variable literal for substitution into Makevars.
+# shellcheck disable=SC2016
+statlib='$(ZIG_DIR)/zig-out/lib/libzigpkg.a'
+case "$(uname -s)" in
+    Darwin)
+        zig_arch=$(uname -m)
+        if test "$zig_arch" = arm64; then zig_arch=aarch64; fi
+        zig_target_arg="-Dtarget=$zig_arch-macos.13.0"
+        ;;
+    MINGW* | MSYS* | CYGWIN*)
+        zig_target_arg="-Dtarget=x86_64-windows-gnu"
+        # shellcheck disable=SC2016
+        statlib='$(ZIG_DIR)/zig-out/lib/zigpkg.lib'
+        ;;
+esac
+
+sed -e "s|@ZIG@|$zig_path|g" \
+    -e "s|@ZIG_TARGET_ARG@|$zig_target_arg|g" \
+    -e "s|@STATLIB@|$statlib|g" \
+    src/Makevars.in > src/Makevars

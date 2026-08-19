@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push: { branches: [main] }
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zig-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: mlugg/setup-zig@v2
+        with: { version: "0.15.2" }   # keep in sync with build.zig.zon
+      - run: zig version
+      - run: zig fmt --check build.zig src tools tests/fixtures/rzigtest/src/rzig
+      - run: zig build test
+      - run: zig build --release=safe
+      - run: zig build lint
+
+  r-check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: mlugg/setup-zig@v2
+        with: { version: "0.15.2" }
+      - uses: r-lib/actions/setup-r@v2
+        with: { use-public-rspm: true }
+      - name: Install CRAN shell checker (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y devscripts
+      - name: Install CRAN shell checker (macOS)
+        if: runner.os == 'macOS'
+        run: brew install checkbashisms
+      - name: R CMD check
+        run: |
+          zig version
+          R CMD build tests/fixtures/rzigtest
+          R CMD check --as-cran --no-manual rzigtest_*.tar.gz
+          if grep -Eq 'Status:.*(ERROR|WARNING)' rzigtest.Rcheck/00check.log; then
+            cat rzigtest.Rcheck/00check.log
+            exit 1
+          fi
+        shell: bash
+      - name: Show check log on failure
+        if: failure()
+        run: cat rzigtest.Rcheck/00install.out rzigtest.Rcheck/00check.log || true
+        shell: bash

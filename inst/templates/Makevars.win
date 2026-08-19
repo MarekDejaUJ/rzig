@@ -1,0 +1,29 @@
+# Windows variant. The archive must match Rtools44+ UCRT ABI, and R symbols
+# must be linked explicitly against R.dll.
+
+ZIG_DIR    = rzig
+STATLIB    = $(ZIG_DIR)/zig-out/lib/libzigpkg.a
+ZIG_TARGET = x86_64-windows-gnu
+PKG_LIBS   = $(STATLIB) -L"$(R_HOME)/bin/$(R_ARCH_BIN)" -lR
+
+ZIG_RELEASE ?= safe
+
+all: $(SHLIB)
+
+$(SHLIB): $(STATLIB)
+
+$(STATLIB):
+	cd $(ZIG_DIR) && \
+	"$(ZIG)" build \
+	  --release=$(ZIG_RELEASE) \
+	  -Dtarget=$(ZIG_TARGET) \
+	  -Dpkg=$(R_PACKAGE_NAME) \
+	  -Dr-include="$(R_INCLUDE_DIR)" \
+	  --cache-dir "$(CURDIR)/$(ZIG_DIR)/.zig-cache" \
+	  --global-cache-dir "$(CURDIR)/$(ZIG_DIR)/.zig-global-cache"
+
+clean:
+	rm -rf $(SHLIB) $(OBJECTS) \
+	       $(ZIG_DIR)/zig-out $(ZIG_DIR)/.zig-cache $(ZIG_DIR)/.zig-global-cache
+
+.PHONY: all clean

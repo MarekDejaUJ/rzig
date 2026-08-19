@@ -1,0 +1,4 @@
+^src/rzig/zig-out$
+^src/rzig/\.zig-cache$
+^src/rzig/\.zig-global-cache$
+^src/Makevars$
