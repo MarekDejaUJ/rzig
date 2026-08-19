@@ -92,6 +92,9 @@ pub fn build(b: *std.Build) void {
     const fixture_sync = b.addSystemCommand(&.{ "sh", "tools/sync_fixture.sh", "--check" });
     test_step.dependOn(&fixture_sync.step);
 
+    const makevars_templates = b.addSystemCommand(&.{ "sh", "tools/check_makevars_templates.sh" });
+    test_step.dependOn(&makevars_templates.step);
+
     // --- code generation ------------------------------------------------------
     const gen_module = b.createModule(.{
         .root_source_file = b.path("tools/gen_wrappers.zig"),
