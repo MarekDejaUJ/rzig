@@ -10,3 +10,6 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 SystemRequirements: Zig (>= 0.16.0), see https://ziglang.org/download/
 NeedsCompilation: yes
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

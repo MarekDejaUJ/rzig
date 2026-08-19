@@ -1,1 +1,2 @@
-useDynLib(rzigtest, .registration = TRUE)
+useDynLib(rzigtest, .registration = TRUE, .fixes = "C_")
+export(add_one)
