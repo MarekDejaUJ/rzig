@@ -1,8 +1,18 @@
+gc_stress <- identical(Sys.getenv("RZIG_GC_STRESS"), "true")
+if (gc_stress) gctorture(FALSE)
+
 library(testthat)
 library(rzigtest)
 
+large_n <- if (gc_stress) 10000L else 1000000L
+
 call_native <- function(name, ...) {
-  .Call(get(paste0("C_", name), envir = asNamespace("rzigtest")), ...)
+  symbol <- get(paste0("C_", name), envir = asNamespace("rzigtest"))
+  if (gc_stress) {
+    gctorture(TRUE)
+    on.exit(gctorture(FALSE), add = TRUE)
+  }
+  .Call(symbol, ...)
 }
 
 echo_f64 <- function(x) call_native("echo_f64", x)
@@ -58,12 +68,12 @@ test_that("borrowed vectors cover empty, missing, large, and ALTREP inputs", {
   expect_identical(logical_count(logical()), 0L)
   expect_identical(logical_count(c(TRUE, FALSE, TRUE)), 2L)
 
-  large_real <- as.numeric(seq_len(1e6))
+  large_real <- as.numeric(seq_len(large_n))
   large_real_result <- echo_reals(large_real)
-  expect_identical(length(large_real_result), 1e6L)
-  expect_identical(large_real_result[c(1L, 1e6L)], c(1, 1e6))
-  expect_identical(integer_length(seq_len(1e6)), 1e6L)
-  expect_identical(logical_count(rep_len(c(TRUE, FALSE), 1e6)), 500000L)
+  expect_identical(length(large_real_result), large_n)
+  expect_identical(large_real_result[c(1L, large_n)], c(1, as.double(large_n)))
+  expect_identical(integer_length(seq_len(large_n)), large_n)
+  expect_identical(logical_count(rep_len(c(TRUE, FALSE), large_n)), large_n %/% 2L)
 })
 
 test_that("strings are normalized to UTF-8 and copied safely", {
@@ -91,9 +101,9 @@ test_that("real-vector results and user errors cross the complete boundary", {
   expect_identical(add_vectors(c(1, 2, 3), c(10, 20, 30)), c(11, 22, 33))
   expect_identical(add_vectors(numeric(), numeric()), numeric())
   expect_true(is.na(add_vectors(NA_real_, 1)))
-  left <- as.numeric(seq_len(1e6))
+  left <- as.numeric(seq_len(large_n))
   result <- add_vectors(left, rep(1, length(left)))
-  expect_identical(result[c(1L, 1e6L)], c(2, 1000001))
+  expect_identical(result[c(1L, large_n)], c(2, as.double(large_n + 1L)))
   expect_error_live(
     function() add_vectors(c(1, 2), c(1, 2, 3)),
     c("lengths differ", "2", "3")

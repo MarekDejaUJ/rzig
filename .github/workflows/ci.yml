@@ -74,3 +74,11 @@ jobs:
         if: failure()
         run: cat rzigtest.Rcheck/00install.out rzigtest.Rcheck/00check.log || true
         shell: bash
+      - name: Run GC stress suite
+        if: runner.os == 'macOS'
+        run: |
+          gc_library="$RUNNER_TEMP/rzig-gc-library"
+          mkdir -p "$gc_library"
+          R CMD INSTALL --library="$gc_library" rzigtest_*.tar.gz
+          R_LIBS="$gc_library" Rscript tools/gctorture_run.R tests/abuse.R
+        shell: bash
