@@ -18,13 +18,17 @@ abi_check.o: abi_check.c
 	  -c abi_check.c -o abi_check.o
 
 $(STATLIB): $(ZIG_DIR)/build.zig $(ZIG_DIR)/build.zig.zon \
-            $(ZIG_DIR)/src/main.zig
+            $(ZIG_DIR)/src/main.zig \
+            $(ZIG_DIR)/tools/repack_macos_archive.sh
 	cd $(ZIG_DIR) && \
 	"$(ZIG)" build \
 	  --release=safe \
 	  $(ZIG_TARGET_ARG) \
 	  --cache-dir "$(CURDIR)/$(ZIG_DIR)/.zig-cache" \
 	  --global-cache-dir "$(CURDIR)/$(ZIG_DIR)/.zig-global-cache"
+	@if test "$$(uname -s)" = Darwin; then \
+	  sh "$(ZIG_DIR)/tools/repack_macos_archive.sh" "$(STATLIB)"; \
+	fi
 
 clean:
 	rm -rf $(SHLIB) $(OBJECTS) \

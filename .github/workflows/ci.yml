@@ -50,7 +50,7 @@ jobs:
           working-directory: tests/fixtures/rzigtest
       - name: Install CRAN shell checker (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y devscripts
+        run: sudo apt-get update && sudo apt-get install -y devscripts valgrind
       - name: Install CRAN shell checker (macOS)
         if: runner.os == 'macOS'
         run: brew install checkbashisms
@@ -58,7 +58,11 @@ jobs:
         run: |
           zig version
           R CMD build tests/fixtures/rzigtest
-          R CMD check --as-cran --no-manual rzigtest_*.tar.gz
+          check_args=(--as-cran --no-manual)
+          if [ "${{ runner.os }}" = Linux ]; then
+            check_args+=(--use-valgrind)
+          fi
+          R CMD check "${check_args[@]}" rzigtest_*.tar.gz
           if grep -Eq 'Status:.*(ERROR|WARNING)' rzigtest.Rcheck/00check.log; then
             cat rzigtest.Rcheck/00check.log
             exit 1

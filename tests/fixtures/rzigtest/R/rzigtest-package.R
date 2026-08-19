@@ -15,3 +15,12 @@ add_one <- function(x) {
 panic_bounds <- function() {
   .Call(C_panic_bounds, c(0, 0))
 }
+
+#' Exercise cleanup during an R error
+#'
+#' This fixture helper allocates 10 MiB and then deliberately raises an error.
+#' @return This function always raises an error.
+#' @export
+allocate_then_error <- function() {
+  .Call(C_allocate_then_error)
+}

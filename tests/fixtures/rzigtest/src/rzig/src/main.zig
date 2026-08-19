@@ -26,6 +26,13 @@ extern fn Rf_protect(value: SEXP) SEXP;
 extern fn Rf_unprotect(count: c_int) void;
 extern fn REprintf(format: [*:0]const u8, ...) void;
 extern fn Rf_error(format: [*:0]const u8, ...) noreturn;
+extern fn R_UnwindProtect(
+    callback: *const fn (?*anyopaque) callconv(.c) SEXP,
+    data: ?*anyopaque,
+    cleanup: *const fn (?*anyopaque, Rboolean) callconv(.c) void,
+    cleanup_data: ?*anyopaque,
+    continuation: ?SEXP,
+) SEXP;
 extern fn R_registerRoutines(
     dll: *DllInfo,
     c_methods: ?*const anyopaque,
@@ -87,9 +94,44 @@ export fn panic_bounds(value: SEXP) SEXP {
     return R_NilValue;
 }
 
+const LeakState = struct {
+    memory: ?[]u8 = null,
+
+    fn run(data: ?*anyopaque) callconv(.c) SEXP {
+        const self: *LeakState = @ptrCast(@alignCast(data.?));
+        self.memory = std.heap.c_allocator.alloc(u8, 10 * 1024 * 1024) catch
+            Rf_error("unable to allocate leak-test buffer");
+        self.memory.?[0] = 1;
+        self.memory.?[self.memory.?.len - 1] = 1;
+        Rf_error("intentional error after allocating 10 MiB");
+    }
+
+    fn cleanup(data: ?*anyopaque, jump: Rboolean) callconv(.c) void {
+        const self: *LeakState = @ptrCast(@alignCast(data.?));
+        if (self.memory) |memory| {
+            std.heap.c_allocator.free(memory);
+            self.memory = null;
+        }
+        _ = jump;
+    }
+};
+
+/// Allocate 10 MiB, raise an R error, and free during R's non-local unwind.
+export fn allocate_then_error() SEXP {
+    var state = LeakState{};
+    return R_UnwindProtect(
+        &LeakState.run,
+        @ptrCast(&state),
+        &LeakState.cleanup,
+        @ptrCast(&state),
+        null,
+    );
+}
+
 const call_methods = [_]R_CallMethodDef{
     .{ .name = "add_one", .fun = @ptrCast(&add_one), .numArgs = 1 },
     .{ .name = "panic_bounds", .fun = @ptrCast(&panic_bounds), .numArgs = 1 },
+    .{ .name = "allocate_then_error", .fun = @ptrCast(&allocate_then_error), .numArgs = 0 },
     .{ .name = null, .fun = null, .numArgs = 0 },
 };
 
