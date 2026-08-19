@@ -2,6 +2,7 @@ ZIG = @ZIG@
 ZIG_TARGET_ARG = @ZIG_TARGET_ARG@
 ZIG_DIR = rzig
 STATLIB = @STATLIB@
+OBJECTS = entry.o abi_check.o
 PKG_LIBS = $(STATLIB)
 
 all: $(SHLIB)
@@ -11,6 +12,10 @@ $(SHLIB): $(STATLIB)
 entry.o: entry.c
 	$(CC) $(ALL_CPPFLAGS) $(CPICFLAGS) -O2 -Wall -pedantic \
 	  -c entry.c -o entry.o
+
+abi_check.o: abi_check.c
+	$(CC) $(ALL_CPPFLAGS) $(CPICFLAGS) -O2 -Wall -pedantic \
+	  -c abi_check.c -o abi_check.o
 
 $(STATLIB): $(ZIG_DIR)/build.zig $(ZIG_DIR)/build.zig.zon \
             $(ZIG_DIR)/src/main.zig

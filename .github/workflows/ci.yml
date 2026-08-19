@@ -20,6 +20,8 @@ jobs:
       - uses: mlugg/setup-zig@v2
         with: { version: "0.16.0" }   # keep in sync with build.zig.zon
       - run: zig version
+      - run: zig build gen-abi-check
+      - run: git diff --exit-code -- tools/abi_check.c tests/fixtures/rzigtest/src/abi_check.c
       - run: zig fmt --check build.zig src tools tests/fixtures/rzigtest/src/rzig
       - run: zig build test
       - run: zig build --release=safe

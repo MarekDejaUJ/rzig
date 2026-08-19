@@ -12,3 +12,7 @@ export fn rzig_init(dll: *c.DllInfo) void {
     _ = c.R_useDynamicSymbols(dll, c.FALSE);
     _ = c.R_forceSymbols(dll, c.TRUE);
 }
+
+test {
+    _ = @import("c/check.zig");
+}

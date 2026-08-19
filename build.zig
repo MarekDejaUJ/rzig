@@ -11,6 +11,7 @@
 //!   zig build lint       enforce the one-error-exit rule
 
 const std = @import("std");
+const abi_check = @import("src/c/check.zig");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -64,6 +65,13 @@ pub fn build(b: *std.Build) void {
     const run_gen = b.addRunArtifact(gen);
     run_gen.addArg("src/generated/arity.zig");
     b.step("gen", "Regenerate src/generated/*").dependOn(&run_gen.step);
+
+    // --- R ABI verification source -------------------------------------------
+    const update_abi_check = b.addUpdateSourceFiles();
+    const abi_check_source = abi_check.render(b);
+    update_abi_check.addBytesToSource(abi_check_source, "tools/abi_check.c");
+    update_abi_check.addBytesToSource(abi_check_source, "tests/fixtures/rzigtest/src/abi_check.c");
+    b.step("gen-abi-check", "Regenerate the R ABI verification source").dependOn(&update_abi_check.step);
 
     // --- lint: the one-error-exit rule ---------------------------------------
     const lint = b.addSystemCommand(&.{ "sh", "tools/lint_error_exit.sh" });
