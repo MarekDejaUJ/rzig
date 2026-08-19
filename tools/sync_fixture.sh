@@ -14,6 +14,7 @@ na.zig
 panic.zig
 protect.zig
 register.zig
+rzig.zig
 sexp.zig
 c/abi.zig
 generated/arity.zig'
@@ -35,6 +36,16 @@ for relative in $framework_files; do
         failed=1
     fi
 done
+
+repack_source="$repo_dir/tools/repack_macos_archive.sh"
+repack_fixture="$repo_dir/tests/fixtures/rzigtest/src/rzig/tools/repack_macos_archive.sh"
+if test "$mode" = "--write"; then
+    cp "$repack_source" "$repack_fixture"
+    chmod +x "$repack_fixture"
+elif ! cmp -s "$repack_source" "$repack_fixture"; then
+    printf '%s\n' 'fixture copy is stale: tools/repack_macos_archive.sh' >&2
+    failed=1
+fi
 
 for relative in configure configure.win; do
     source_file="$repo_dir/inst/templates/$relative"

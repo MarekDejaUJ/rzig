@@ -84,6 +84,10 @@ jobs:
         if: runner.os == 'Linux'
         run: ZIG="$(command -v zig)" sh tools/check_readonly_home.sh rzigtest_*.tar.gz
         shell: bash
+      - name: Verify use_rzig scaffolding
+        if: runner.os == 'Linux'
+        run: ZIG="$(command -v zig)" sh tools/check_use_rzig.sh
+        shell: bash
       - name: Run GC stress suite
         if: runner.os == 'macOS'
         run: |

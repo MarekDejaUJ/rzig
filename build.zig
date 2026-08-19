@@ -92,6 +92,9 @@ pub fn build(b: *std.Build) void {
     const fixture_sync = b.addSystemCommand(&.{ "sh", "tools/sync_fixture.sh", "--check" });
     test_step.dependOn(&fixture_sync.step);
 
+    const r_package_assets = b.addSystemCommand(&.{ "sh", "tools/sync_r_package_assets.sh", "--check" });
+    test_step.dependOn(&r_package_assets.step);
+
     const makevars_templates = b.addSystemCommand(&.{ "sh", "tools/check_makevars_templates.sh" });
     test_step.dependOn(&makevars_templates.step);
 

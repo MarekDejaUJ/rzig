@@ -1,0 +1,10 @@
+^\.github$
+^\.zig-cache$
+^\.zig-global-cache$
+^build\.zig$
+^build\.zig\.zon$
+^rzigtest.*$
+^src$
+^tests$
+^tools$
+^zig-out$

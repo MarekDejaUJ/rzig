@@ -1,21 +1,32 @@
-//! Fixture-facing view of the production RZig modules.
+//! RZig public API. Nothing but re-exports lives here.
 
-/// Per-call arena context.
+const std = @import("std");
+
+/// Per-call arena for Zig-owned scratch and result memory.
 pub const Ctx = @import("alloc.zig").Ctx;
-/// Recoverable error set used at the R boundary.
+/// Recoverable error set used by exported functions.
 pub const Error = @import("error_state.zig").Error;
 /// Record a recoverable R error without non-local control flow.
 pub const raise = @import("error_state.zig").raise;
-/// Opaque borrowed R value.
-pub const Sexp = @import("sexp.zig").Sexp;
-/// Missing-value predicates.
+/// Queue a warning for safe delivery after Zig cleanup.
+pub const warn = @import("error_state.zig").warn;
+/// Missing-value predicates for R scalar representations.
 pub const NA = @import("na.zig");
+/// Opaque borrowed R value escape hatch.
+pub const Sexp = @import("sexp.zig").Sexp;
 /// Generate native wrappers and register every manifest export.
 pub const registerModule = @import("register.zig").registerModule;
-/// Last-resort panic handler used by the fixture root module.
+/// Last-resort panic handler for a Zig-backed R shared library.
 pub const Panic = @import("panic.zig").Panic;
 
-/// Framework details used only by low-level integration tests.
+/// Internal surface. Not covered by semver. Use at your own risk.
 pub const internal = struct {
+    pub const boundary = @import("boundary.zig");
+    pub const convert = @import("convert.zig");
+    pub const protect = @import("protect.zig");
     pub const c = @import("c/abi.zig");
 };
+
+test {
+    std.testing.refAllDecls(@This());
+}

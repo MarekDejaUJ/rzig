@@ -1,0 +1,16 @@
+Package: rzig
+Type: Package
+Title: Safe Zig Bindings for R Packages
+Version: 0.0.1
+Authors@R: person("Marek", "Deja", email = "marekdejauj@gmail.com",
+    role = c("aut", "cre"))
+Description: Scaffolds Zig-backed R packages and generates a safe native
+    boundary for plain Zig functions. The generated integration handles R
+    object conversion, native routine registration, error propagation, and
+    cross-platform compilation without requiring C++.
+License: MIT + file LICENSE
+URL: https://github.com/MarekDejaUJ/rzig
+BugReports: https://github.com/MarekDejaUJ/rzig/issues
+Encoding: UTF-8
+SystemRequirements: Zig (>= 0.16.0), see https://ziglang.org/download/
+NeedsCompilation: no
