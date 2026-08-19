@@ -265,6 +265,15 @@ test "length errors name the parameter and actual length" {
     try expectConversionError(i32, &pair, "rzig: `x` must have length 1; got length 2");
 }
 
+test "Sexp input uses the explicit low-level escape hatch unchanged" {
+    var value = FakeSexp{ .kind = c.VECSXP, .length = 2 };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    es.reset();
+    const converted = try convert.fromSexp(sexp.Sexp, &ctx, raw(&value), "x");
+    try std.testing.expect(sexp.toRaw(converted) == raw(&value));
+}
+
 test "numeric slices borrow read-only R storage and preserve NA" {
     var reals = FakeSexp{ .kind = c.REALSXP, .length = 2, .reals = .{ 1.25, mock_na_real } };
     var integers = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 7, c.NA_INTEGER } };

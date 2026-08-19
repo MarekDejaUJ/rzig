@@ -76,6 +76,34 @@ pub fn invoke(
     return result;
 }
 
+/// Validate an exported function while its name, parameter positions and Zig
+/// types are all available, producing diagnostics intended for package authors.
+pub fn validateSignature(comptime func: anytype, comptime name: []const u8) void {
+    const Func = @TypeOf(func);
+    const info = functionInfo(Func);
+    const has_ctx = comptime takesContext(Func);
+
+    inline for (@intFromBool(has_ctx)..info.params.len) |parameter_index| {
+        const position = parameter_index - @intFromBool(has_ctx) + 1;
+        const Parameter = info.params[parameter_index].type orelse @compileError(
+            "rzig: function `" ++ name ++ "`, parameter " ++
+                std.fmt.comptimePrint("{d}", .{position}) ++
+                " uses anytype and cannot be exported.\n" ++
+                "  use a concrete supported type",
+        );
+        convert.validateInputType(Parameter, name, position);
+    }
+
+    const Return = info.return_type orelse
+        @compileError("rzig: function `" ++ name ++ "` must declare a return type");
+    if (@typeInfo(Return) == .error_union and @typeInfo(Return).error_union.error_set != es.Error) {
+        @compileError(
+            "rzig: function `" ++ name ++ "` must return rzig.Error!T, not " ++ @typeName(Return),
+        );
+    }
+    convert.validateReturnType(ReturnPayload(Func), name);
+}
+
 fn InvocationState(
     comptime func: anytype,
     comptime name: []const u8,
@@ -125,6 +153,7 @@ fn callUser(
     ctx: *Ctx,
 ) es.Error!ReturnPayload(@TypeOf(func)) {
     const Func = @TypeOf(func);
+    comptime validateSignature(func, name);
     const info = functionInfo(Func);
     const has_ctx = comptime takesContext(Func);
     const supplied = comptime tupleLength(@TypeOf(sexps));
@@ -134,14 +163,6 @@ fn callUser(
             "rzig: function `{s}` expects {d} R arguments, but its wrapper supplies {d}",
             .{ name, expected, supplied },
         ));
-    }
-
-    const Return = info.return_type orelse
-        @compileError("rzig: function `" ++ name ++ "` has no return type");
-    if (@typeInfo(Return) == .error_union and @typeInfo(Return).error_union.error_set != es.Error) {
-        @compileError(
-            "rzig: function `" ++ name ++ "` must return rzig.Error!T, not " ++ @typeName(Return),
-        );
     }
 
     var args: std.meta.ArgsTuple(Func) = undefined;
@@ -207,12 +228,23 @@ fn testWithContext(ctx: *Ctx) es.Error!i32 {
     return @intCast(values.len);
 }
 
+fn testSupportedSignature(ctx: *Ctx, value: f64, labels: []const []const u8) es.Error!?f64 {
+    _ = ctx;
+    _ = value;
+    _ = labels;
+    return null;
+}
+
 test "user calls accept plain and context-aware signatures" {
     var ctx = Ctx.init();
     defer ctx.deinit();
 
     try std.testing.expectEqual(@as(i32, 17), try callUser(testPlain, "test_plain", .{}, &ctx));
     try std.testing.expectEqual(@as(i32, 3), try callUser(testWithContext, "test_ctx", .{}, &ctx));
+}
+
+test "signature validation accepts context, supported inputs, and optional output" {
+    comptime validateSignature(testSupportedSignature, "supported_signature");
 }
 
 test "the R unwind callback path instantiates" {

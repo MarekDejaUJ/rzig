@@ -1,0 +1,2 @@
+rzig: function `covariance`, parameter 1 has unsupported type '[]const f32'.
+nearest supported alternative: []const f64 for an R numeric vector

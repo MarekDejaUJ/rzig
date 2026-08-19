@@ -37,12 +37,42 @@ pub fn fromSexp(
     if (comptime T == []const bool) return logicalSlice(ctx, x, name);
     if (comptime T == []const u8) return stringScalar(ctx, x, name);
     if (comptime T == []const []const u8) return stringSlice(ctx, x, name);
+    if (comptime T == sexp.Sexp) return sexp.fromRaw(x);
 
     return switch (@typeInfo(T)) {
         .optional => |info| optionalScalar(info.child, ctx, x, name),
         // TODO: slices and strings.
         else => @compileError(unsupportedMessage(T, name)),
     };
+}
+
+/// Reject an unsupported exported-function parameter with full call-site
+/// context while all names and types are still available at comptime.
+pub fn validateInputType(
+    comptime T: type,
+    comptime function_name: []const u8,
+    comptime position: usize,
+) void {
+    if (!isSupportedInput(T)) {
+        @compileError(
+            "rzig: function `" ++ function_name ++ "`, parameter " ++
+                std.fmt.comptimePrint("{d}", .{position}) ++
+                " has unsupported type '" ++ @typeName(T) ++ "'.\n" ++
+                "  nearest supported alternative: " ++ nearestInputAlternative(T),
+        );
+    }
+}
+
+/// Reject an unsupported exported-function return with the function name and
+/// closest representation that RZig can marshal.
+pub fn validateReturnType(comptime T: type, comptime function_name: []const u8) void {
+    if (!isSupportedReturn(T)) {
+        @compileError(
+            "rzig: function `" ++ function_name ++ "` has unsupported return type '" ++
+                @typeName(T) ++ "'.\n" ++
+                "  nearest supported alternative: " ++ nearestReturnAlternative(T),
+        );
+    }
 }
 
 fn stringScalar(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const u8 {
@@ -283,6 +313,101 @@ fn isScalar(comptime T: type) bool {
     return T == f64 or T == i32 or T == bool or T == usize;
 }
 
+fn isSupportedInput(comptime T: type) bool {
+    if (isScalar(T) or
+        T == []const f64 or
+        T == []const i32 or
+        T == []const bool or
+        T == []const u8 or
+        T == []const []const u8 or
+        T == sexp.Sexp)
+    {
+        return true;
+    }
+    return switch (@typeInfo(T)) {
+        .optional => |info| isScalar(info.child),
+        else => false,
+    };
+}
+
+fn isSupportedReturn(comptime T: type) bool {
+    if (T == void or
+        T == f64 or
+        T == i32 or
+        T == bool or
+        T == []const f64 or
+        T == []f64 or
+        T == []const u8 or
+        T == sexp.Sexp)
+    {
+        return true;
+    }
+    return switch (@typeInfo(T)) {
+        .optional => |info| isSupportedReturn(info.child),
+        else => false,
+    };
+}
+
+fn nearestInputAlternative(comptime T: type) []const u8 {
+    if (T == f32 or T == f16 or T == f128) return "f64 for an R numeric scalar";
+    if (T == []const f32 or T == []const f16 or T == []const f128 or
+        T == []f32 or T == []f16 or T == []f128)
+    {
+        return "[]const f64 for an R numeric vector";
+    }
+    if (T == []f64) return "[]const f64 for a borrowed read-only numeric vector";
+    if (T == []i32) return "[]const i32 for a borrowed read-only integer vector";
+    if (T == []bool) return "[]const bool for a borrowed read-only logical vector";
+    if (T == []u8) return "[]const u8 for a UTF-8 string";
+
+    return switch (@typeInfo(T)) {
+        .float => "f64 for an R numeric scalar",
+        .int => |info| if (info.signedness == .signed)
+            "i32 for an R integer scalar"
+        else
+            "usize for a non-negative R integer scalar",
+        .pointer => |info| switch (@typeInfo(info.child)) {
+            .bool => "[]const bool for an R logical vector",
+            .float => "[]const f64 for an R numeric vector",
+            .int => if (info.child == u8)
+                "[]const u8 for a UTF-8 string"
+            else
+                "[]const i32 for an R integer vector",
+            else => "rzig.Sexp for explicit low-level handling",
+        },
+        .optional => |info| nearestInputAlternative(info.child),
+        .array => |info| switch (@typeInfo(info.child)) {
+            .float => "[]const f64 for an R numeric vector",
+            .int => if (info.child == u8)
+                "[]const u8 for a UTF-8 string"
+            else
+                "[]const i32 for an R integer vector",
+            else => "rzig.Sexp for explicit low-level handling",
+        },
+        else => "rzig.Sexp for explicit low-level handling",
+    };
+}
+
+fn nearestReturnAlternative(comptime T: type) []const u8 {
+    if (T == usize) return "i32 for an R integer scalar";
+    if (T == f32 or T == f16 or T == f128) return "f64 for an R numeric scalar";
+    if (T == []const f32 or T == []const f16 or T == []const f128 or
+        T == []f32 or T == []f16 or T == []f128 or
+        T == []const i32 or T == []i32)
+    {
+        return "[]const f64 for an R numeric vector";
+    }
+
+    return switch (@typeInfo(T)) {
+        .float => "f64 for an R numeric scalar",
+        .int => "i32 for an R integer scalar",
+        .pointer => "[]const u8 for a UTF-8 string or rzig.Sexp for low-level handling",
+        .optional => |info| nearestReturnAlternative(info.child),
+        .array => "[]const f64 for an R numeric vector",
+        else => "rzig.Sexp for explicit low-level handling",
+    };
+}
+
 /// Zig -> SEXP. Pushes onto `stack` immediately after allocating.
 pub fn toSexp(
     stack: *protect.Stack,
@@ -361,13 +486,15 @@ fn unsupportedMessage(comptime T: type, comptime name: []const u8) []const u8 {
         "  supported: f64, i32, bool, usize, ?T,\n" ++
         "             []const f64, []const i32, []const bool, []const u8, []const []const u8,\n" ++
         "             rzig.Sexp (escape hatch)\n" ++
+        "  nearest supported alternative: " ++ nearestInputAlternative(T) ++ "\n" ++
         "  for a mutable vector use rzig.Mut([]f64)\n" ++
         "  note []f64 is NOT accepted as an input: R inputs are borrowed and read-only";
 }
 
 fn unsupportedReturnMessage(comptime T: type) []const u8 {
     return "rzig: unsupported return type '" ++ @typeName(T) ++ "'.\n" ++
-        "  supported: void, f64, i32, bool, []const f64, []f64, []const u8, ?T, rzig.Sexp";
+        "  supported: void, f64, i32, bool, []const f64, []f64, []const u8, ?T, rzig.Sexp\n" ++
+        "  nearest supported alternative: " ++ nearestReturnAlternative(T);
 }
 
 /// Human-readable R type name, for runtime error messages. Never say "SEXP" or

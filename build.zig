@@ -67,6 +67,10 @@ pub fn build(b: *std.Build) void {
     const run_convert_tests = b.addRunArtifact(convert_tests);
     test_step.dependOn(&run_convert_tests.step);
 
+    const compile_fail = b.addSystemCommand(&.{ "sh", "tools/compile_fail.sh" });
+    compile_fail.setEnvironmentVariable("ZIG", b.graph.zig_exe);
+    test_step.dependOn(&compile_fail.step);
+
     // --- code generation ------------------------------------------------------
     const gen_module = b.createModule(.{
         .root_source_file = b.path("tools/gen_wrappers.zig"),

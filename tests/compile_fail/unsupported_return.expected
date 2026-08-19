@@ -1,0 +1,2 @@
+rzig: function `iteration_count` has unsupported return type 'usize'.
+nearest supported alternative: i32 for an R integer scalar

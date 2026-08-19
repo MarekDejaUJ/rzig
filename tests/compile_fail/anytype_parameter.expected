@@ -1,0 +1,2 @@
+rzig: function `generic`, parameter 1 uses anytype and cannot be exported.
+use a concrete supported type
