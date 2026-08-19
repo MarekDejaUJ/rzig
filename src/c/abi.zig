@@ -211,7 +211,7 @@ pub extern fn R_UnwindProtect(
     data: ?*anyopaque,
     cleanup: *const fn (?*anyopaque, Rboolean) callconv(.c) void,
     cleanup_data: ?*anyopaque,
-    continuation: SEXP,
+    continuation: ?SEXP,
 ) SEXP;
 
 /// Distinguish R's missing-real payload from other NaN values.
