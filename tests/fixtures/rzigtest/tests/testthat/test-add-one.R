@@ -4,6 +4,10 @@ test_that("a numeric vector crosses the R-Zig boundary", {
 
 test_that("a Zig safety panic becomes an R error and the session survives", {
   skip_if(
+    identical(Sys.getenv("RZIG_SKIP_PANIC_RECOVERY"), "true"),
+    "intentional panic recovery is delegated to a native Windows workstation"
+  )
+  skip_if(
     identical(Sys.getenv("RZIG_RUNNING_UNDER_VALGRIND"), "true"),
     "Valgrind cannot resume from an intentional Zig safety trap"
   )
