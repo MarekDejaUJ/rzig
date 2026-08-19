@@ -76,6 +76,15 @@ pub fn build(b: *std.Build) void {
     const run_generator_tests = b.addRunArtifact(generator_tests);
     test_step.dependOn(&run_generator_tests.step);
 
+    const scanner_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/scan.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const scanner_tests = b.addTest(.{ .root_module = scanner_test_module });
+    const run_scanner_tests = b.addRunArtifact(scanner_tests);
+    test_step.dependOn(&run_scanner_tests.step);
+
     const compile_fail = b.addSystemCommand(&.{ "sh", "tools/compile_fail.sh" });
     compile_fail.setEnvironmentVariable("ZIG", b.graph.zig_exe);
     test_step.dependOn(&compile_fail.step);
@@ -96,7 +105,23 @@ pub fn build(b: *std.Build) void {
     run_gen.addArg("src/generated/arity.zig");
     const fmt_gen = b.addSystemCommand(&.{ b.graph.zig_exe, "fmt", "src/generated/arity.zig" });
     fmt_gen.step.dependOn(&run_gen.step);
-    b.step("gen", "Regenerate src/generated/*").dependOn(&fmt_gen.step);
+
+    const scan_module = b.createModule(.{
+        .root_source_file = b.path("tools/scan.zig"),
+        .target = b.graph.host,
+    });
+    const scan = b.addExecutable(.{
+        .name = "scan_exports",
+        .root_module = scan_module,
+    });
+    const run_scan = b.addRunArtifact(scan);
+    run_scan.addArgs(&.{ "src/main.zig", "src/generated/manifest.zig" });
+    const fmt_manifest = b.addSystemCommand(&.{ b.graph.zig_exe, "fmt", "src/generated/manifest.zig" });
+    fmt_manifest.step.dependOn(&run_scan.step);
+
+    const gen_step = b.step("gen", "Regenerate src/generated/*");
+    gen_step.dependOn(&fmt_gen.step);
+    gen_step.dependOn(&fmt_manifest.step);
 
     // --- R ABI verification source -------------------------------------------
     const update_abi_check = b.addUpdateSourceFiles();
