@@ -67,6 +67,15 @@ pub fn build(b: *std.Build) void {
     const run_convert_tests = b.addRunArtifact(convert_tests);
     test_step.dependOn(&run_convert_tests.step);
 
+    const generator_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/gen_wrappers.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const generator_tests = b.addTest(.{ .root_module = generator_test_module });
+    const run_generator_tests = b.addRunArtifact(generator_tests);
+    test_step.dependOn(&run_generator_tests.step);
+
     const compile_fail = b.addSystemCommand(&.{ "sh", "tools/compile_fail.sh" });
     compile_fail.setEnvironmentVariable("ZIG", b.graph.zig_exe);
     test_step.dependOn(&compile_fail.step);
@@ -85,7 +94,9 @@ pub fn build(b: *std.Build) void {
     });
     const run_gen = b.addRunArtifact(gen);
     run_gen.addArg("src/generated/arity.zig");
-    b.step("gen", "Regenerate src/generated/*").dependOn(&run_gen.step);
+    const fmt_gen = b.addSystemCommand(&.{ b.graph.zig_exe, "fmt", "src/generated/arity.zig" });
+    fmt_gen.step.dependOn(&run_gen.step);
+    b.step("gen", "Regenerate src/generated/*").dependOn(&fmt_gen.step);
 
     // --- R ABI verification source -------------------------------------------
     const update_abi_check = b.addUpdateSourceFiles();
