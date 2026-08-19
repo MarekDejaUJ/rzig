@@ -28,11 +28,6 @@ zig_target_arg=
 # shellcheck disable=SC2016
 statlib='$(ZIG_DIR)/zig-out/lib/libzigpkg.a'
 case "$(uname -s)" in
-    Darwin)
-        zig_arch=$(uname -m)
-        if test "$zig_arch" = arm64; then zig_arch=aarch64; fi
-        zig_target_arg="-Dtarget=$zig_arch-macos.13.0"
-        ;;
     MINGW* | MSYS* | CYGWIN*)
         zig_target_arg="-Dtarget=x86_64-windows-gnu"
         # shellcheck disable=SC2016
