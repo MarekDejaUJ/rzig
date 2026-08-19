@@ -5,7 +5,7 @@
 #   1. find zig   2. version check   3. target detection   4. substitute
 set -e
 
-ZIG_MIN="0.15.2"
+ZIG_MIN="0.16.0"
 
 # --- 1. find zig -------------------------------------------------------------
 if [ -n "$ZIG" ] && [ -x "$ZIG" ]; then

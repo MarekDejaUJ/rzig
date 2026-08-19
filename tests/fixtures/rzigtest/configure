@@ -6,12 +6,12 @@ if test -z "$zig_path"; then
     zig_path=$(command -v zig || true)
 fi
 if test -z "$zig_path"; then
-    echo "Zig 0.15.2 or newer is required; see https://ziglang.org/download/" >&2
+    echo "Zig 0.16.0 or newer is required; see https://ziglang.org/download/" >&2
     exit 1
 fi
 
 zig_version=$($zig_path version)
-if ! awk -v got="$zig_version" -v min="0.15.2" 'BEGIN {
+if ! awk -v got="$zig_version" -v min="0.16.0" 'BEGIN {
     split(got, g, "."); split(min, m, ".");
     for (i = 1; i <= 3; i++) {
         if ((g[i] + 0) > (m[i] + 0)) exit 0;
@@ -19,7 +19,7 @@ if ! awk -v got="$zig_version" -v min="0.15.2" 'BEGIN {
     }
     exit 0;
 }'; then
-    echo "Zig $zig_version found, but 0.15.2 or newer is required." >&2
+    echo "Zig $zig_version found, but 0.16.0 or newer is required." >&2
     exit 1
 fi
 

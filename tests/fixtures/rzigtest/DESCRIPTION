@@ -8,5 +8,5 @@ Description: Exercises the build, link, registration, conversion, and safety
     surfaces of RZig. It is a test fixture, not an end-user package.
 License: MIT + file LICENSE
 Encoding: UTF-8
-SystemRequirements: Zig (>= 0.15.2), see https://ziglang.org/download/
+SystemRequirements: Zig (>= 0.16.0), see https://ziglang.org/download/
 NeedsCompilation: yes
