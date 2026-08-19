@@ -9,6 +9,7 @@ const c = @import("c/abi.zig");
 const arity = @import("generated/arity.zig");
 const manifest = @import("generated/manifest.zig");
 const boundary = @import("boundary.zig");
+const Ctx = @import("alloc.zig").Ctx;
 
 /// Select the fixed C-ABI wrapper for `visible_arity`, producing a focused
 /// compile error when an exported function exceeds the supported limit.
@@ -75,7 +76,11 @@ fn buildCallMethods(comptime exports: anytype) [exports.len + 1]c.R_CallMethodDe
 
 fn visibleArity(comptime func: anytype) usize {
     return switch (@typeInfo(@TypeOf(func))) {
-        .@"fn" => |info| info.params.len,
+        .@"fn" => |info| info.params.len - @intFromBool(
+            info.params.len > 0 and
+                info.params[0].type != null and
+                info.params[0].type.? == *Ctx,
+        ),
         else => @compileError("rzig: only functions can be exported, found " ++ @typeName(@TypeOf(func))),
     };
 }
@@ -88,18 +93,26 @@ fn testTwo(left: i32, right: i32) i32 {
     return left + right;
 }
 
+fn testWithContext(ctx: *Ctx, value: i32) i32 {
+    _ = ctx;
+    return value;
+}
+
 test "registration table contains wrappers and a terminating sentinel" {
     const exports = .{
         .{ .name = "test_zero", .func = testZero, .doc = "Zero arguments." },
         .{ .name = "test_two", .func = testTwo, .doc = "Two arguments." },
+        .{ .name = "test_context", .func = testWithContext, .doc = "Injected context." },
     };
     const Registration = RegistrationFor(exports);
 
-    try std.testing.expectEqual(@as(usize, 3), Registration.call_methods.len);
+    try std.testing.expectEqual(@as(usize, 4), Registration.call_methods.len);
     try std.testing.expectEqualStrings("test_zero", std.mem.span(Registration.call_methods[0].name.?));
     try std.testing.expectEqual(@as(c_int, 0), Registration.call_methods[0].numArgs);
     try std.testing.expectEqualStrings("test_two", std.mem.span(Registration.call_methods[1].name.?));
     try std.testing.expectEqual(@as(c_int, 2), Registration.call_methods[1].numArgs);
-    try std.testing.expectEqual(null, Registration.call_methods[2].name);
-    try std.testing.expectEqual(null, Registration.call_methods[2].fun);
+    try std.testing.expectEqualStrings("test_context", std.mem.span(Registration.call_methods[2].name.?));
+    try std.testing.expectEqual(@as(c_int, 1), Registration.call_methods[2].numArgs);
+    try std.testing.expectEqual(null, Registration.call_methods[3].name);
+    try std.testing.expectEqual(null, Registration.call_methods[3].fun);
 }
