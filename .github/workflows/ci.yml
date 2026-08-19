@@ -69,7 +69,6 @@ jobs:
           fi
           if [ "${{ runner.os }}" = Windows ]; then
             export RZIG_SKIP_PANIC_RECOVERY=true
-            export RZIG_WINDOWS_SMOKE_ONLY=true
           fi
           R CMD check "${check_args[@]}" rzigtest_*.tar.gz
           if grep -Eq 'Status:.*(ERROR|WARNING)' rzigtest.Rcheck/00check.log; then
