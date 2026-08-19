@@ -1,4 +1,4 @@
-//! Scalar-conversion tests with a minimal in-process stand-in for R.
+//! Conversion tests with a minimal in-process stand-in for R.
 
 const std = @import("std");
 const c = @import("c/abi.zig");
@@ -46,6 +46,21 @@ export fn INTEGER_ELT(value: c.SEXP, index: c.R_xlen_t) c_int {
 export fn LOGICAL_ELT(value: c.SEXP, index: c.R_xlen_t) c_int {
     const fake: *const FakeSexp = @ptrCast(@alignCast(value));
     return fake.integers[@intCast(index)];
+}
+
+export fn REAL_RO(value: c.SEXP) [*]const f64 {
+    const fake: *const FakeSexp = @ptrCast(@alignCast(value));
+    return &fake.reals;
+}
+
+export fn INTEGER_RO(value: c.SEXP) [*]const c_int {
+    const fake: *const FakeSexp = @ptrCast(@alignCast(value));
+    return &fake.integers;
+}
+
+export fn LOGICAL_RO(value: c.SEXP) [*]const c_int {
+    const fake: *const FakeSexp = @ptrCast(@alignCast(value));
+    return &fake.integers;
 }
 
 export fn R_IsNA(value: f64) c_int {
@@ -148,4 +163,67 @@ test "length errors name the parameter and actual length" {
     var pair = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 1, 2 } };
     try expectConversionError(f64, &empty, "rzig: `x` must have length 1; got length 0");
     try expectConversionError(i32, &pair, "rzig: `x` must have length 1; got length 2");
+}
+
+test "numeric slices borrow read-only R storage and preserve NA" {
+    var reals = FakeSexp{ .kind = c.REALSXP, .length = 2, .reals = .{ 1.25, mock_na_real } };
+    var integers = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 7, c.NA_INTEGER } };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    es.reset();
+
+    const real_values = try convert.fromSexp([]const f64, &ctx, raw(&reals), "values");
+    const integer_values = try convert.fromSexp([]const i32, &ctx, raw(&integers), "indices");
+    try std.testing.expectEqual(@as(f64, 1.25), real_values[0]);
+    try std.testing.expectEqual(@as(u64, @bitCast(mock_na_real)), @as(u64, @bitCast(real_values[1])));
+    try std.testing.expectEqualSlices(i32, &.{ 7, c.NA_INTEGER }, integer_values);
+    try std.testing.expectEqual(@intFromPtr(&reals.reals[0]), @intFromPtr(real_values.ptr));
+    try std.testing.expectEqual(@intFromPtr(&integers.integers[0]), @intFromPtr(integer_values.ptr));
+}
+
+test "numeric slices reject implicit promotion with an R-side remedy" {
+    var integer = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 1, 2 } };
+    var real = FakeSexp{ .kind = c.REALSXP, .length = 2, .reals = .{ 1, 2 } };
+    try expectConversionError(
+        []const f64,
+        &integer,
+        "rzig: `x` must be a numeric vector; got integer; use as.numeric() in R",
+    );
+    try expectConversionError(
+        []const i32,
+        &real,
+        "rzig: `x` must be an integer vector; got double; use as.integer() in R",
+    );
+}
+
+test "logical slices copy into the arena" {
+    var logical = FakeSexp{ .kind = c.LGLSXP, .length = 2, .integers = .{ c.TRUE, c.FALSE } };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    es.reset();
+
+    const values = try convert.fromSexp([]const bool, &ctx, raw(&logical), "flags");
+    try std.testing.expectEqualSlices(bool, &.{ true, false }, values);
+}
+
+test "logical slices reject NA without silently changing it" {
+    var logical = FakeSexp{ .kind = c.LGLSXP, .length = 2, .integers = .{ c.FALSE, c.NA_LOGICAL } };
+    try expectConversionError(
+        []const bool,
+        &logical,
+        "rzig: `x` cannot contain NA; found NA at position 2",
+    );
+}
+
+test "empty numeric and logical slices are valid" {
+    var real = FakeSexp{ .kind = c.REALSXP, .length = 0 };
+    var integer = FakeSexp{ .kind = c.INTSXP, .length = 0 };
+    var logical = FakeSexp{ .kind = c.LGLSXP, .length = 0 };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    es.reset();
+
+    try std.testing.expectEqual(@as(usize, 0), (try convert.fromSexp([]const f64, &ctx, raw(&real), "x")).len);
+    try std.testing.expectEqual(@as(usize, 0), (try convert.fromSexp([]const i32, &ctx, raw(&integer), "x")).len);
+    try std.testing.expectEqual(@as(usize, 0), (try convert.fromSexp([]const bool, &ctx, raw(&logical), "x")).len);
 }

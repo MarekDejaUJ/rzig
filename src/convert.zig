@@ -31,12 +31,68 @@ pub fn fromSexp(
     if (comptime T == i32) return scalarI32(x, name, "i32");
     if (comptime T == bool) return scalarBool(x, name);
     if (comptime T == usize) return scalarUsize(x, name);
+    if (comptime T == []const f64) return realSlice(x, name);
+    if (comptime T == []const i32) return integerSlice(x, name);
+    if (comptime T == []const bool) return logicalSlice(ctx, x, name);
 
     return switch (@typeInfo(T)) {
         .optional => |info| optionalScalar(info.child, ctx, x, name),
         // TODO: slices and strings.
         else => @compileError(unsupportedMessage(T, name)),
     };
+}
+
+fn realSlice(x: c.SEXP, comptime name: []const u8) es.Error![]const f64 {
+    if (c.TYPEOF(x) != c.REALSXP) {
+        return es.raise(
+            "rzig: `{s}` must be a numeric vector; got {s}; use as.numeric() in R",
+            .{ name, typeName(x) },
+        );
+    }
+    const length = try vectorLength(x, name);
+    return c.REAL_RO(x)[0..length];
+}
+
+fn integerSlice(x: c.SEXP, comptime name: []const u8) es.Error![]const i32 {
+    if (c.TYPEOF(x) != c.INTSXP) {
+        return es.raise(
+            "rzig: `{s}` must be an integer vector; got {s}; use as.integer() in R",
+            .{ name, typeName(x) },
+        );
+    }
+    const length = try vectorLength(x, name);
+    return c.INTEGER_RO(x)[0..length];
+}
+
+fn logicalSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const bool {
+    if (c.TYPEOF(x) != c.LGLSXP) {
+        return es.raise(
+            "rzig: `{s}` must be a logical vector; got {s}",
+            .{ name, typeName(x) },
+        );
+    }
+    const length = try vectorLength(x, name);
+    const source = c.LOGICAL_RO(x)[0..length];
+    for (source, 0..) |value, index| {
+        if (na.isNaLogical(value)) {
+            return es.raise(
+                "rzig: `{s}` cannot contain NA; found NA at position {d}",
+                .{ name, index + 1 },
+            );
+        }
+    }
+
+    const result = try ctx.alloc(bool, length);
+    for (source, result) |value, *slot| slot.* = value != c.FALSE;
+    return result;
+}
+
+fn vectorLength(x: c.SEXP, comptime name: []const u8) es.Error!usize {
+    const length = c.Rf_xlength(x);
+    if (length < 0) {
+        return es.raise("rzig: `{s}` has an invalid negative length", .{name});
+    }
+    return @intCast(length);
 }
 
 fn optionalScalar(
