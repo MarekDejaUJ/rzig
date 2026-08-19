@@ -22,6 +22,7 @@ jobs:
       - run: zig version
       - run: zig build gen-abi-check
       - run: git diff --exit-code -- tools/abi_check.c tests/fixtures/rzigtest/src/abi_check.c
+      - run: sh tools/sync_fixture.sh --check
       - run: zig fmt --check build.zig src tools tests/fixtures/rzigtest/src/rzig
       - run: zig build test
       - run: zig build --release=safe

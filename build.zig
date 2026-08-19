@@ -71,6 +71,9 @@ pub fn build(b: *std.Build) void {
     compile_fail.setEnvironmentVariable("ZIG", b.graph.zig_exe);
     test_step.dependOn(&compile_fail.step);
 
+    const fixture_sync = b.addSystemCommand(&.{ "sh", "tools/sync_fixture.sh", "--check" });
+    test_step.dependOn(&fixture_sync.step);
+
     // --- code generation ------------------------------------------------------
     const gen_module = b.createModule(.{
         .root_source_file = b.path("tools/gen_wrappers.zig"),
