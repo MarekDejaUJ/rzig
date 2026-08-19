@@ -54,7 +54,18 @@ pub fn build(b: *std.Build) void {
     test_module.addOptions("build_options", opts);
     const tests = b.addTest(.{ .root_module = test_module });
     const run_tests = b.addRunArtifact(tests);
-    b.step("test", "Run Zig unit tests").dependOn(&run_tests.step);
+    const test_step = b.step("test", "Run Zig unit tests");
+    test_step.dependOn(&run_tests.step);
+
+    const convert_test_module = b.createModule(.{
+        .root_source_file = b.path("src/convert_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const convert_tests = b.addTest(.{ .root_module = convert_test_module });
+    const run_convert_tests = b.addRunArtifact(convert_tests);
+    test_step.dependOn(&run_convert_tests.step);
 
     // --- code generation ------------------------------------------------------
     const gen_module = b.createModule(.{

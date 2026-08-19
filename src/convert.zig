@@ -27,12 +27,152 @@ pub fn fromSexp(
     x: c.SEXP,
     comptime name: []const u8,
 ) es.Error!T {
-    _ = ctx;
-    _ = x;
+    if (comptime T == f64) return scalarF64(x, name);
+    if (comptime T == i32) return scalarI32(x, name, "i32");
+    if (comptime T == bool) return scalarBool(x, name);
+    if (comptime T == usize) return scalarUsize(x, name);
+
     return switch (@typeInfo(T)) {
-        // TODO: scalars, slices, optionals and strings.
+        .optional => |info| optionalScalar(info.child, ctx, x, name),
+        // TODO: slices and strings.
         else => @compileError(unsupportedMessage(T, name)),
     };
+}
+
+fn optionalScalar(
+    comptime T: type,
+    ctx: *Ctx,
+    x: c.SEXP,
+    comptime name: []const u8,
+) es.Error!?T {
+    if (comptime !isScalar(T)) @compileError(unsupportedMessage(?T, name));
+    if (c.Rf_isNull(x) != c.FALSE) return null;
+
+    try validateScalar(T, x, name);
+    if (scalarIsNa(x)) return null;
+    return try fromSexp(T, ctx, x, name);
+}
+
+fn scalarF64(x: c.SEXP, comptime name: []const u8) es.Error!f64 {
+    try validateScalar(f64, x, name);
+    const value = switch (@as(c.SEXPTYPE, @intCast(c.TYPEOF(x)))) {
+        c.REALSXP => c.REAL_ELT(x, 0),
+        c.INTSXP => @as(f64, @floatFromInt(c.INTEGER_ELT(x, 0))),
+        c.LGLSXP => @as(f64, @floatFromInt(c.LOGICAL_ELT(x, 0))),
+        else => return es.raise("rzig: internal scalar conversion error for `{s}`", .{name}),
+    };
+    if (scalarIsNa(x)) {
+        return es.raise("rzig: `{s}` cannot be NA; use ?f64 to accept missing values", .{name});
+    }
+    return value;
+}
+
+fn scalarI32(
+    x: c.SEXP,
+    comptime name: []const u8,
+    comptime target_name: []const u8,
+) es.Error!i32 {
+    try validateScalar(i32, x, name);
+    if (scalarIsNa(x)) {
+        return es.raise(
+            "rzig: `{s}` cannot be NA; use ?{s} to accept missing values",
+            .{ name, target_name },
+        );
+    }
+
+    return switch (@as(c.SEXPTYPE, @intCast(c.TYPEOF(x)))) {
+        c.INTSXP => @intCast(c.INTEGER_ELT(x, 0)),
+        c.LGLSXP => @intCast(c.LOGICAL_ELT(x, 0)),
+        c.REALSXP => realToI32(c.REAL_ELT(x, 0), name),
+        else => es.raise("rzig: internal scalar conversion error for `{s}`", .{name}),
+    };
+}
+
+fn realToI32(value: f64, comptime name: []const u8) es.Error!i32 {
+    const min: f64 = @floatFromInt(std.math.minInt(i32));
+    const max: f64 = @floatFromInt(std.math.maxInt(i32));
+    if (!std.math.isFinite(value) or @trunc(value) != value or value < min or value > max) {
+        return es.raise(
+            "rzig: `{s}` must be a whole number representable as i32; got {d}",
+            .{ name, value },
+        );
+    }
+    return @intFromFloat(value);
+}
+
+fn scalarBool(x: c.SEXP, comptime name: []const u8) es.Error!bool {
+    try validateScalar(bool, x, name);
+    const value = c.LOGICAL_ELT(x, 0);
+    if (na.isNaLogical(value)) {
+        return es.raise("rzig: `{s}` cannot be NA; use ?bool to accept missing values", .{name});
+    }
+    return value != c.FALSE;
+}
+
+fn scalarUsize(x: c.SEXP, comptime name: []const u8) es.Error!usize {
+    try validateScalar(usize, x, name);
+    if (scalarIsNa(x)) {
+        return es.raise("rzig: `{s}` cannot be NA; use ?usize to accept missing values", .{name});
+    }
+
+    const kind: c.SEXPTYPE = @intCast(c.TYPEOF(x));
+    const value: f64 = switch (kind) {
+        c.INTSXP => @floatFromInt(c.INTEGER_ELT(x, 0)),
+        c.LGLSXP => @floatFromInt(c.LOGICAL_ELT(x, 0)),
+        c.REALSXP => c.REAL_ELT(x, 0),
+        else => return es.raise("rzig: internal scalar conversion error for `{s}`", .{name}),
+    };
+    if (std.math.isFinite(value) and value < 0) {
+        return es.raise("rzig: `{s}` must be non-negative; got {d}", .{ name, value });
+    }
+    const max: f64 = @floatFromInt(std.math.maxInt(i32));
+    if (!std.math.isFinite(value) or @trunc(value) != value or value > max) {
+        return es.raise(
+            "rzig: `{s}` must be a whole number from 0 to 2147483647; got {d}",
+            .{ name, value },
+        );
+    }
+    return @intFromFloat(value);
+}
+
+fn validateScalar(comptime T: type, x: c.SEXP, comptime name: []const u8) es.Error!void {
+    const kind: c.SEXPTYPE = @intCast(c.TYPEOF(x));
+    const valid_type = if (comptime T == bool)
+        kind == c.LGLSXP
+    else
+        kind == c.REALSXP or kind == c.INTSXP or kind == c.LGLSXP;
+
+    if (!valid_type) {
+        if (comptime T == bool) {
+            return es.raise(
+                "rzig: `{s}` must be a logical vector of length 1; got {s}",
+                .{ name, typeName(x) },
+            );
+        }
+        return es.raise(
+            "rzig: `{s}` must be a double, integer, or logical vector of length 1; got {s}",
+            .{ name, typeName(x) },
+        );
+    }
+
+    const length = c.Rf_xlength(x);
+    if (length != 1) {
+        return es.raise("rzig: `{s}` must have length 1; got length {d}", .{ name, length });
+    }
+}
+
+fn scalarIsNa(x: c.SEXP) bool {
+    const kind: c.SEXPTYPE = @intCast(c.TYPEOF(x));
+    return switch (kind) {
+        c.REALSXP => na.isNaReal(c.REAL_ELT(x, 0)),
+        c.INTSXP => na.isNaInt(c.INTEGER_ELT(x, 0)),
+        c.LGLSXP => na.isNaLogical(c.LOGICAL_ELT(x, 0)),
+        else => false,
+    };
+}
+
+fn isScalar(comptime T: type) bool {
+    return T == f64 or T == i32 or T == bool or T == usize;
 }
 
 /// Zig -> SEXP. Pushes onto `stack` immediately after allocating.
@@ -63,5 +203,5 @@ fn unsupportedMessage(comptime T: type, comptime name: []const u8) []const u8 {
 /// Human-readable R type name, for runtime error messages. Never say "SEXP" or
 /// "REALSXP" to an R user.
 pub fn typeName(x: c.SEXP) []const u8 {
-    return std.mem.span(c.Rf_type2char(c.TYPEOF(x)));
+    return std.mem.span(c.Rf_type2char(@intCast(c.TYPEOF(x))));
 }

@@ -141,6 +141,8 @@ pub extern fn RAW_RO(x: SEXP) [*]const Rbyte;
 pub extern fn REAL_ELT(x: SEXP, i: R_xlen_t) f64;
 /// Read one integer element, including from ALTREP vectors.
 pub extern fn INTEGER_ELT(x: SEXP, i: R_xlen_t) c_int;
+/// Read one logical element, including from ALTREP vectors.
+pub extern fn LOGICAL_ELT(x: SEXP, i: R_xlen_t) c_int;
 /// Copy a region of a double vector into caller-owned storage.
 pub extern fn REAL_GET_REGION(x: SEXP, i: R_xlen_t, n: R_xlen_t, buf: [*]f64) R_xlen_t;
 
