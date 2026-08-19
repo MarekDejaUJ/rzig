@@ -4,8 +4,8 @@
 
 const std = @import("std");
 const builtin = @import("builtin");
-const c = @import("c/abi.zig");
 const panic_handler = @import("panic.zig");
+const register = @import("register.zig");
 
 /// Route package panics through R while retaining Zig's test-runner behavior.
 pub const panic = if (builtin.is_test)
@@ -13,12 +13,8 @@ pub const panic = if (builtin.is_test)
 else
     panic_handler.Panic;
 
-/// Hand control to the generated R routine registrar.
-export fn rzig_init(dll: *c.DllInfo) void {
-    if (builtin.is_test) return;
-    _ = c.R_registerRoutines(dll, null, null, null, null);
-    _ = c.R_useDynamicSymbols(dll, c.FALSE);
-    _ = c.R_forceSymbols(dll, c.TRUE);
+comptime {
+    register.registerModule(@This());
 }
 
 test {
