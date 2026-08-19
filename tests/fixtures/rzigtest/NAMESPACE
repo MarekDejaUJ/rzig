@@ -1,2 +1,3 @@
 useDynLib(rzigtest, .registration = TRUE, .fixes = "C_")
 export(add_one)
+export(panic_bounds)

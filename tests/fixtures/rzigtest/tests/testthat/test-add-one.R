@@ -1,3 +1,8 @@
 test_that("a numeric vector crosses the R-Zig boundary", {
   expect_equal(add_one(c(1, 2, 3)), c(2, 3, 4))
 })
+
+test_that("a Zig safety panic becomes an R error and the session survives", {
+  expect_error(panic_bounds(), "index out of bounds")
+  expect_equal(add_one(c(4, 5)), c(5, 6))
+})

@@ -1,29 +1,35 @@
-//! Panic handler. The default Zig handler calls abort(), which kills the R
-//! session and violates CRAN policy.
+//! Last-resort handling for Zig panics reached from R.
 //!
-//! This is a best-effort last resort: by the time it runs, a safety check has
-//! already failed, so program state is suspect. Calling Rf_error from here is
-//! technically calling a longjmp from a corrupt state - but the alternative is
-//! taking the user's whole session and everything unsaved in it.
-//!
-//! VERSION SENSITIVE: the panic interface changed in 0.15 (std.debug.FullPanic).
-//! Check the installed standard library source when updating Zig.
+//! The default Zig handler terminates the process. RZig instead reports the
+//! safety failure through R and raises an R error, allowing the surrounding R
+//! evaluation context to recover. This path is allocation-free and deliberately
+//! minimal because program state may already be compromised.
 
 const std = @import("std");
 const c = @import("c/abi.zig");
 
-pub fn rzigPanic(msg: []const u8, first_trace_addr: ?usize) noreturn {
-    _ = first_trace_addr;
-    var buf: [512]u8 = undefined;
-    const s = std.fmt.bufPrintZ(
-        &buf,
-        "rzig: internal error (Zig panic): {s}\nThis is a bug in the package, please report it.",
-        .{msg},
-    ) catch "rzig: internal error (Zig panic)";
-    c.REprintf("%s\n", s.ptr);
-    c.Rf_error("%s", s.ptr);
-}
+const MESSAGE_CAPACITY = 1024;
 
-// TODO: wire this up in the form the pinned Zig version expects, e.g.
-//   pub const panic = std.debug.FullPanic(rzigPanic);
-// in the root module. Verify against the installed compiler, do not guess.
+/// Zig 0.16 panic namespace installed by the RZig root module.
+pub const Panic = std.debug.FullPanic(report);
+
+fn report(message: []const u8, first_trace_addr: ?usize) noreturn {
+    @branchHint(.cold);
+
+    var storage: [MESSAGE_CAPACITY]u8 = undefined;
+    const rendered: [:0]const u8 = if (first_trace_addr) |address|
+        std.fmt.bufPrintZ(
+            &storage,
+            "rzig: internal Zig safety failure: {s}\ntrace origin: 0x{x}",
+            .{ message, address },
+        ) catch "rzig: internal Zig safety failure"
+    else
+        std.fmt.bufPrintZ(
+            &storage,
+            "rzig: internal Zig safety failure: {s}",
+            .{message},
+        ) catch "rzig: internal Zig safety failure";
+
+    c.REprintf("%s\n", rendered.ptr);
+    c.Rf_error("%s", rendered.ptr);
+}
