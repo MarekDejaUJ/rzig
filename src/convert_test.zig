@@ -11,9 +11,15 @@ const FakeSexp = extern struct {
     length: c.R_xlen_t,
     reals: [2]f64 = .{ 0, 0 },
     integers: [2]c_int = .{ 0, 0 },
+    strings: [2]?*FakeSexp = .{ null, null },
+    text: ?[*:0]const u8 = null,
 };
 
 const mock_na_real: f64 = @bitCast(@as(u64, 0x7ff8_0000_0000_07a2));
+var mock_na_string = FakeSexp{ .kind = c.CHARSXP, .length = 0 };
+export var R_NaString: c.SEXP = @ptrCast(&mock_na_string);
+var vmax_get_count: usize = 0;
+var vmax_set_count: usize = 0;
 
 fn raw(value: *FakeSexp) c.SEXP {
     return @ptrCast(value);
@@ -61,6 +67,26 @@ export fn INTEGER_RO(value: c.SEXP) [*]const c_int {
 export fn LOGICAL_RO(value: c.SEXP) [*]const c_int {
     const fake: *const FakeSexp = @ptrCast(@alignCast(value));
     return &fake.integers;
+}
+
+export fn STRING_ELT(value: c.SEXP, index: c.R_xlen_t) c.SEXP {
+    const fake: *const FakeSexp = @ptrCast(@alignCast(value));
+    return raw(fake.strings[@intCast(index)].?);
+}
+
+export fn Rf_translateCharUTF8(value: c.SEXP) [*:0]const u8 {
+    const fake: *const FakeSexp = @ptrCast(@alignCast(value));
+    return fake.text.?;
+}
+
+export fn vmaxget() ?*anyopaque {
+    vmax_get_count += 1;
+    return @ptrFromInt(1);
+}
+
+export fn vmaxset(mark: ?*const anyopaque) void {
+    std.debug.assert(@intFromPtr(mark.?) == 1);
+    vmax_set_count += 1;
 }
 
 export fn R_IsNA(value: f64) c_int {
@@ -226,4 +252,80 @@ test "empty numeric and logical slices are valid" {
     try std.testing.expectEqual(@as(usize, 0), (try convert.fromSexp([]const f64, &ctx, raw(&real), "x")).len);
     try std.testing.expectEqual(@as(usize, 0), (try convert.fromSexp([]const i32, &ctx, raw(&integer), "x")).len);
     try std.testing.expectEqual(@as(usize, 0), (try convert.fromSexp([]const bool, &ctx, raw(&logical), "x")).len);
+}
+
+test "a scalar string is translated to UTF-8 and copied before vmax reset" {
+    var text = FakeSexp{ .kind = c.CHARSXP, .length = 5, .text = "caf\xc3\xa9" };
+    var value = FakeSexp{ .kind = c.STRSXP, .length = 1, .strings = .{ &text, null } };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    es.reset();
+    vmax_get_count = 0;
+    vmax_set_count = 0;
+
+    const converted = try convert.fromSexp([]const u8, &ctx, raw(&value), "label");
+    try std.testing.expectEqualStrings("caf\xc3\xa9", converted);
+    try std.testing.expect(@intFromPtr(converted.ptr) != @intFromPtr(text.text.?));
+    try std.testing.expectEqual(@as(usize, 1), vmax_get_count);
+    try std.testing.expectEqual(@as(usize, 1), vmax_set_count);
+}
+
+test "a string vector copies its pointer array and every UTF-8 value" {
+    var first = FakeSexp{ .kind = c.CHARSXP, .length = 5, .text = "alpha" };
+    var second = FakeSexp{ .kind = c.CHARSXP, .length = 4, .text = "\xf0\x9f\x98\x80" };
+    var value = FakeSexp{ .kind = c.STRSXP, .length = 2, .strings = .{ &first, &second } };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    es.reset();
+    vmax_get_count = 0;
+    vmax_set_count = 0;
+
+    const converted = try convert.fromSexp([]const []const u8, &ctx, raw(&value), "labels");
+    try std.testing.expectEqual(@as(usize, 2), converted.len);
+    try std.testing.expectEqualStrings("alpha", converted[0]);
+    try std.testing.expectEqualStrings("\xf0\x9f\x98\x80", converted[1]);
+    try std.testing.expect(@intFromPtr(converted[0].ptr) != @intFromPtr(first.text.?));
+    try std.testing.expect(@intFromPtr(converted[1].ptr) != @intFromPtr(second.text.?));
+    try std.testing.expectEqual(@as(usize, 1), vmax_get_count);
+    try std.testing.expectEqual(@as(usize, 1), vmax_set_count);
+}
+
+test "string inputs reject NA with an exact position" {
+    var scalar = FakeSexp{ .kind = c.STRSXP, .length = 1, .strings = .{ &mock_na_string, null } };
+    var text = FakeSexp{ .kind = c.CHARSXP, .length = 2, .text = "ok" };
+    var vector = FakeSexp{ .kind = c.STRSXP, .length = 2, .strings = .{ &text, &mock_na_string } };
+    try expectConversionError([]const u8, &scalar, "rzig: `x` cannot be NA");
+    try expectConversionError(
+        []const []const u8,
+        &vector,
+        "rzig: `x` cannot contain NA; found NA at position 2",
+    );
+}
+
+test "scalar strings enforce character type and length" {
+    var integer = FakeSexp{ .kind = c.INTSXP, .length = 1, .integers = .{ 1, 0 } };
+    var pair = FakeSexp{ .kind = c.STRSXP, .length = 2 };
+    try expectConversionError(
+        []const u8,
+        &integer,
+        "rzig: `x` must be a character vector of length 1; got integer",
+    );
+    try expectConversionError(
+        []const u8,
+        &pair,
+        "rzig: `x` must have length 1; got length 2",
+    );
+}
+
+test "empty string vectors are valid" {
+    var value = FakeSexp{ .kind = c.STRSXP, .length = 0 };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    es.reset();
+    vmax_get_count = 0;
+    vmax_set_count = 0;
+    const converted = try convert.fromSexp([]const []const u8, &ctx, raw(&value), "labels");
+    try std.testing.expectEqual(@as(usize, 0), converted.len);
+    try std.testing.expectEqual(@as(usize, 1), vmax_get_count);
+    try std.testing.expectEqual(@as(usize, 1), vmax_set_count);
 }

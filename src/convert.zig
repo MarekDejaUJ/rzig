@@ -34,12 +34,63 @@ pub fn fromSexp(
     if (comptime T == []const f64) return realSlice(x, name);
     if (comptime T == []const i32) return integerSlice(x, name);
     if (comptime T == []const bool) return logicalSlice(ctx, x, name);
+    if (comptime T == []const u8) return stringScalar(ctx, x, name);
+    if (comptime T == []const []const u8) return stringSlice(ctx, x, name);
 
     return switch (@typeInfo(T)) {
         .optional => |info| optionalScalar(info.child, ctx, x, name),
         // TODO: slices and strings.
         else => @compileError(unsupportedMessage(T, name)),
     };
+}
+
+fn stringScalar(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const u8 {
+    if (c.TYPEOF(x) != c.STRSXP) {
+        return es.raise(
+            "rzig: `{s}` must be a character vector of length 1; got {s}",
+            .{ name, typeName(x) },
+        );
+    }
+    const length = try vectorLength(x, name);
+    if (length != 1) {
+        return es.raise("rzig: `{s}` must have length 1; got length {d}", .{ name, length });
+    }
+
+    const element = c.STRING_ELT(x, 0);
+    if (element == c.R_NaString) return es.raise("rzig: `{s}` cannot be NA", .{name});
+
+    const mark = c.vmaxget();
+    defer c.vmaxset(mark);
+    const translated = c.Rf_translateCharUTF8(element);
+    return ctx.dupe(u8, std.mem.span(translated));
+}
+
+fn stringSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const []const u8 {
+    if (c.TYPEOF(x) != c.STRSXP) {
+        return es.raise(
+            "rzig: `{s}` must be a character vector; got {s}",
+            .{ name, typeName(x) },
+        );
+    }
+    const length = try vectorLength(x, name);
+    for (0..length) |index| {
+        if (c.STRING_ELT(x, @intCast(index)) == c.R_NaString) {
+            return es.raise(
+                "rzig: `{s}` cannot contain NA; found NA at position {d}",
+                .{ name, index + 1 },
+            );
+        }
+    }
+
+    const mark = c.vmaxget();
+    defer c.vmaxset(mark);
+    const result = try ctx.alloc([]const u8, length);
+    for (result, 0..) |*slot, index| {
+        const element = c.STRING_ELT(x, @intCast(index));
+        const translated = c.Rf_translateCharUTF8(element);
+        slot.* = try ctx.dupe(u8, std.mem.span(translated));
+    }
+    return result;
 }
 
 fn realSlice(x: c.SEXP, comptime name: []const u8) es.Error![]const f64 {
