@@ -4,6 +4,8 @@ const std = @import("std");
 const c = @import("c/abi.zig");
 const convert = @import("convert.zig");
 const es = @import("error_state.zig");
+const protect = @import("protect.zig");
+const sexp = @import("sexp.zig");
 const Ctx = @import("alloc.zig").Ctx;
 
 const FakeSexp = extern struct {
@@ -16,13 +18,38 @@ const FakeSexp = extern struct {
 };
 
 const mock_na_real: f64 = @bitCast(@as(u64, 0x7ff8_0000_0000_07a2));
+var mock_nil = FakeSexp{ .kind = c.NILSXP, .length = 0 };
 var mock_na_string = FakeSexp{ .kind = c.CHARSXP, .length = 0 };
+export var R_NilValue: c.SEXP = @ptrCast(&mock_nil);
 export var R_NaString: c.SEXP = @ptrCast(&mock_na_string);
 var vmax_get_count: usize = 0;
 var vmax_set_count: usize = 0;
+var mock_objects: [32]FakeSexp = undefined;
+var mock_char_buffers: [32][64]u8 = undefined;
+var mock_object_count: usize = 0;
+var mock_protect_count: usize = 0;
+var mock_last_encoding: c_uint = c.CE_NATIVE;
 
 fn raw(value: *FakeSexp) c.SEXP {
     return @ptrCast(value);
+}
+
+fn mutableFake(value: c.SEXP) *FakeSexp {
+    return @ptrCast(@alignCast(value));
+}
+
+fn resetOutputMock() void {
+    mock_object_count = 0;
+    mock_protect_count = 0;
+    mock_last_encoding = c.CE_NATIVE;
+}
+
+fn nextObject(kind: c.SEXPTYPE, length: c.R_xlen_t) *FakeSexp {
+    std.debug.assert(mock_object_count < mock_objects.len);
+    const result = &mock_objects[mock_object_count];
+    mock_object_count += 1;
+    result.* = .{ .kind = kind, .length = length };
+    return result;
 }
 
 export fn TYPEOF(value: c.SEXP) c_int {
@@ -87,6 +114,53 @@ export fn vmaxget() ?*anyopaque {
 export fn vmaxset(mark: ?*const anyopaque) void {
     std.debug.assert(@intFromPtr(mark.?) == 1);
     vmax_set_count += 1;
+}
+
+export fn Rf_allocVector(kind: c.SEXPTYPE, length: c.R_xlen_t) c.SEXP {
+    std.debug.assert(length >= 0 and length <= 2);
+    return raw(nextObject(kind, length));
+}
+
+export fn Rf_protect(value: c.SEXP) c.SEXP {
+    mock_protect_count += 1;
+    return value;
+}
+
+export fn Rf_unprotect(count: c_int) void {
+    std.debug.assert(count >= 0);
+    const amount: usize = @intCast(count);
+    std.debug.assert(amount <= mock_protect_count);
+    mock_protect_count -= amount;
+}
+
+export fn REAL(value: c.SEXP) [*]f64 {
+    return &mutableFake(value).reals;
+}
+
+export fn INTEGER(value: c.SEXP) [*]c_int {
+    return &mutableFake(value).integers;
+}
+
+export fn LOGICAL(value: c.SEXP) [*]c_int {
+    return &mutableFake(value).integers;
+}
+
+export fn Rf_mkCharLenCE(bytes: [*]const u8, length: c_int, encoding: c_uint) c.SEXP {
+    std.debug.assert(length >= 0);
+    std.debug.assert(mock_protect_count > 0);
+    const count: usize = @intCast(length);
+    std.debug.assert(count < mock_char_buffers[0].len);
+    const index = mock_object_count;
+    const result = nextObject(c.CHARSXP, length);
+    @memcpy(mock_char_buffers[index][0..count], bytes[0..count]);
+    mock_char_buffers[index][count] = 0;
+    result.text = mock_char_buffers[index][0..count :0].ptr;
+    mock_last_encoding = encoding;
+    return raw(result);
+}
+
+export fn SET_STRING_ELT(value: c.SEXP, index: c.R_xlen_t, element: c.SEXP) void {
+    mutableFake(value).strings[@intCast(index)] = mutableFake(element);
 }
 
 export fn R_IsNA(value: f64) c_int {
@@ -328,4 +402,120 @@ test "empty string vectors are valid" {
     try std.testing.expectEqual(@as(usize, 0), converted.len);
     try std.testing.expectEqual(@as(usize, 1), vmax_get_count);
     try std.testing.expectEqual(@as(usize, 1), vmax_set_count);
+}
+
+test "toSexp maps void and null optionals to R NULL" {
+    resetOutputMock();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    var stack = protect.Stack.init();
+    defer stack.deinit();
+
+    try std.testing.expect((try convert.toSexp(&stack, &ctx, {})) == c.R_NilValue);
+    const missing: ?f64 = null;
+    try std.testing.expect((try convert.toSexp(&stack, &ctx, missing)) == c.R_NilValue);
+    try std.testing.expectEqual(@as(usize, 0), mock_protect_count);
+}
+
+test "toSexp allocates protected scalar vectors" {
+    resetOutputMock();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    var stack = protect.Stack.init();
+
+    const real = try convert.toSexp(&stack, &ctx, @as(f64, 1.25));
+    const integer = try convert.toSexp(&stack, &ctx, @as(i32, -7));
+    const logical = try convert.toSexp(&stack, &ctx, true);
+    try std.testing.expectEqual(@as(c_int, c.REALSXP), TYPEOF(real));
+    try std.testing.expectEqual(@as(c_int, c.INTSXP), TYPEOF(integer));
+    try std.testing.expectEqual(@as(c_int, c.LGLSXP), TYPEOF(logical));
+    try std.testing.expectEqual(@as(f64, 1.25), mutableFake(real).reals[0]);
+    try std.testing.expectEqual(@as(c_int, -7), mutableFake(integer).integers[0]);
+    try std.testing.expectEqual(@as(c_int, c.TRUE), mutableFake(logical).integers[0]);
+    try std.testing.expectEqual(@as(usize, 3), mock_protect_count);
+
+    stack.unwindAll();
+    stack.deinit();
+    try std.testing.expectEqual(@as(usize, 0), mock_protect_count);
+}
+
+test "toSexp copies const and mutable real slices" {
+    resetOutputMock();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    var stack = protect.Stack.init();
+
+    const const_source: []const f64 = &.{ 2.0, 3.0 };
+    var mutable_source = [_]f64{ 5.0, 7.0 };
+    const mutable_slice: []f64 = mutable_source[0..];
+    const const_result = try convert.toSexp(&stack, &ctx, const_source);
+    const mutable_result = try convert.toSexp(&stack, &ctx, mutable_slice);
+    mutable_source[0] = 11.0;
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, mutableFake(const_result).reals[0..2]);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 7.0 }, mutableFake(mutable_result).reals[0..2]);
+
+    stack.unwindAll();
+    stack.deinit();
+}
+
+test "toSexp creates a UTF-8 character vector" {
+    resetOutputMock();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    var stack = protect.Stack.init();
+    const source: []const u8 = "caf\xc3\xa9";
+
+    const result = try convert.toSexp(&stack, &ctx, source);
+    try std.testing.expectEqual(@as(c_int, c.STRSXP), TYPEOF(result));
+    try std.testing.expectEqual(@as(c.R_xlen_t, 1), Rf_xlength(result));
+    try std.testing.expectEqualStrings(source, std.mem.span(mutableFake(result).strings[0].?.text.?));
+    try std.testing.expectEqual(c.CE_UTF8, mock_last_encoding);
+
+    stack.unwindAll();
+    stack.deinit();
+}
+
+test "toSexp rejects invalid UTF-8 before calling R" {
+    resetOutputMock();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    var stack = protect.Stack.init();
+    defer stack.deinit();
+    const invalid: []const u8 = &.{ 0xff, 0xfe };
+    es.reset();
+
+    try std.testing.expectError(es.Error.RZigError, convert.toSexp(&stack, &ctx, invalid));
+    try std.testing.expectEqualStrings("rzig: returned string is not valid UTF-8", es.take());
+    try std.testing.expectEqual(@as(usize, 0), mock_object_count);
+    try std.testing.expectEqual(@as(usize, 0), mock_protect_count);
+}
+
+test "toSexp protects a returned borrowed Sexp" {
+    resetOutputMock();
+    var value = FakeSexp{ .kind = c.REALSXP, .length = 1, .reals = .{ 9, 0 } };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    var stack = protect.Stack.init();
+
+    const result = try convert.toSexp(&stack, &ctx, sexp.fromRaw(raw(&value)));
+    try std.testing.expect(result == raw(&value));
+    try std.testing.expectEqual(@as(usize, 1), mock_protect_count);
+
+    stack.unwindAll();
+    stack.deinit();
+}
+
+test "toSexp recursively marshals present optionals" {
+    resetOutputMock();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    var stack = protect.Stack.init();
+    const present: ?i32 = 13;
+
+    const result = try convert.toSexp(&stack, &ctx, present);
+    try std.testing.expectEqual(@as(c_int, c.INTSXP), TYPEOF(result));
+    try std.testing.expectEqual(@as(c_int, 13), mutableFake(result).integers[0]);
+
+    stack.unwindAll();
+    stack.deinit();
 }

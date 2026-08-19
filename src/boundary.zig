@@ -198,21 +198,21 @@ fn tupleLength(comptime Tuple: type) usize {
     };
 }
 
-fn testPlain() usize {
+fn testPlain() i32 {
     return 17;
 }
 
-fn testWithContext(ctx: *Ctx) es.Error!usize {
+fn testWithContext(ctx: *Ctx) es.Error!i32 {
     const values = try ctx.alloc(u8, 3);
-    return values.len;
+    return @intCast(values.len);
 }
 
 test "user calls accept plain and context-aware signatures" {
     var ctx = Ctx.init();
     defer ctx.deinit();
 
-    try std.testing.expectEqual(@as(usize, 17), try callUser(testPlain, "test_plain", .{}, &ctx));
-    try std.testing.expectEqual(@as(usize, 3), try callUser(testWithContext, "test_ctx", .{}, &ctx));
+    try std.testing.expectEqual(@as(i32, 17), try callUser(testPlain, "test_plain", .{}, &ctx));
+    try std.testing.expectEqual(@as(i32, 3), try callUser(testWithContext, "test_ctx", .{}, &ctx));
 }
 
 test "the R unwind callback path instantiates" {

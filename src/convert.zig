@@ -8,6 +8,7 @@ const c = @import("c/abi.zig");
 const es = @import("error_state.zig");
 const na = @import("na.zig");
 const protect = @import("protect.zig");
+const sexp = @import("sexp.zig");
 const Ctx = @import("alloc.zig").Ctx;
 
 /// Opt-in mutable input. The wrapper duplicates the incoming SEXP first,
@@ -288,11 +289,68 @@ pub fn toSexp(
     ctx: *Ctx,
     value: anytype,
 ) es.Error!c.SEXP {
-    _ = stack;
-    _ = ctx;
-    _ = value;
-    // TODO: marshal supported Zig return types.
-    return c.R_NilValue;
+    const T = @TypeOf(value);
+    if (comptime T == void) return c.R_NilValue;
+    if (comptime T == f64) return realScalarToSexp(stack, value);
+    if (comptime T == i32) return integerScalarToSexp(stack, value);
+    if (comptime T == bool) return logicalScalarToSexp(stack, value);
+    if (comptime T == []const f64 or T == []f64) return realSliceToSexp(stack, value);
+    if (comptime T == []const u8) return stringToSexp(stack, value);
+    if (comptime T == sexp.Sexp) return stack.push(sexp.toRaw(value));
+
+    return switch (@typeInfo(T)) {
+        .optional => if (value) |present|
+            toSexp(stack, ctx, present)
+        else
+            c.R_NilValue,
+        else => @compileError(unsupportedReturnMessage(T)),
+    };
+}
+
+fn realScalarToSexp(stack: *protect.Stack, value: f64) c.SEXP {
+    const result = stack.push(c.Rf_allocVector(c.REALSXP, 1));
+    c.REAL(result)[0] = value;
+    return result;
+}
+
+fn integerScalarToSexp(stack: *protect.Stack, value: i32) c.SEXP {
+    const result = stack.push(c.Rf_allocVector(c.INTSXP, 1));
+    c.INTEGER(result)[0] = value;
+    return result;
+}
+
+fn logicalScalarToSexp(stack: *protect.Stack, value: bool) c.SEXP {
+    const result = stack.push(c.Rf_allocVector(c.LGLSXP, 1));
+    c.LOGICAL(result)[0] = if (value) c.TRUE else c.FALSE;
+    return result;
+}
+
+fn realSliceToSexp(stack: *protect.Stack, value: []const f64) es.Error!c.SEXP {
+    const length = try returnLength(value.len);
+    const result = stack.push(c.Rf_allocVector(c.REALSXP, length));
+    if (value.len > 0) @memcpy(c.REAL(result)[0..value.len], value);
+    return result;
+}
+
+fn stringToSexp(stack: *protect.Stack, value: []const u8) es.Error!c.SEXP {
+    if (!std.unicode.utf8ValidateSlice(value)) {
+        return es.raise("rzig: returned string is not valid UTF-8", .{});
+    }
+    if (value.len > std.math.maxInt(c_int)) {
+        return es.raise("rzig: returned string has {d} bytes, exceeding R's limit", .{value.len});
+    }
+
+    const result = stack.push(c.Rf_allocVector(c.STRSXP, 1));
+    const element = c.Rf_mkCharLenCE(value.ptr, @intCast(value.len), c.CE_UTF8);
+    c.SET_STRING_ELT(result, 0, element);
+    return result;
+}
+
+fn returnLength(length: usize) es.Error!c.R_xlen_t {
+    if (length > std.math.maxInt(c.R_xlen_t)) {
+        return es.raise("rzig: returned vector length {d} exceeds R's limit", .{length});
+    }
+    return @intCast(length);
 }
 
 /// Compile-error text. Message quality is a first-class feature here - it is
@@ -305,6 +363,11 @@ fn unsupportedMessage(comptime T: type, comptime name: []const u8) []const u8 {
         "             rzig.Sexp (escape hatch)\n" ++
         "  for a mutable vector use rzig.Mut([]f64)\n" ++
         "  note []f64 is NOT accepted as an input: R inputs are borrowed and read-only";
+}
+
+fn unsupportedReturnMessage(comptime T: type) []const u8 {
+    return "rzig: unsupported return type '" ++ @typeName(T) ++ "'.\n" ++
+        "  supported: void, f64, i32, bool, []const f64, []f64, []const u8, ?T, rzig.Sexp";
 }
 
 /// Human-readable R type name, for runtime error messages. Never say "SEXP" or
