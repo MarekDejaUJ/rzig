@@ -10,11 +10,13 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
         .pic = true,
+        .link_libc = true,
     });
     const library = b.addLibrary(.{
         .name = "zigpkg",
         .root_module = module,
         .linkage = .static,
     });
+    library.bundle_compiler_rt = true;
     b.installArtifact(library);
 }

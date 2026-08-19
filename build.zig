@@ -30,6 +30,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
         .pic = true,
+        .link_libc = true,
     });
     lib_module.addOptions("build_options", opts);
     if (r_include.len > 0) lib_module.addIncludePath(.{ .cwd_relative = r_include });
@@ -38,6 +39,7 @@ pub fn build(b: *std.Build) void {
         .root_module = lib_module,
         .linkage = .static,
     });
+    lib.bundle_compiler_rt = true;
     // R symbols stay undefined; R's own SHLIB link resolves them.
     b.installArtifact(lib);
 
@@ -47,6 +49,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
     test_module.addOptions("build_options", opts);
     const tests = b.addTest(.{ .root_module = test_module });
