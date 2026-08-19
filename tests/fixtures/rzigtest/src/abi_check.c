@@ -5,12 +5,19 @@
 # pragma clang diagnostic push
 # pragma clang diagnostic ignored "-Wunknown-warning-option"
 #endif
+#if defined(__GNUC__) && !defined(__clang__)
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 #include <Rinternals.h>
 #include <R_ext/Arith.h>
 #include <R_ext/Boolean.h>
 #include <R_ext/Rdynload.h>
 #if defined(__clang__)
 # pragma clang diagnostic pop
+#endif
+#if defined(__GNUC__) && !defined(__clang__)
+# pragma GCC diagnostic pop
 #endif
 
 _Static_assert(sizeof(SEXP) == sizeof(void *), "RZig SEXP pointer width mismatch");
