@@ -11,8 +11,10 @@ for source in "$case_dir"/*.zig; do
     output=$(mktemp)
     if "$zig_path" test \
         --dep boundary \
+        --dep registration \
         -Mroot="$source" \
         -Mboundary="$repo_dir/src/boundary.zig" \
+        -Mregistration="$repo_dir/src/register.zig" \
         -lc >"$output" 2>&1; then
         printf 'compile-fail: %s compiled successfully\n' "$(basename "$source")" >&2
         failed=1

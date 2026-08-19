@@ -7,6 +7,16 @@ const std = @import("std");
 const c = @import("c/abi.zig");
 const arity = @import("generated/arity.zig");
 
+/// Select the fixed C-ABI wrapper for `visible_arity`, producing a focused
+/// compile error when an exported function exceeds the supported limit.
+pub fn wrapperForArity(
+    comptime visible_arity: usize,
+    comptime func: anytype,
+    comptime name: []const u8,
+) type {
+    return arity.Wrapper(visible_arity, func, name);
+}
+
 /// Scan a module's manifest and emit one C-ABI wrapper per exported function,
 /// plus the registration table.
 pub fn registerModule(comptime M: type) void {

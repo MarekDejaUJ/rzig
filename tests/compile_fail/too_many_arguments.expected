@@ -1,0 +1,2 @@
+rzig: function `too_many` has 33 R-visible parameters; the maximum is 32.
+combine related inputs into one R list argument
