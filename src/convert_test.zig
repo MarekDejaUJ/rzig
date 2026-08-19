@@ -4,6 +4,7 @@ const std = @import("std");
 const c = @import("c/abi.zig");
 const convert = @import("convert.zig");
 const es = @import("error_state.zig");
+const na = @import("na.zig");
 const protect = @import("protect.zig");
 const sexp = @import("sexp.zig");
 const Ctx = @import("alloc.zig").Ctx;
@@ -167,6 +168,10 @@ export fn R_IsNA(value: f64) c_int {
     return @intFromBool(@as(u64, @bitCast(value)) == @as(u64, @bitCast(mock_na_real)));
 }
 
+export fn R_IsNaN(value: f64) c_int {
+    return @intFromBool(std.math.isNan(value) and R_IsNA(value) == 0);
+}
+
 export fn Rf_type2char(kind: c.SEXPTYPE) [*:0]const u8 {
     return switch (kind) {
         c.NILSXP => "NULL",
@@ -256,6 +261,18 @@ test "ordinary NaN remains a valid f64" {
     es.reset();
     const converted = try convert.fromSexp(f64, &ctx, raw(&value), "x");
     try std.testing.expect(std.math.isNan(converted));
+}
+
+test "NA predicates distinguish R missing values from ordinary NaN" {
+    const ordinary_nan = std.math.nan(f64);
+    try std.testing.expect(na.isNaReal(mock_na_real));
+    try std.testing.expect(!na.isNaNNotNa(mock_na_real));
+    try std.testing.expect(!na.isNaReal(ordinary_nan));
+    try std.testing.expect(na.isNaNNotNa(ordinary_nan));
+    try std.testing.expect(na.isNaInt(c.NA_INTEGER));
+    try std.testing.expect(na.isNaLogical(c.NA_LOGICAL));
+    try std.testing.expect(!na.isNaInt(0));
+    try std.testing.expect(!na.isNaLogical(c.TRUE));
 }
 
 test "length errors name the parameter and actual length" {
