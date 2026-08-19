@@ -24,7 +24,7 @@ done
 
 require_line inst/templates/Makevars 'ZIG_TARGET_ARG = @ZIG_TARGET_ARG@'
 require_line inst/templates/Makevars 'STATLIB = @STATLIB@'
-require_line inst/templates/Makevars.win 'ZIG_TARGET_ARG = -Dtarget=x86_64-windows-gnu'
+require_line inst/templates/Makevars.win 'ZIG_TARGET_ARG = @ZIG_TARGET_ARG@'
 require_line inst/templates/Makevars.win 'STATLIB = $(ZIG_DIR)/zig-out/lib/zigpkg.lib'
 
 if grep -F -q 'libzigpkg.a' inst/templates/Makevars.win; then

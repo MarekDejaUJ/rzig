@@ -95,6 +95,9 @@ pub fn build(b: *std.Build) void {
     const makevars_templates = b.addSystemCommand(&.{ "sh", "tools/check_makevars_templates.sh" });
     test_step.dependOn(&makevars_templates.step);
 
+    const configure_templates = b.addSystemCommand(&.{ "sh", "tools/check_configure_templates.sh" });
+    test_step.dependOn(&configure_templates.step);
+
     // --- code generation ------------------------------------------------------
     const gen_module = b.createModule(.{
         .root_source_file = b.path("tools/gen_wrappers.zig"),

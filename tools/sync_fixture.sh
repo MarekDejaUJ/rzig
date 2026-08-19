@@ -36,6 +36,17 @@ for relative in $framework_files; do
     fi
 done
 
+for relative in configure configure.win; do
+    source_file="$repo_dir/inst/templates/$relative"
+    fixture_file="$repo_dir/tests/fixtures/rzigtest/$relative"
+    if test "$mode" = "--write"; then
+        cp "$source_file" "$fixture_file"
+    elif ! cmp -s "$source_file" "$fixture_file"; then
+        printf 'fixture copy is stale: %s\n' "$relative" >&2
+        failed=1
+    fi
+done
+
 abuse_source="$repo_dir/tests/abuse.R"
 abuse_fixture="$repo_dir/tests/fixtures/rzigtest/tests/testthat/test-abuse.R"
 if test "$mode" = "--write"; then
