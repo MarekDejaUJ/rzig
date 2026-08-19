@@ -3,6 +3,10 @@ test_that("a numeric vector crosses the R-Zig boundary", {
 })
 
 test_that("a Zig safety panic becomes an R error and the session survives", {
+  skip_if(
+    identical(Sys.getenv("RZIG_RUNNING_UNDER_VALGRIND"), "true"),
+    "Valgrind cannot resume from an intentional Zig safety trap"
+  )
   expect_error(panic_bounds(), "index out of bounds")
   expect_equal(add_one(c(4, 5)), c(5, 6))
 })

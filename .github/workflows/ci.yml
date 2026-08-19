@@ -61,6 +61,7 @@ jobs:
           check_args=(--as-cran --no-manual)
           if [ "${{ runner.os }}" = Linux ]; then
             check_args+=(--use-valgrind)
+            export RZIG_RUNNING_UNDER_VALGRIND=true
           fi
           R CMD check "${check_args[@]}" rzigtest_*.tar.gz
           if grep -Eq 'Status:.*(ERROR|WARNING)' rzigtest.Rcheck/00check.log; then
