@@ -7,17 +7,24 @@
 const std = @import("std");
 const es = @import("error_state.zig");
 
+/// Per-call storage for Zig-owned scratch memory and intermediate results.
+///
+/// The outer boundary creates one context for each R call and releases it after
+/// conversion has copied the result into R-owned memory.
 pub const Ctx = struct {
     arena: std.heap.ArenaAllocator,
 
+    /// Create an empty context backed by Zig's C allocator.
     pub fn init() Ctx {
         return .{ .arena = std.heap.ArenaAllocator.init(std.heap.c_allocator) };
     }
 
+    /// Release every allocation owned by this context.
     pub fn deinit(self: *Ctx) void {
         self.arena.deinit();
     }
 
+    /// Return the arena allocator for advanced Zig-only operations.
     pub fn allocator(self: *Ctx) std.mem.Allocator {
         return self.arena.allocator();
     }
@@ -30,15 +37,30 @@ pub const Ctx = struct {
             es.raise("out of memory allocating {d} elements", .{n});
     }
 
+    /// Copy a slice into memory owned by this context.
     pub fn dupe(self: *Ctx, comptime T: type, src: []const T) es.Error![]T {
         return self.allocator().dupe(T, src) catch
             es.raise("out of memory copying {d} elements", .{src.len});
     }
 };
 
-test "arena frees on deinit" {
+test "context serves multiple allocations from one arena" {
     var ctx = Ctx.init();
     defer ctx.deinit();
-    const s = try ctx.alloc(f64, 128);
-    try std.testing.expectEqual(@as(usize, 128), s.len);
+
+    const reals = try ctx.alloc(f64, 128);
+    const integers = try ctx.alloc(i32, 64);
+    try std.testing.expectEqual(@as(usize, 128), reals.len);
+    try std.testing.expectEqual(@as(usize, 64), integers.len);
+}
+
+test "dupe creates an independent context-owned copy" {
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+
+    const source = [_]i32{ 2, 3, 5, 7 };
+    const copy = try ctx.dupe(i32, &source);
+    copy[0] = 11;
+    try std.testing.expectEqualSlices(i32, &.{ 11, 3, 5, 7 }, copy);
+    try std.testing.expectEqual(@as(i32, 2), source[0]);
 }
