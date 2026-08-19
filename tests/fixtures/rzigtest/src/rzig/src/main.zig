@@ -132,6 +132,13 @@ pub fn sum_eight(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64, g: f64, h: f64)
     return a + b + c + d + e + f + g + h;
 }
 
+/// Verify that Zig's C variadic ABI matches the R toolchain.
+/// @export
+pub fn ucrt_smoke(value: i32) i32 {
+    rzig.internal.c.Rprintf("%s %d\n", "rzig-ucrt", @as(c_int, value));
+    return value;
+}
+
 comptime {
     rzig.registerModule(@This());
 }

@@ -14,3 +14,8 @@ pub const NA = @import("na.zig");
 pub const registerModule = @import("register.zig").registerModule;
 /// Last-resort panic handler used by the fixture root module.
 pub const Panic = @import("panic.zig").Panic;
+
+/// Framework details used only by low-level integration tests.
+pub const internal = struct {
+    pub const c = @import("c/abi.zig");
+};

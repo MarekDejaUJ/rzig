@@ -98,6 +98,11 @@ pub fn Bind(comptime root: type) type {
                 .func = bound_root.sum_eight,
                 .doc = "Exercise a generated wrapper with eight R-visible arguments.",
             },
+            .{
+                .name = "ucrt_smoke",
+                .func = bound_root.ucrt_smoke,
+                .doc = "Verify that Zig's C variadic ABI matches the R toolchain.",
+            },
         };
     };
 }
