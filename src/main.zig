@@ -15,5 +15,6 @@ export fn rzig_init(dll: *c.DllInfo) void {
 
 test {
     _ = @import("c/check.zig");
+    _ = @import("protect.zig");
     _ = @import("sexp.zig");
 }
