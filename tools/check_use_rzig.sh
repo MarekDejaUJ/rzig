@@ -12,4 +12,4 @@ trap cleanup EXIT HUP INT TERM
 
 mkdir -p "$library_dir"
 R CMD INSTALL --library="$library_dir" "$script_dir/.."
-R_LIBS="$library_dir" Rscript "$script_dir/check_use_rzig.R"
+ZIG=${ZIG:-zig} R_LIBS="$library_dir" Rscript "$script_dir/check_use_rzig.R"

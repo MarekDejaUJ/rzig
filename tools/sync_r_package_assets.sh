@@ -47,4 +47,13 @@ elif ! cmp -s "$source_repack" "$asset_repack"; then
     failed=1
 fi
 
+source_scanner=$repo_dir/tools/scan.zig
+asset_scanner=$repo_dir/inst/zig/tools/scan.zig
+if test "$mode" = "--write"; then
+    cp "$source_scanner" "$asset_scanner"
+elif ! cmp -s "$source_scanner" "$asset_scanner"; then
+    printf '%s\n' 'R package export scanner is stale'
+    failed=1
+fi
+
 exit "$failed"
