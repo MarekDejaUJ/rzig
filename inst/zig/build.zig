@@ -30,7 +30,7 @@ pub fn build(b: *std.Build) void {
         .root_module = module,
         .linkage = .static,
     });
-    // R's final C link supplies the target runtime and optimized memory routines.
-    library.bundle_compiler_rt = false;
+    // Linux needs Zig's stack probe; other final C links supply the runtime.
+    library.bundle_compiler_rt = target.result.os.tag == .linux;
     b.installArtifact(library);
 }

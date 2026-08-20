@@ -39,9 +39,9 @@ pub fn build(b: *std.Build) void {
         .root_module = lib_module,
         .linkage = .static,
     });
-    // R's final C link supplies the target runtime and its optimized memory
-    // routines. Bundling Zig's generic runtime here would override them.
-    lib.bundle_compiler_rt = false;
+    // Linux still needs Zig's stack-probe helper. On macOS and Windows, let
+    // R's final C link supply the target runtime and optimized memory routines.
+    lib.bundle_compiler_rt = target.result.os.tag == .linux;
     // R symbols stay undefined; R's own SHLIB link resolves them.
     b.installArtifact(lib);
 
