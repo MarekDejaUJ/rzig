@@ -88,6 +88,10 @@ jobs:
         if: runner.os == 'Linux'
         run: ZIG="$(command -v zig)" sh tools/check_use_rzig.sh
         shell: bash
+      - name: Verify README onboarding under ten minutes
+        if: runner.os == 'Linux'
+        run: ZIG="$(command -v zig)" sh tools/check_readme_onboarding.sh
+        shell: bash
       - name: Run GC stress suite
         if: runner.os == 'macOS'
         run: |
