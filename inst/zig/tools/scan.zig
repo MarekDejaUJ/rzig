@@ -211,6 +211,7 @@ fn renderRWrappersFromExports(allocator: std.mem.Allocator, exports: []const Exp
         defer allocator.free(alias);
 
         try out.appendSlice(allocator, "\n");
+        try appendRoxygenBlock(allocator, &out, item);
         try appendRIdentifier(allocator, &out, item.name);
         try out.appendSlice(allocator, " <- function(");
         for (item.parameters, 0..) |parameter, parameter_index| {
@@ -227,6 +228,83 @@ fn renderRWrappersFromExports(allocator: std.mem.Allocator, exports: []const Exp
     }
 
     return out.toOwnedSlice(allocator);
+}
+
+fn appendRoxygenBlock(
+    allocator: std.mem.Allocator,
+    out: *std.ArrayList(u8),
+    item: Export,
+) !void {
+    if (item.doc.len == 0 or firstDocumentationLineIsTag(item.doc)) {
+        try out.appendSlice(allocator, "#' Call ");
+        try appendRIdentifier(allocator, out, item.name);
+        try out.appendSlice(allocator, " in Zig.\n");
+    }
+    if (item.doc.len > 0) {
+        var lines = std.mem.splitScalar(u8, item.doc, '\n');
+        while (lines.next()) |line| {
+            try out.appendSlice(allocator, "#'");
+            if (line.len > 0) {
+                try out.append(allocator, ' ');
+                try out.appendSlice(allocator, line);
+            }
+            try out.append(allocator, '\n');
+        }
+    }
+
+    try out.appendSlice(allocator, "#'\n");
+    for (item.parameters) |parameter| {
+        if (documentationHasParameter(item.doc, parameter)) continue;
+        try out.appendSlice(allocator, "#' @param ");
+        try appendRIdentifier(allocator, out, parameter);
+        try out.appendSlice(allocator, " A value passed to the Zig implementation.\n");
+    }
+    if (!documentationHasTag(item.doc, "@return")) {
+        try out.appendSlice(allocator, "#' @return The value returned by the Zig implementation.\n");
+    }
+    try out.appendSlice(allocator, "#' @export\n");
+}
+
+fn firstDocumentationLineIsTag(doc: []const u8) bool {
+    var lines = std.mem.splitScalar(u8, doc, '\n');
+    while (lines.next()) |line| {
+        const trimmed = std.mem.trim(u8, line, " \t\r");
+        if (trimmed.len == 0) continue;
+        return trimmed[0] == '@';
+    }
+    return false;
+}
+
+fn documentationHasTag(doc: []const u8, tag: []const u8) bool {
+    var lines = std.mem.splitScalar(u8, doc, '\n');
+    while (lines.next()) |line| {
+        const trimmed = std.mem.trim(u8, line, " \t\r");
+        if (!std.mem.startsWith(u8, trimmed, tag)) continue;
+        if (trimmed.len == tag.len or std.ascii.isWhitespace(trimmed[tag.len])) return true;
+    }
+    return false;
+}
+
+fn documentationHasParameter(doc: []const u8, parameter: []const u8) bool {
+    var lines = std.mem.splitScalar(u8, doc, '\n');
+    while (lines.next()) |line| {
+        const trimmed = std.mem.trim(u8, line, " \t\r");
+        if (!std.mem.startsWith(u8, trimmed, "@param")) continue;
+        if (trimmed.len == "@param".len or !std.ascii.isWhitespace(trimmed["@param".len])) continue;
+        const declared = std.mem.trimStart(u8, trimmed["@param".len..], " \t");
+        if (parameterNameMatches(declared, parameter)) return true;
+    }
+    return false;
+}
+
+fn parameterNameMatches(declared: []const u8, parameter: []const u8) bool {
+    if (declared.len >= parameter.len and std.mem.eql(u8, declared[0..parameter.len], parameter)) {
+        return declared.len == parameter.len or std.ascii.isWhitespace(declared[parameter.len]);
+    }
+    if (declared.len < parameter.len + 2 or declared[0] != '`') return false;
+    if (!std.mem.eql(u8, declared[1 .. parameter.len + 1], parameter)) return false;
+    if (declared[parameter.len + 1] != '`') return false;
+    return declared.len == parameter.len + 2 or std.ascii.isWhitespace(declared[parameter.len + 2]);
 }
 
 fn renderNamespace(
@@ -464,6 +542,7 @@ test "R wrappers omit context and use registered symbol objects" {
         \\const rzig = @import("rzig");
         \\
         \\/// Add two values.
+        \\/// @param left The left-hand value.
         \\/// @export
         \\pub fn add_values(ctx: *rzig.Ctx, left: f64, right: f64) f64 {
         \\    _ = ctx;
@@ -474,6 +553,11 @@ test "R wrappers omit context and use registered symbol objects" {
 
     const wrappers = try renderRWrappers(std.testing.allocator, source);
     defer std.testing.allocator.free(wrappers);
+    try std.testing.expect(std.mem.indexOf(u8, wrappers, "#' Add two values.") != null);
+    try std.testing.expect(std.mem.indexOf(u8, wrappers, "#' @param left The left-hand value.") != null);
+    try std.testing.expect(std.mem.indexOf(u8, wrappers, "#' @param right A value passed to the Zig implementation.") != null);
+    try std.testing.expect(std.mem.indexOf(u8, wrappers, "#' @return The value returned by the Zig implementation.") != null);
+    try std.testing.expect(std.mem.indexOf(u8, wrappers, "#' @export") != null);
     try std.testing.expect(std.mem.indexOf(u8, wrappers, "add_values <- function(left, right)") != null);
     try std.testing.expect(std.mem.indexOf(u8, wrappers, ".Call(add_values_, left, right)") != null);
     try std.testing.expect(std.mem.indexOf(u8, wrappers, "ctx") == null);
@@ -502,6 +586,7 @@ test "generated R supports quoted Zig identifiers" {
 
     const wrappers = try renderRWrappers(std.testing.allocator, source);
     defer std.testing.allocator.free(wrappers);
+    try std.testing.expect(std.mem.indexOf(u8, wrappers, "#' Call `r-name` in Zig.") != null);
     try std.testing.expect(std.mem.indexOf(u8, wrappers, "`r-name` <- function(`x-value`)") != null);
     try std.testing.expect(std.mem.indexOf(u8, wrappers, ".Call(.rzig_symbol_1, `x-value`)") != null);
 }

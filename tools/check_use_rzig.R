@@ -47,6 +47,10 @@ stopifnot(
 wrapper_path <- file.path(package_dir, "R", "rzig-wrappers.R")
 wrapper <- readLines(wrapper_path, warn = FALSE)
 stopifnot(
+  "#' Return a friendly greeting." %in% wrapper,
+  "#' @param name A value passed to the Zig implementation." %in% wrapper,
+  "#' @return The value returned by the Zig implementation." %in% wrapper,
+  "#' @export" %in% wrapper,
   "hello_zig <- function(name) {" %in% wrapper,
   "  .Call(hello_zig_, name)" %in% wrapper
 )
@@ -79,6 +83,9 @@ documented_namespace <- readLines(
   warn = FALSE
 )
 stopifnot(
+  "#' Add two scalar values." %in% documented_wrapper,
+  "#' @param left A value passed to the Zig implementation." %in% documented_wrapper,
+  "#' @param right A value passed to the Zig implementation." %in% documented_wrapper,
   "add_values <- function(left, right) {" %in% documented_wrapper,
   "  .Call(add_values_, left, right)" %in% documented_wrapper,
   '  add_values_ = "add_values"' %in% documented_namespace,
