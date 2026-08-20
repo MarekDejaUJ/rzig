@@ -3,6 +3,7 @@
 ^\.zig-global-cache$
 ^build\.zig$
 ^build\.zig\.zon$
+^examples$
 ^libsyntax_probe\.a$
 ^rzig\.Rcheck$
 ^rzig_.*\.tar\.gz$

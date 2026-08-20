@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+RZIG_CONFIGURE_PLATFORM=windows
+RZIG_MAKEVARS_TEMPLATE=src/Makevars.win.in
+RZIG_MAKEVARS_OUTPUT=src/Makevars.win
+export RZIG_CONFIGURE_PLATFORM RZIG_MAKEVARS_TEMPLATE RZIG_MAKEVARS_OUTPUT
+
+exec sh ./configure "$@"

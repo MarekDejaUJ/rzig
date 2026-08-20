@@ -1,0 +1,19 @@
+Package: rzigcausal
+Type: Package
+Title: Causal Discovery Demonstration for RZig
+Version: 0.1.0
+Authors@R: person("Marek", "Deja", email = "marekdejauj@gmail.com",
+    role = c("aut", "cre"))
+Description: Demonstrates a Gaussian PC-stable skeleton search and a parallel
+    correlation kernel written in Zig through RZig. The package emphasizes
+    explicit validation, read-only inputs, safe native errors, and reproducible
+    tests rather than providing a complete causal-discovery toolkit.
+License: MIT + file LICENSE
+URL: https://github.com/MarekDejaUJ/rzig
+BugReports: https://github.com/MarekDejaUJ/rzig/issues
+Encoding: UTF-8
+SystemRequirements: Zig (>= 0.16.0), see https://ziglang.org/download/
+NeedsCompilation: yes
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

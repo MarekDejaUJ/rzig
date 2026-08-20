@@ -76,9 +76,25 @@ jobs:
             exit 1
           fi
         shell: bash
+      - name: Check causal-discovery example
+        run: |
+          chmod +x examples/rzigcausal/configure examples/rzigcausal/configure.win
+          R CMD build examples/rzigcausal
+          causal_check_args=(--as-cran --no-manual)
+          if [ "${{ runner.os }}" = Linux ]; then
+            causal_check_args+=(--use-valgrind)
+          fi
+          R CMD check "${causal_check_args[@]}" rzigcausal_*.tar.gz
+          if grep -Eq 'Status:.*(ERROR|WARNING)' rzigcausal.Rcheck/00check.log; then
+            cat rzigcausal.Rcheck/00check.log
+            exit 1
+          fi
+        shell: bash
       - name: Show check log on failure
         if: failure()
-        run: cat rzigtest.Rcheck/00install.out rzigtest.Rcheck/00check.log rzigtest.Rcheck/tests/testthat.Rout* || true
+        run: |
+          cat rzigtest.Rcheck/00install.out rzigtest.Rcheck/00check.log rzigtest.Rcheck/tests/testthat.Rout* || true
+          cat rzigcausal.Rcheck/00install.out rzigcausal.Rcheck/00check.log rzigcausal.Rcheck/tests/testthat.Rout* || true
         shell: bash
       - name: Verify installation with a read-only home
         if: runner.os == 'Linux'
@@ -99,4 +115,12 @@ jobs:
           mkdir -p "$gc_library"
           R CMD INSTALL --library="$gc_library" rzigtest_*.tar.gz
           R_LIBS="$gc_library" Rscript tools/gctorture_run.R tests/abuse.R
+        shell: bash
+      - name: Run causal-example GC stress
+        if: runner.os == 'macOS'
+        run: |
+          causal_gc_library="$RUNNER_TEMP/rzigcausal-gc-library"
+          mkdir -p "$causal_gc_library"
+          R CMD INSTALL --library="$causal_gc_library" rzigcausal_*.tar.gz
+          R_LIBS="$causal_gc_library" Rscript examples/rzigcausal/tools/gctorture.R
         shell: bash

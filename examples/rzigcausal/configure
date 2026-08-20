@@ -1,0 +1,116 @@
+#!/bin/sh
+set -eu
+
+ZIG_MIN=0.16.0
+
+zig_path=${ZIG:-}
+if test -n "$zig_path" && test ! -x "$zig_path"; then
+    printf 'ZIG does not name an executable: %s\n' "$zig_path" >&2
+    exit 1
+fi
+if test -z "$zig_path"; then
+    zig_path=$(command -v zig || true)
+fi
+if test -z "$zig_path" && test -n "${HOME:-}"; then
+    for candidate in "$HOME/.local/share/zig/"*/zig "$HOME/zig/zig"; do
+        if test -x "$candidate"; then
+            zig_path=$candidate
+            break
+        fi
+    done
+fi
+if test -z "$zig_path"; then
+    printf '%s\n' \
+        "Zig $ZIG_MIN or newer is required." \
+        "Download it from https://ziglang.org/download/, add it to PATH," \
+        "or reinstall with ZIG=/absolute/path/to/zig." >&2
+    exit 1
+fi
+
+zig_version=$("$zig_path" version) || {
+    printf 'could not run Zig at %s\n' "$zig_path" >&2
+    exit 1
+}
+if ! awk -v got="$zig_version" -v minimum="$ZIG_MIN" 'BEGIN {
+    if (split(got, g, ".") < 3 || split(minimum, m, ".") < 3) exit 1
+    for (i = 1; i <= 3; i++) {
+        if (g[i] !~ /^[0-9]+/ || m[i] !~ /^[0-9]+/) exit 1
+        if ((g[i] + 0) > (m[i] + 0)) exit 0
+        if ((g[i] + 0) < (m[i] + 0)) exit 1
+    }
+    exit 0
+}'; then
+    printf 'Zig %s found, but %s or newer is required.\n' "$zig_version" "$ZIG_MIN" >&2
+    printf '%s\n' 'Download: https://ziglang.org/download/' >&2
+    exit 1
+fi
+
+r_bin=
+if test -n "${R_HOME:-}" && test -x "$R_HOME/bin/R"; then
+    r_bin=$R_HOME/bin/R
+else
+    r_bin=$(command -v R || true)
+fi
+if test -z "$r_bin"; then
+    printf '%s\n' 'R is required to configure this package.' >&2
+    exit 1
+fi
+r_home=$("$r_bin" RHOME)
+r_include_dir=$r_home/include
+r_cc=$("$r_bin" CMD config CC)
+
+machine=$(uname -m)
+case "$r_cc" in
+    *aarch64* | *arm64*) zig_arch=aarch64 ;;
+    *x86_64* | *amd64* | *mingw64*) zig_arch=x86_64 ;;
+    *i386* | *i486* | *i586* | *i686*) zig_arch=x86 ;;
+    *) zig_arch= ;;
+esac
+if test -z "$zig_arch"; then
+    case "$machine" in
+        aarch64 | arm64) zig_arch=aarch64 ;;
+        x86_64 | amd64) zig_arch=x86_64 ;;
+        i386 | i486 | i586 | i686) zig_arch=x86 ;;
+        *)
+            printf 'unsupported R compiler architecture: CC=%s, machine=%s\n' "$r_cc" "$machine" >&2
+            exit 1
+            ;;
+    esac
+fi
+
+platform=${RZIG_CONFIGURE_PLATFORM:-$(uname -s)}
+zig_target_arg=
+# Keep these Make expressions literal while substituting the template.
+statlib='$(ZIG_DIR)/zig-out/lib/libzigpkg.a'
+case "$platform" in
+    Darwin) zig_target_arg="-Dtarget=$zig_arch-macos.13.0" ;;
+    Linux) zig_target_arg="-Dtarget=$zig_arch-linux-gnu" ;;
+    windows | MINGW* | MSYS* | CYGWIN*)
+        zig_target_arg="-Dtarget=$zig_arch-windows-gnu"
+        statlib='$(ZIG_DIR)/zig-out/lib/zigpkg.lib'
+        ;;
+esac
+
+makevars_template=${RZIG_MAKEVARS_TEMPLATE:-src/Makevars.in}
+makevars_output=${RZIG_MAKEVARS_OUTPUT:-src/Makevars}
+if test ! -f "$makevars_template"; then
+    printf 'missing Makevars template: %s\n' "$makevars_template" >&2
+    exit 1
+fi
+
+escape_sed_replacement() {
+    printf '%s' "$1" | sed 's/[\\&|]/\\&/g'
+}
+
+zig_sub=$(escape_sed_replacement "$zig_path")
+target_sub=$(escape_sed_replacement "$zig_target_arg")
+include_sub=$(escape_sed_replacement "$r_include_dir")
+statlib_sub=$(escape_sed_replacement "$statlib")
+sed -e "s|@ZIG@|$zig_sub|g" \
+    -e "s|@ZIG_TARGET_ARG@|$target_sub|g" \
+    -e "s|@R_INCLUDE_DIR@|$include_sub|g" \
+    -e "s|@STATLIB@|$statlib_sub|g" \
+    "$makevars_template" > "$makevars_output"
+
+printf 'using Zig %s at %s\n' "$zig_version" "$zig_path"
+printf 'using R compiler %s for %s\n' "$r_cc" "$zig_target_arg"
