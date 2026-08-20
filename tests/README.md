@@ -34,3 +34,11 @@ Linux CI runs the fixture through valgrind on every change. The scheduled
 by Zig 0.16, so Zig-side protection paths are instead exercised by the full
 gctorture and valgrind suites. This limitation should be revisited when the two
 tools share a compatible LLVM bitcode version.
+
+## Performance
+
+Install the fixture package, then run `Rscript tests/bench.R`. The benchmark
+compiles equivalent handwritten C and Rcpp round-trip copies, checks their
+results, and times lengths 1, 1,000, and 1,000,000 in randomized batches. Set
+`RZIG_BENCH_BATCHES` to change the default 21 batches and
+`RZIG_BENCH_OUTPUT` to save the summary as CSV.

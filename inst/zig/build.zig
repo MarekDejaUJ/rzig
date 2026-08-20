@@ -30,6 +30,7 @@ pub fn build(b: *std.Build) void {
         .root_module = module,
         .linkage = .static,
     });
-    library.bundle_compiler_rt = true;
+    // R's final C link supplies the target runtime and optimized memory routines.
+    library.bundle_compiler_rt = false;
     b.installArtifact(library);
 }
