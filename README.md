@@ -203,6 +203,12 @@ pub fn labeled(
 `setNames`, `setDim`, `setClass`, and `setClasses` copy their metadata into the
 call context. Lengths and dimension products are checked before R allocation.
 
+## Long-running loops
+
+Call `try rzig.checkInterrupt()` about every 100,000 iterations of a long loop.
+It probes through an R trampoline that catches the runtime's non-local interrupt
+exit, allowing Zig cleanup to finish before the boundary returns an R error.
+
 ## Safety model
 
 RZig keeps R's non-local error mechanism at the outer native boundary. Internal

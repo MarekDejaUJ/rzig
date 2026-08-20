@@ -12,6 +12,8 @@ pub const Error = @import("error_state.zig").Error;
 pub const raise = @import("error_state.zig").raise;
 /// Queue a warning for safe delivery after Zig cleanup.
 pub const warn = @import("error_state.zig").warn;
+/// Check for Ctrl-C without allowing R's longjmp to cross Zig frames.
+pub const checkInterrupt = @import("interrupt.zig").checkInterrupt;
 /// Missing-value predicates for R scalar representations.
 pub const NA = @import("na.zig");
 /// Opaque borrowed R value escape hatch.

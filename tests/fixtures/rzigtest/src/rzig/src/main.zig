@@ -164,6 +164,16 @@ pub fn matrix_trace(values: rzig.Matrix) rzig.Error!f64 {
     return result;
 }
 
+/// Count iterations while periodically checking for Ctrl-C.
+/// @export
+pub fn interruptible_count(iterations: usize) rzig.Error!i32 {
+    var index: usize = 0;
+    while (index < iterations) : (index += 1) {
+        if (index % 100_000 == 0) try rzig.checkInterrupt();
+    }
+    return @intCast(index);
+}
+
 /// Trigger an intentional ReleaseSafe bounds failure.
 /// @export
 pub fn panic_bounds(values: []const f64) void {

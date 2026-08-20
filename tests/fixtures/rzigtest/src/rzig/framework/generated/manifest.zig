@@ -117,6 +117,12 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{"values"},
             },
             .{
+                .name = "interruptible_count",
+                .func = bound_root.interruptible_count,
+                .doc = "Count iterations while periodically checking for Ctrl-C.",
+                .parameters = .{"iterations"},
+            },
+            .{
                 .name = "panic_bounds",
                 .func = bound_root.panic_bounds,
                 .doc = "Trigger an intentional ReleaseSafe bounds failure.",

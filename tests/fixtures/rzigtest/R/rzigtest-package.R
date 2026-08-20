@@ -55,6 +55,15 @@ matrix_trace <- function(x) {
   .Call(C_matrix_trace, x)
 }
 
+#' Count with periodic user-interrupt checks
+#'
+#' @param iterations A non-negative scalar iteration count.
+#' @return The completed iteration count.
+#' @export
+interruptible_count <- function(iterations) {
+  .Call(C_interruptible_count, iterations)
+}
+
 #' Trigger a handled Zig bounds panic
 #'
 #' This fixture helper verifies that a ReleaseSafe panic becomes an R error.

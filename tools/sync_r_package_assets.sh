@@ -11,6 +11,7 @@ attributes.zig
 boundary.zig
 convert.zig
 error_state.zig
+interrupt.zig
 list.zig
 matrix.zig
 na.zig

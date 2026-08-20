@@ -32,6 +32,7 @@ scale_in_place <- function(x, factor) call_native("scale_in_place", x, factor)
 decorate_values <- function(x, labels) call_native("decorate_values", x, labels)
 reshape_values <- function(x, nrow) call_native("reshape_values", x, nrow)
 matrix_trace <- function(x) call_native("matrix_trace", x)
+interruptible_count <- function(iterations) call_native("interruptible_count", iterations)
 
 expect_error_live <- function(call, patterns = character()) {
   condition <- tryCatch(call(), error = identity)
@@ -145,6 +146,11 @@ test_that("attributes and matrix views preserve R metadata", {
   expect_identical(matrix_trace(matrix(c(1, 2, 3, 4), 2L)), 5)
   expect_error_live(function() matrix_trace(c(1, 2)), c("without dimensions"))
   expect_error_live(function() matrix_trace(matrix(1:4, 2L)), c("storage.mode"))
+})
+
+test_that("interrupt polling uses a guarded R trampoline", {
+  expect_identical(interruptible_count(0L), 0L)
+  expect_identical(interruptible_count(250000L), 250000L)
 })
 
 test_that("malformed inputs always become R errors and the session stays alive", {

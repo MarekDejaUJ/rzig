@@ -67,6 +67,16 @@ pub fn build(b: *std.Build) void {
     const run_convert_tests = b.addRunArtifact(convert_tests);
     test_step.dependOn(&run_convert_tests.step);
 
+    const interrupt_test_module = b.createModule(.{
+        .root_source_file = b.path("src/interrupt_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const interrupt_tests = b.addTest(.{ .root_module = interrupt_test_module });
+    const run_interrupt_tests = b.addRunArtifact(interrupt_tests);
+    test_step.dependOn(&run_interrupt_tests.step);
+
     const generator_test_module = b.createModule(.{
         .root_source_file = b.path("tools/gen_wrappers.zig"),
         .target = target,
