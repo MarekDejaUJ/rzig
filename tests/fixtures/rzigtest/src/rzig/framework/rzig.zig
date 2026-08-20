@@ -16,6 +16,8 @@ pub const NA = @import("na.zig");
 pub const Sexp = @import("sexp.zig").Sexp;
 /// Arena-backed builder materialized as a named R list at the boundary.
 pub const List = @import("list.zig").List;
+/// Opt-in mutable input that duplicates an R vector before exposing writes.
+pub const Mut = @import("convert.zig").Mut;
 /// Generate native wrappers and register every manifest export.
 pub const registerModule = @import("register.zig").registerModule;
 /// Last-resort panic handler for a Zig-backed R shared library.

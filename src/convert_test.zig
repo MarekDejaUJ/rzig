@@ -127,6 +127,18 @@ export fn Rf_allocVector(kind: c.SEXPTYPE, length: c.R_xlen_t) c.SEXP {
     return raw(nextObject(kind, length));
 }
 
+export fn Rf_duplicate(value: c.SEXP) c.SEXP {
+    const source = mutableFake(value);
+    const result = nextObject(source.kind, source.length);
+    result.reals = source.reals;
+    result.integers = source.integers;
+    result.strings = source.strings;
+    result.vectors = source.vectors;
+    result.names = source.names;
+    result.text = source.text;
+    return raw(result);
+}
+
 export fn Rf_protect(value: c.SEXP) c.SEXP {
     mock_protect_count += 1;
     return value;
@@ -601,6 +613,55 @@ test "List validates every string before allocating an R object" {
     defer stack.deinit();
     try std.testing.expectError(es.Error.RZigError, convert.toSexp(&stack, &ctx, result));
     try std.testing.expectEqualStrings("rzig: list string at position 1 is not valid UTF-8", es.take());
+    try std.testing.expectEqual(@as(usize, 0), mock_object_count);
+    try std.testing.expectEqual(@as(usize, 0), mock_protect_count);
+}
+
+test "Mut duplicates and protects numeric inputs before exposing writable storage" {
+    resetOutputMock();
+    var source = FakeSexp{ .kind = c.REALSXP, .length = 2, .reals = .{ 2, 3 } };
+    var stack = protect.Stack.init();
+    var mutable_result: ?c.SEXP = null;
+
+    const mutable = try convert.fromMutableSexp(
+        convert.Mut([]f64),
+        &stack,
+        raw(&source),
+        "values",
+        &mutable_result,
+    );
+    mutable.data[0] = 11;
+
+    try std.testing.expectEqualSlices(f64, &.{ 2, 3 }, &source.reals);
+    try std.testing.expectEqualSlices(f64, &.{ 11, 3 }, mutableFake(mutable_result.?).reals[0..2]);
+    try std.testing.expectEqual(@as(usize, 1), mock_protect_count);
+
+    stack.unwindAll();
+    stack.deinit();
+}
+
+test "Mut rejects non-numeric vectors before duplicating" {
+    resetOutputMock();
+    es.reset();
+    var source = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 2, 3 } };
+    var stack = protect.Stack.init();
+    defer stack.deinit();
+    var mutable_result: ?c.SEXP = null;
+
+    try std.testing.expectError(
+        es.Error.RZigError,
+        convert.fromMutableSexp(
+            convert.Mut([]f64),
+            &stack,
+            raw(&source),
+            "values",
+            &mutable_result,
+        ),
+    );
+    try std.testing.expectEqualStrings(
+        "rzig: `values` must be a numeric vector for rzig.Mut([]f64); got integer; use as.numeric() in R",
+        es.take(),
+    );
     try std.testing.expectEqual(@as(usize, 0), mock_object_count);
     try std.testing.expectEqual(@as(usize, 0), mock_protect_count);
 }

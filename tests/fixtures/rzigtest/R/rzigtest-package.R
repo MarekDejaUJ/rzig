@@ -16,6 +16,16 @@ named_summary <- function(x) {
   .Call(C_named_summary, x)
 }
 
+#' Scale a numeric vector without changing its R input
+#'
+#' @param x A numeric vector.
+#' @param factor A numeric scalar multiplier.
+#' @return A scaled duplicate of `x`.
+#' @export
+scale_in_place <- function(x, factor) {
+  .Call(C_scale_in_place, x, factor)
+}
+
 #' Trigger a handled Zig bounds panic
 #'
 #' This fixture helper verifies that a ReleaseSafe panic becomes an R error.

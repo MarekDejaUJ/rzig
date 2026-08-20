@@ -1,0 +1,2 @@
+rzig: function `ambiguous` has more than one mutable input.
+use one rzig.Mut([]f64) parameter so the wrapper has one unambiguous return value

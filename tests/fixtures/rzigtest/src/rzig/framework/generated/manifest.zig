@@ -93,6 +93,12 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{"values"},
             },
             .{
+                .name = "scale_in_place",
+                .func = bound_root.scale_in_place,
+                .doc = "Scale a duplicated numeric vector without mutating the caller's input.",
+                .parameters = .{ "values", "factor" },
+            },
+            .{
                 .name = "panic_bounds",
                 .func = bound_root.panic_bounds,
                 .doc = "Trigger an intentional ReleaseSafe bounds failure.",

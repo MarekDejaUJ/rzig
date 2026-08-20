@@ -162,6 +162,23 @@ List entries may contain `f64`, `i32`, `bool`, numeric slices, UTF-8 strings,
 optional values, or `rzig.Sexp`. Names are copied into the call context, and no
 R object is allocated until boundary conversion begins.
 
+## Mutable numeric inputs
+
+Mutation is opt-in with `rzig.Mut([]f64)`. RZig duplicates and protects the R
+vector before Zig receives writable storage, then returns that duplicate:
+
+```zig
+/// Scale a copy of a numeric vector.
+/// @export
+pub fn scale(values: rzig.Mut([]f64), factor: f64) void {
+    for (values.data) |*value| value.* *= factor;
+}
+```
+
+The caller's vector and any aliases remain unchanged. A function using `Mut`
+accepts one mutable vector and returns `void` or `rzig.Error!void`; its generated
+R wrapper returns the mutated duplicate automatically.
+
 ## Safety model
 
 RZig keeps R's non-local error mechanism at the outer native boundary. Internal

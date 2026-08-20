@@ -1,0 +1,2 @@
+rzig: function `ambiguous_result` uses rzig.Mut([]f64) and must return void or rzig.Error!void.
+the wrapper returns the duplicated vector automatically

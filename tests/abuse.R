@@ -28,6 +28,7 @@ string_count <- function(x) call_native("string_count", x)
 identity_sexp <- function(x) call_native("identity_sexp", x)
 add_vectors <- function(a, b) call_native("add_vectors", a, b)
 named_summary <- function(x) call_native("named_summary", x)
+scale_in_place <- function(x, factor) call_native("scale_in_place", x, factor)
 
 expect_error_live <- function(call, patterns = character()) {
   condition <- tryCatch(call(), error = identity)
@@ -117,6 +118,19 @@ test_that("named list results survive allocation and GC stress", {
     list(values = c(1.5, 2.5), count = 2L)
   )
   expect_identical(named_summary(numeric()), list(values = numeric(), count = 0L))
+})
+
+test_that("mutable inputs are duplicated before Zig writes", {
+  original <- c(1, 2, 3)
+  alias <- original
+  expect_identical(scale_in_place(alias, 3), c(3, 6, 9))
+  expect_identical(alias, c(1, 2, 3))
+  expect_identical(original, c(1, 2, 3))
+  expect_identical(scale_in_place(numeric(), 3), numeric())
+  expect_error_live(
+    function() scale_in_place(1:3, 3),
+    c("rzig.Mut([]f64)", "use as.numeric() in R")
+  )
 })
 
 test_that("malformed inputs always become R errors and the session stays alive", {

@@ -108,6 +108,12 @@ pub fn named_summary(ctx: *rzig.Ctx, values: []const f64) rzig.Error!rzig.List {
     return result;
 }
 
+/// Scale a duplicated numeric vector without mutating the caller's input.
+/// @export
+pub fn scale_in_place(values: rzig.Mut([]f64), factor: f64) void {
+    for (values.data) |*value| value.* *= factor;
+}
+
 /// Trigger an intentional ReleaseSafe bounds failure.
 /// @export
 pub fn panic_bounds(values: []const f64) void {

@@ -82,6 +82,7 @@ pub fn validateSignature(comptime func: anytype, comptime name: []const u8) void
     const Func = @TypeOf(func);
     const info = functionInfo(Func);
     const has_ctx = comptime takesContext(Func);
+    comptime var mutable_count: usize = 0;
 
     inline for (@intFromBool(has_ctx)..info.params.len) |parameter_index| {
         const position = parameter_index - @intFromBool(has_ctx) + 1;
@@ -91,7 +92,15 @@ pub fn validateSignature(comptime func: anytype, comptime name: []const u8) void
                 " uses anytype and cannot be exported.\n" ++
                 "  use a concrete supported type",
         );
+        if (convert.isMutableInput(Parameter)) mutable_count += 1;
         convert.validateInputType(Parameter, name, position);
+    }
+
+    if (mutable_count > 1) {
+        @compileError(
+            "rzig: function `" ++ name ++ "` has more than one mutable input.\n" ++
+                "  use one rzig.Mut([]f64) parameter so the wrapper has one unambiguous return value",
+        );
     }
 
     const Return = info.return_type orelse
@@ -99,6 +108,12 @@ pub fn validateSignature(comptime func: anytype, comptime name: []const u8) void
     if (@typeInfo(Return) == .error_union and @typeInfo(Return).error_union.error_set != es.Error) {
         @compileError(
             "rzig: function `" ++ name ++ "` must return rzig.Error!T, not " ++ @typeName(Return),
+        );
+    }
+    if (mutable_count == 1 and ReturnPayload(Func) != void) {
+        @compileError(
+            "rzig: function `" ++ name ++ "` uses rzig.Mut([]f64) and must return void or rzig.Error!void.\n" ++
+                "  the wrapper returns the duplicated vector automatically",
         );
     }
     convert.validateReturnType(ReturnPayload(Func), name);
@@ -142,7 +157,9 @@ fn callAndMarshal(
     ctx: *Ctx,
     stack: *protect.Stack,
 ) es.Error!c.SEXP {
-    const value = try callUser(func, name, sexps, ctx);
+    var mutable_result: ?c.SEXP = null;
+    const value = try callUser(func, name, sexps, ctx, stack, &mutable_result);
+    if (mutable_result) |result| return result;
     return convert.toSexp(stack, ctx, value);
 }
 
@@ -151,6 +168,8 @@ fn callUser(
     comptime name: []const u8,
     sexps: anytype,
     ctx: *Ctx,
+    stack: *protect.Stack,
+    mutable_result: *?c.SEXP,
 ) es.Error!ReturnPayload(@TypeOf(func)) {
     const Func = @TypeOf(func);
     comptime validateSignature(func, name);
@@ -177,12 +196,21 @@ fn callUser(
             "argument {d} of {s}",
             .{ visible_index + 1, name },
         );
-        args[parameter_index] = try convert.fromSexp(
-            Parameter,
-            ctx,
-            sexps[visible_index],
-            parameter_name,
-        );
+        args[parameter_index] = if (comptime convert.isMutableInput(Parameter))
+            try convert.fromMutableSexp(
+                Parameter,
+                stack,
+                sexps[visible_index],
+                parameter_name,
+                mutable_result,
+            )
+        else
+            try convert.fromSexp(
+                Parameter,
+                ctx,
+                sexps[visible_index],
+                parameter_name,
+            );
     }
 
     return @call(.auto, func, args);
@@ -235,16 +263,30 @@ fn testSupportedSignature(ctx: *Ctx, value: f64, labels: []const []const u8) es.
     return null;
 }
 
+fn testMutableSignature(values: convert.Mut([]f64), factor: f64) void {
+    for (values.data) |*value| value.* *= factor;
+}
+
 test "user calls accept plain and context-aware signatures" {
     var ctx = Ctx.init();
     defer ctx.deinit();
+    var stack = protect.Stack.init();
+    defer stack.deinit();
+    var mutable_result: ?c.SEXP = null;
 
-    try std.testing.expectEqual(@as(i32, 17), try callUser(testPlain, "test_plain", .{}, &ctx));
-    try std.testing.expectEqual(@as(i32, 3), try callUser(testWithContext, "test_ctx", .{}, &ctx));
+    try std.testing.expectEqual(
+        @as(i32, 17),
+        try callUser(testPlain, "test_plain", .{}, &ctx, &stack, &mutable_result),
+    );
+    try std.testing.expectEqual(
+        @as(i32, 3),
+        try callUser(testWithContext, "test_ctx", .{}, &ctx, &stack, &mutable_result),
+    );
 }
 
 test "signature validation accepts context, supported inputs, and optional output" {
     comptime validateSignature(testSupportedSignature, "supported_signature");
+    comptime validateSignature(testMutableSignature, "mutable_signature");
 }
 
 test "the R unwind callback path instantiates" {

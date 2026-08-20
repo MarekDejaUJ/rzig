@@ -17,8 +17,43 @@ const Ctx = @import("alloc.zig").Ctx;
 pub fn Mut(comptime T: type) type {
     return struct {
         pub const rzig_mut_inner = T;
+
+        /// Writable data backed by an R-owned duplicate of the input.
         data: T,
     };
+}
+
+/// Report whether `T` is a mutable-input wrapper created by `Mut`.
+pub fn isMutableInput(comptime T: type) bool {
+    return switch (@typeInfo(T)) {
+        .@"struct" => @hasDecl(T, "rzig_mut_inner"),
+        else => false,
+    };
+}
+
+/// Duplicate and protect a mutable numeric input before exposing its storage.
+pub fn fromMutableSexp(
+    comptime T: type,
+    stack: *protect.Stack,
+    x: c.SEXP,
+    comptime name: []const u8,
+    mutable_result: *?c.SEXP,
+) es.Error!T {
+    if (comptime !isSupportedMutableInput(T)) {
+        @compileError("rzig: only rzig.Mut([]f64) is currently supported");
+    }
+    if (c.TYPEOF(x) != c.REALSXP) {
+        return es.raise(
+            "rzig: `{s}` must be a numeric vector for rzig.Mut([]f64); got {s}; use as.numeric() in R",
+            .{ name, typeName(x) },
+        );
+    }
+
+    const length = try vectorLength(x, name);
+    std.debug.assert(mutable_result.* == null);
+    const duplicate = stack.push(c.Rf_duplicate(x));
+    mutable_result.* = duplicate;
+    return .{ .data = c.REAL(duplicate)[0..length] };
 }
 
 /// SEXP -> Zig. `pos` is the zero-based parameter index and `name` its
@@ -315,6 +350,7 @@ fn isScalar(comptime T: type) bool {
 }
 
 fn isSupportedInput(comptime T: type) bool {
+    if (isSupportedMutableInput(T)) return true;
     if (isScalar(T) or
         T == []const f64 or
         T == []const i32 or
@@ -329,6 +365,11 @@ fn isSupportedInput(comptime T: type) bool {
         .optional => |info| isScalar(info.child),
         else => false,
     };
+}
+
+fn isSupportedMutableInput(comptime T: type) bool {
+    if (!isMutableInput(T)) return false;
+    return T.rzig_mut_inner == []f64;
 }
 
 fn isSupportedReturn(comptime T: type) bool {
@@ -351,6 +392,7 @@ fn isSupportedReturn(comptime T: type) bool {
 }
 
 fn nearestInputAlternative(comptime T: type) []const u8 {
+    if (isMutableInput(T)) return "rzig.Mut([]f64) for a duplicated writable numeric vector";
     if (T == f32 or T == f16 or T == f128) return "f64 for an R numeric scalar";
     if (T == []const f32 or T == []const f16 or T == []const f128 or
         T == []f32 or T == []f16 or T == []f128)
