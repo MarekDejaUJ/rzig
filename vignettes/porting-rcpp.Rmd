@@ -1,0 +1,173 @@
+---
+title: "Porting a C++ hot loop from Rcpp to RZig"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Porting a C++ hot loop from Rcpp to RZig}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+```
+
+RZig is most useful when an R package has a small, computationally expensive
+loop that needs native performance but does not otherwise need C++. This
+vignette ports an `axpy`-style operation: return `x + scale * y` without
+modifying either R input.
+
+## Start from the behavior, not the wrapper
+
+An Rcpp implementation might duplicate `x`, validate the inputs, and mutate the
+duplicate in place:
+
+```cpp
+#include <Rcpp.h>
+
+// [[Rcpp::export]]
+Rcpp::NumericVector axpy_rcpp(
+    Rcpp::NumericVector x,
+    const Rcpp::NumericVector& y,
+    double scale
+) {
+    if (x.size() != y.size()) Rcpp::stop("x and y must have equal lengths");
+
+    Rcpp::NumericVector result = Rcpp::clone(x);
+    for (R_xlen_t i = 0; i < result.size(); ++i) {
+        if (i % 100000 == 0) Rcpp::checkUserInterrupt();
+        result[i] += scale * y[i];
+    }
+    return result;
+}
+```
+
+The important contract is not the C++ class structure. It is that `y` is read
+only, `x` is duplicated before mutation, unequal lengths become an R error, and
+long computations remain interruptible.
+
+## Scaffold the Zig-backed package
+
+Run `use_rzig()` once from the root of an existing R package:
+
+```r
+rzig::use_rzig(".")
+```
+
+This creates the portable build files, the Zig source tree, and an initial
+generated wrapper. Put the native implementation in
+`src/rzig/src/main.zig`:
+
+```zig
+const std = @import("std");
+const builtin = @import("builtin");
+const rzig = @import("rzig");
+
+pub const panic = if (builtin.is_test)
+    std.debug.FullPanic(std.debug.defaultPanic)
+else
+    rzig.Panic;
+
+/// Compute x + scale * y without changing either R input.
+/// @param x The numeric vector to duplicate and update.
+/// @param y A borrowed, read-only numeric vector.
+/// @param scale The multiplier applied to y.
+/// @return A new numeric vector containing the result.
+/// @export
+pub fn axpy(
+    x: rzig.Mut([]f64),
+    y: []const f64,
+    scale: f64,
+) rzig.Error!void {
+    if (x.data.len != y.len) {
+        return rzig.raise(
+            "x and y must have equal lengths; got {d} and {d}",
+            .{ x.data.len, y.len },
+        );
+    }
+
+    for (x.data, y, 0..) |*result, value, index| {
+        if (index % 100_000 == 0) try rzig.checkInterrupt();
+        result.* += scale * value;
+    }
+}
+
+comptime {
+    rzig.registerModule(@This());
+}
+```
+
+`rzig.Mut([]f64)` is the direct expression of copy-on-modify semantics. RZig
+duplicates and protects `x` before Zig receives writable storage. The `y`
+slice borrows R's numeric storage as read-only memory. Because this function
+returns `void`, the generated boundary returns the mutated duplicate
+automatically.
+
+The function contains no `SEXP`, `PROTECT`, C++ exception, or registration
+table. The types and `@export` marker supply enough information for RZig to
+generate those parts.
+
+## Generate, install, and test
+
+Regenerate the R wrapper whenever an exported Zig signature or its
+documentation changes:
+
+```r
+rzig::document(".")
+system2(file.path(R.home("bin"), "R"), c("CMD", "INSTALL", "."))
+```
+
+The generated R function has the same three visible arguments:
+
+```r
+library(yourpackage)
+
+x <- c(1, 2, 3)
+y <- c(10, 20, 30)
+result <- axpy(x, y, 0.5)
+
+stopifnot(identical(x, c(1, 2, 3)))
+stopifnot(identical(result, c(6, 12, 18)))
+
+try(axpy(1:2, c(1, 2, 3), 1))
+# The native error is an R condition, and the session remains usable.
+sum(1:10)
+```
+
+Integer vectors are rejected for numeric slices and mutable numeric inputs.
+Convert deliberately with `as.numeric()` in R rather than relying on an
+implicit native allocation.
+
+## What changes in the port
+
+Rcpp's `NumericVector` combines an R object, indexing, allocation, and mutation
+in one C++ class. RZig separates those capabilities. A borrowed `[]const f64`
+cannot mutate its input. `rzig.Mut([]f64)` duplicates before exposing writable
+storage. `rzig.Ctx` is used only when Zig-owned scratch or result memory is
+needed. Errors are explicit `rzig.Error` values, and the outer boundary turns
+them into R conditions after Zig cleanup has finished.
+
+Generated packages compile in Zig's `ReleaseSafe` mode. Bounds checks and
+integer-overflow checks therefore remain enabled in installed code. A failure
+is routed through RZig's panic boundary instead of silently corrupting adjacent
+R memory.
+
+## Measure the boundary separately
+
+Benchmark the algorithm and the language boundary as separate questions. For a
+hot loop, compare equivalent copy and mutation semantics, use the same compiler
+optimization level, warm each implementation, randomize execution order, and
+report distributions rather than one elapsed time.
+
+The RZig repository includes `tests/bench.R`, which checks and times equivalent
+RZig, handwritten C, and Rcpp round-trip copies at lengths 1, 1,000, and
+1,000,000. It records medians and interquartile ranges from randomized batches.
+This isolates conversion overhead from the workload being ported.
+
+## Port incrementally
+
+Move one native function at a time and keep the surrounding R interface stable.
+Tests should cover empty and large inputs, missing values, wrong R types,
+length mismatches, and continued session use after each error. C libraries can
+coexist with Zig during a gradual conversion. C++ classes and templates usually
+need to be redesigned as Zig structs and explicit data flow rather than
+translated line by line.

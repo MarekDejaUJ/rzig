@@ -14,3 +14,7 @@ BugReports: https://github.com/MarekDejaUJ/rzig/issues
 Encoding: UTF-8
 SystemRequirements: Zig (>= 0.16.0), see https://ziglang.org/download/
 NeedsCompilation: no
+Suggests:
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
