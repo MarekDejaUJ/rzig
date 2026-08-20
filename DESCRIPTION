@@ -1,7 +1,7 @@
 Package: rzig
 Type: Package
 Title: Safe Zig Bindings for R Packages
-Version: 0.0.1
+Version: 0.1.0
 Authors@R: person("Marek", "Deja", email = "marekdejauj@gmail.com",
     role = c("aut", "cre"))
 Description: Scaffolds Zig-backed R packages and generates a safe native

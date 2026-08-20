@@ -3,7 +3,7 @@
 RZig lets R package authors write plain Zig functions and generate safe `.Call`
 bindings without C++ or hand-written `SEXP` conversion code.
 
-RZig is experimental. Its API may change before version 0.1.0.
+RZig is an early 0.x release. Its API may change before version 1.0.0.
 
 ## Requirements
 
