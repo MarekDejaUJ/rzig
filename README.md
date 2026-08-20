@@ -138,8 +138,8 @@ The first `*rzig.Ctx` parameter is supplied by RZig and is omitted from the R
 function. Other parameters are converted according to their Zig types. Current
 scalar inputs include `f64`, `i32`, `bool`, `usize`, and optional forms. Current
 borrowed inputs include numeric, integer, logical, string, and string-vector
-slices. Unsupported signatures fail at compile time with the function and
-parameter position in the error.
+slices, plus `rzig.Matrix` for double matrices. Unsupported signatures fail at
+compile time with the function and parameter position in the error.
 
 ## Returning named lists
 
@@ -178,6 +178,30 @@ pub fn scale(values: rzig.Mut([]f64), factor: f64) void {
 The caller's vector and any aliases remain unchanged. A function using `Mut`
 accepts one mutable vector and returns `void` or `rzig.Error!void`; its generated
 R wrapper returns the mutated duplicate automatically.
+
+## Attributes and matrices
+
+`rzig.Matrix` borrows an R double matrix in column-major order and provides its
+validated shape through `nrow` and `ncol`. Integer matrices are rejected rather
+than silently copied; convert them in R with `storage.mode(x) <- "double"`.
+
+Use `rzig.Attributed([]const f64)` to return a numeric vector with metadata:
+
+```zig
+pub fn labeled(
+    ctx: *rzig.Ctx,
+    values: []const f64,
+    labels: []const []const u8,
+) rzig.Error!rzig.Attributed([]const f64) {
+    var result = rzig.Attributed([]const f64).init(ctx, values);
+    try result.setNames(labels);
+    try result.setClass("labeled_values");
+    return result;
+}
+```
+
+`setNames`, `setDim`, `setClass`, and `setClasses` copy their metadata into the
+call context. Lengths and dimension products are checked before R allocation.
 
 ## Safety model
 

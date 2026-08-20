@@ -7,10 +7,12 @@ mode=${1:---write}
 failed=0
 
 framework_files='alloc.zig
+attributes.zig
 boundary.zig
 convert.zig
 error_state.zig
 list.zig
+matrix.zig
 na.zig
 panic.zig
 protect.zig

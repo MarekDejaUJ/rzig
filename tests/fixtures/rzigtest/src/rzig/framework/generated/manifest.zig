@@ -99,6 +99,24 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{ "values", "factor" },
             },
             .{
+                .name = "decorate_values",
+                .func = bound_root.decorate_values,
+                .doc = "Attach names and a class to a numeric vector.",
+                .parameters = .{ "values", "labels" },
+            },
+            .{
+                .name = "reshape_values",
+                .func = bound_root.reshape_values,
+                .doc = "Give a numeric vector two-dimensional matrix dimensions.",
+                .parameters = .{ "values", "nrow" },
+            },
+            .{
+                .name = "matrix_trace",
+                .func = bound_root.matrix_trace,
+                .doc = "Sum the diagonal of a borrowed numeric matrix.",
+                .parameters = .{"values"},
+            },
+            .{
                 .name = "panic_bounds",
                 .func = bound_root.panic_bounds,
                 .doc = "Trigger an intentional ReleaseSafe bounds failure.",

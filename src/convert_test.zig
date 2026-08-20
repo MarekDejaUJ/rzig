@@ -1,10 +1,12 @@
 //! Conversion tests with a minimal in-process stand-in for R.
 
 const std = @import("std");
+const attributes = @import("attributes.zig");
 const c = @import("c/abi.zig");
 const convert = @import("convert.zig");
 const es = @import("error_state.zig");
 const list = @import("list.zig");
+const matrix = @import("matrix.zig");
 const na = @import("na.zig");
 const protect = @import("protect.zig");
 const sexp = @import("sexp.zig");
@@ -18,6 +20,8 @@ const FakeSexp = extern struct {
     strings: [2]?*FakeSexp = .{ null, null },
     vectors: [2]?*FakeSexp = .{ null, null },
     names: ?*FakeSexp = null,
+    dim: ?*FakeSexp = null,
+    class: ?*FakeSexp = null,
     text: ?[*:0]const u8 = null,
 };
 
@@ -25,9 +29,13 @@ const mock_na_real: f64 = @bitCast(@as(u64, 0x7ff8_0000_0000_07a2));
 var mock_nil = FakeSexp{ .kind = c.NILSXP, .length = 0 };
 var mock_na_string = FakeSexp{ .kind = c.CHARSXP, .length = 0 };
 var mock_names_symbol = FakeSexp{ .kind = c.SYMSXP, .length = 0 };
+var mock_dim_symbol = FakeSexp{ .kind = c.SYMSXP, .length = 0 };
+var mock_class_symbol = FakeSexp{ .kind = c.SYMSXP, .length = 0 };
 export var R_NilValue: c.SEXP = @ptrCast(&mock_nil);
 export var R_NaString: c.SEXP = @ptrCast(&mock_na_string);
 export var R_NamesSymbol: c.SEXP = @ptrCast(&mock_names_symbol);
+export var R_DimSymbol: c.SEXP = @ptrCast(&mock_dim_symbol);
+export var R_ClassSymbol: c.SEXP = @ptrCast(&mock_class_symbol);
 var vmax_get_count: usize = 0;
 var vmax_set_count: usize = 0;
 var mock_objects: [32]FakeSexp = undefined;
@@ -135,6 +143,8 @@ export fn Rf_duplicate(value: c.SEXP) c.SEXP {
     result.strings = source.strings;
     result.vectors = source.vectors;
     result.names = source.names;
+    result.dim = source.dim;
+    result.class = source.class;
     result.text = source.text;
     return raw(result);
 }
@@ -187,9 +197,29 @@ export fn SET_VECTOR_ELT(value: c.SEXP, index: c.R_xlen_t, element: c.SEXP) c.SE
 }
 
 export fn Rf_setAttrib(value: c.SEXP, symbol: c.SEXP, attribute: c.SEXP) c.SEXP {
-    std.debug.assert(symbol == R_NamesSymbol);
-    mutableFake(value).names = mutableFake(attribute);
+    if (symbol == R_NamesSymbol) {
+        mutableFake(value).names = mutableFake(attribute);
+    } else if (symbol == R_DimSymbol) {
+        mutableFake(value).dim = mutableFake(attribute);
+    } else if (symbol == R_ClassSymbol) {
+        mutableFake(value).class = mutableFake(attribute);
+    } else {
+        std.debug.assert(false);
+    }
     return value;
+}
+
+export fn Rf_getAttrib(value: c.SEXP, symbol: c.SEXP) c.SEXP {
+    const fake = mutableFake(value);
+    if (symbol == R_NamesSymbol) return if (fake.names) |attribute| raw(attribute) else R_NilValue;
+    if (symbol == R_DimSymbol) return if (fake.dim) |attribute| raw(attribute) else R_NilValue;
+    if (symbol == R_ClassSymbol) return if (fake.class) |attribute| raw(attribute) else R_NilValue;
+    std.debug.assert(false);
+    return R_NilValue;
+}
+
+export fn Rf_isMatrix(value: c.SEXP) c.Rboolean {
+    return if (mutableFake(value).dim != null) c.TRUE else c.FALSE;
 }
 
 export fn R_IsNA(value: f64) c_int {
@@ -660,6 +690,96 @@ test "Mut rejects non-numeric vectors before duplicating" {
     );
     try std.testing.expectEqualStrings(
         "rzig: `values` must be a numeric vector for rzig.Mut([]f64); got integer; use as.numeric() in R",
+        es.take(),
+    );
+    try std.testing.expectEqual(@as(usize, 0), mock_object_count);
+    try std.testing.expectEqual(@as(usize, 0), mock_protect_count);
+}
+
+test "Matrix borrows numeric data and validates its dimensions" {
+    var dimensions = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 2, 1 } };
+    var source = FakeSexp{
+        .kind = c.REALSXP,
+        .length = 2,
+        .reals = .{ 1.5, 2.5 },
+        .dim = &dimensions,
+    };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+
+    const converted = try convert.fromSexp(matrix.Matrix, &ctx, raw(&source), "values");
+    try std.testing.expectEqual(@as(usize, 2), converted.nrow);
+    try std.testing.expectEqual(@as(usize, 1), converted.ncol);
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 2.5 }, converted.data);
+    try std.testing.expectEqual(@intFromPtr(&source.reals[0]), @intFromPtr(converted.data.ptr));
+}
+
+test "Matrix rejects vectors and inconsistent dimensions" {
+    es.reset();
+    var vector = FakeSexp{ .kind = c.REALSXP, .length = 2, .reals = .{ 1, 2 } };
+    var bad_dimensions = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 2, 2 } };
+    var malformed = FakeSexp{
+        .kind = c.REALSXP,
+        .length = 2,
+        .reals = .{ 1, 2 },
+        .dim = &bad_dimensions,
+    };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+
+    try std.testing.expectError(
+        es.Error.RZigError,
+        convert.fromSexp(matrix.Matrix, &ctx, raw(&vector), "values"),
+    );
+    try std.testing.expectEqualStrings("rzig: `values` must be a numeric matrix; got a double vector without dimensions", es.take());
+    try std.testing.expectError(
+        es.Error.RZigError,
+        convert.fromSexp(matrix.Matrix, &ctx, raw(&malformed), "values"),
+    );
+    try std.testing.expectEqualStrings("rzig: `values` has dimensions 2 x 2 but contains 2 values", es.take());
+}
+
+test "Attributed numeric vectors materialize names, dimensions, and class safely" {
+    resetOutputMock();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    const values: []const f64 = &.{ 1.5, 2.5 };
+    const labels: []const []const u8 = &.{ "left", "right" };
+    const dimensions: []const i32 = &.{ 1, 2 };
+    var result = attributes.Attributed([]const f64).init(&ctx, values);
+    try result.setNames(labels);
+    try result.setDim(dimensions);
+    try result.setClass("rzig_values");
+
+    try std.testing.expectEqual(@as(usize, 0), mock_object_count);
+    var stack = protect.Stack.init();
+    const converted = try convert.toSexp(&stack, &ctx, result);
+    const fake = mutableFake(converted);
+    try std.testing.expectEqualStrings("left", std.mem.span(fake.names.?.strings[0].?.text.?));
+    try std.testing.expectEqualStrings("right", std.mem.span(fake.names.?.strings[1].?.text.?));
+    try std.testing.expectEqualSlices(c_int, &.{ 1, 2 }, &fake.dim.?.integers);
+    try std.testing.expectEqualStrings("rzig_values", std.mem.span(fake.class.?.strings[0].?.text.?));
+    try std.testing.expectEqual(@as(usize, 1), mock_protect_count);
+
+    stack.unwindAll();
+    stack.deinit();
+}
+
+test "Attributed validates metadata before allocating an R result" {
+    resetOutputMock();
+    es.reset();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    const values: []const f64 = &.{ 1.5, 2.5 };
+    const labels: []const []const u8 = &.{"only_one"};
+    var result = attributes.Attributed([]const f64).init(&ctx, values);
+    try result.setNames(labels);
+
+    var stack = protect.Stack.init();
+    defer stack.deinit();
+    try std.testing.expectError(es.Error.RZigError, convert.toSexp(&stack, &ctx, result));
+    try std.testing.expectEqualStrings(
+        "rzig: `names` has length 1, but the returned vector has length 2",
         es.take(),
     );
     try std.testing.expectEqual(@as(usize, 0), mock_object_count);

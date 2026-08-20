@@ -29,6 +29,9 @@ identity_sexp <- function(x) call_native("identity_sexp", x)
 add_vectors <- function(a, b) call_native("add_vectors", a, b)
 named_summary <- function(x) call_native("named_summary", x)
 scale_in_place <- function(x, factor) call_native("scale_in_place", x, factor)
+decorate_values <- function(x, labels) call_native("decorate_values", x, labels)
+reshape_values <- function(x, nrow) call_native("reshape_values", x, nrow)
+matrix_trace <- function(x) call_native("matrix_trace", x)
 
 expect_error_live <- function(call, patterns = character()) {
   condition <- tryCatch(call(), error = identity)
@@ -131,6 +134,17 @@ test_that("mutable inputs are duplicated before Zig writes", {
     function() scale_in_place(1:3, 3),
     c("rzig.Mut([]f64)", "use as.numeric() in R")
   )
+})
+
+test_that("attributes and matrix views preserve R metadata", {
+  decorated <- decorate_values(c(1.5, 2.5), c("left", "right"))
+  expect_identical(as.numeric(decorated), c(1.5, 2.5))
+  expect_identical(names(decorated), c("left", "right"))
+  expect_identical(class(decorated), "rzig_values")
+  expect_identical(reshape_values(as.numeric(1:6), 2L), matrix(as.numeric(1:6), 2L))
+  expect_identical(matrix_trace(matrix(c(1, 2, 3, 4), 2L)), 5)
+  expect_error_live(function() matrix_trace(c(1, 2)), c("without dimensions"))
+  expect_error_live(function() matrix_trace(matrix(1:4, 2L)), c("storage.mode"))
 })
 
 test_that("malformed inputs always become R errors and the session stays alive", {

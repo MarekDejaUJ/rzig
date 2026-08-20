@@ -26,6 +26,35 @@ scale_in_place <- function(x, factor) {
   .Call(C_scale_in_place, x, factor)
 }
 
+#' Attach names and a class to a numeric vector
+#'
+#' @param x A numeric vector.
+#' @param labels A character vector with one label per value.
+#' @return A named numeric vector with class `rzig_values`.
+#' @export
+decorate_values <- function(x, labels) {
+  .Call(C_decorate_values, x, labels)
+}
+
+#' Reshape a numeric vector
+#'
+#' @param x A numeric vector.
+#' @param nrow A non-negative number of rows.
+#' @return A numeric matrix.
+#' @export
+reshape_values <- function(x, nrow) {
+  .Call(C_reshape_values, x, nrow)
+}
+
+#' Compute the trace of a numeric matrix
+#'
+#' @param x A double matrix.
+#' @return The sum of the diagonal.
+#' @export
+matrix_trace <- function(x) {
+  .Call(C_matrix_trace, x)
+}
+
 #' Trigger a handled Zig bounds panic
 #'
 #' This fixture helper verifies that a ReleaseSafe panic becomes an R error.

@@ -4,9 +4,11 @@
 //! GC. Protect immediately after every allocation.
 
 const std = @import("std");
+const attributes = @import("attributes.zig");
 const c = @import("c/abi.zig");
 const es = @import("error_state.zig");
 const list = @import("list.zig");
+const matrix = @import("matrix.zig");
 const na = @import("na.zig");
 const protect = @import("protect.zig");
 const sexp = @import("sexp.zig");
@@ -73,12 +75,55 @@ pub fn fromSexp(
     if (comptime T == []const bool) return logicalSlice(ctx, x, name);
     if (comptime T == []const u8) return stringScalar(ctx, x, name);
     if (comptime T == []const []const u8) return stringSlice(ctx, x, name);
+    if (comptime T == matrix.Matrix) return matrixFromSexp(x, name);
     if (comptime T == sexp.Sexp) return sexp.fromRaw(x);
 
     return switch (@typeInfo(T)) {
         .optional => |info| optionalScalar(info.child, ctx, x, name),
         // TODO: slices and strings.
         else => @compileError(unsupportedMessage(T, name)),
+    };
+}
+
+fn matrixFromSexp(x: c.SEXP, comptime name: []const u8) es.Error!matrix.Matrix {
+    if (c.Rf_isMatrix(x) == c.FALSE) {
+        return es.raise(
+            "rzig: `{s}` must be a numeric matrix; got a {s} vector without dimensions",
+            .{ name, typeName(x) },
+        );
+    }
+    if (c.TYPEOF(x) != c.REALSXP) {
+        return es.raise(
+            "rzig: `{s}` must store double values; got a {s} matrix; use storage.mode(x) <- \"double\" in R",
+            .{ name, typeName(x) },
+        );
+    }
+
+    const dimensions = c.Rf_getAttrib(x, c.R_DimSymbol);
+    if (c.TYPEOF(dimensions) != c.INTSXP or c.Rf_xlength(dimensions) != 2) {
+        return es.raise("rzig: `{s}` has a malformed matrix dimension attribute", .{name});
+    }
+    const raw_rows = c.INTEGER_ELT(dimensions, 0);
+    const raw_columns = c.INTEGER_ELT(dimensions, 1);
+    if (raw_rows < 0 or raw_columns < 0) {
+        return es.raise("rzig: `{s}` has negative matrix dimensions", .{name});
+    }
+    const rows: usize = @intCast(raw_rows);
+    const columns: usize = @intCast(raw_columns);
+    const expected = std.math.mul(usize, rows, columns) catch
+        return es.raise("rzig: `{s}` matrix dimensions exceed Zig's size limit", .{name});
+    const length = try vectorLength(x, name);
+    if (expected != length) {
+        return es.raise(
+            "rzig: `{s}` has dimensions {d} x {d} but contains {d} values",
+            .{ name, rows, columns, length },
+        );
+    }
+
+    return .{
+        .data = c.REAL_RO(x)[0..length],
+        .nrow = rows,
+        .ncol = columns,
     };
 }
 
@@ -357,6 +402,7 @@ fn isSupportedInput(comptime T: type) bool {
         T == []const bool or
         T == []const u8 or
         T == []const []const u8 or
+        T == matrix.Matrix or
         T == sexp.Sexp)
     {
         return true;
@@ -373,6 +419,7 @@ fn isSupportedMutableInput(comptime T: type) bool {
 }
 
 fn isSupportedReturn(comptime T: type) bool {
+    if (isSupportedAttributedReturn(T)) return true;
     if (T == void or
         T == f64 or
         T == i32 or
@@ -391,8 +438,14 @@ fn isSupportedReturn(comptime T: type) bool {
     };
 }
 
+fn isSupportedAttributedReturn(comptime T: type) bool {
+    if (!attributes.isAttributed(T)) return false;
+    return T.rzig_attributed_inner == []const f64 or T.rzig_attributed_inner == []f64;
+}
+
 fn nearestInputAlternative(comptime T: type) []const u8 {
     if (isMutableInput(T)) return "rzig.Mut([]f64) for a duplicated writable numeric vector";
+    if (T == [][]const f64 or T == []const []const f64) return "rzig.Matrix for an R numeric matrix";
     if (T == f32 or T == f16 or T == f128) return "f64 for an R numeric scalar";
     if (T == []const f32 or T == []const f16 or T == []const f128 or
         T == []f32 or T == []f16 or T == []f128)
@@ -433,6 +486,7 @@ fn nearestInputAlternative(comptime T: type) []const u8 {
 }
 
 fn nearestReturnAlternative(comptime T: type) []const u8 {
+    if (attributes.isAttributed(T)) return "rzig.Attributed([]const f64) for an attributed numeric vector";
     if (T == usize) return "i32 for an R integer scalar";
     if (T == f32 or T == f16 or T == f128) return "f64 for an R numeric scalar";
     if (T == []const f32 or T == []const f16 or T == []const f128 or
@@ -465,6 +519,7 @@ pub fn toSexp(
     if (comptime T == bool) return logicalScalarToSexp(stack, value);
     if (comptime T == []const f64 or T == []f64) return realSliceToSexp(stack, value);
     if (comptime T == []const u8) return stringToSexp(stack, value);
+    if (comptime attributes.isAttributed(T)) return attributedToSexp(stack, ctx, value);
     if (comptime T == list.List) return listToSexp(stack, ctx, value);
     if (comptime T == sexp.Sexp) return stack.push(sexp.toRaw(value));
 
@@ -475,6 +530,103 @@ pub fn toSexp(
             c.R_NilValue,
         else => @compileError(unsupportedReturnMessage(T)),
     };
+}
+
+fn attributedToSexp(stack: *protect.Stack, ctx: *Ctx, value: anytype) es.Error!c.SEXP {
+    const metadata = value.metadata();
+    const value_length = value.value.len;
+    try validateAttributes(metadata, value_length);
+
+    const result = try realSliceToSexp(stack, value.value);
+    if (metadata.dim) |dimensions| try attachDim(stack, result, dimensions);
+    if (metadata.names) |names| try attachStringAttribute(stack, result, c.R_NamesSymbol, names);
+    if (metadata.class) |classes| try attachStringAttribute(stack, result, c.R_ClassSymbol, classes);
+    _ = ctx;
+    return result;
+}
+
+fn validateAttributes(metadata: attributes.Metadata, value_length: usize) es.Error!void {
+    if (metadata.names) |names| {
+        _ = try returnLength(names.len);
+        if (names.len != value_length) {
+            return es.raise(
+                "rzig: `names` has length {d}, but the returned vector has length {d}",
+                .{ names.len, value_length },
+            );
+        }
+        try validateAttributeStrings(names, "names");
+    }
+    if (metadata.dim) |dimensions| {
+        _ = try returnLength(dimensions.len);
+        if (dimensions.len == 0) return es.raise("rzig: `dim` must contain at least one dimension", .{});
+        var product: usize = 1;
+        for (dimensions, 0..) |dimension, index| {
+            if (dimension < 0) {
+                return es.raise(
+                    "rzig: `dim` value at position {d} must be non-negative; got {d}",
+                    .{ index + 1, dimension },
+                );
+            }
+            product = std.math.mul(usize, product, @intCast(dimension)) catch
+                return es.raise("rzig: `dim` product exceeds Zig's size limit", .{});
+        }
+        if (product != value_length) {
+            return es.raise(
+                "rzig: `dim` describes {d} values, but the returned vector has length {d}",
+                .{ product, value_length },
+            );
+        }
+    }
+    if (metadata.class) |classes| {
+        if (classes.len == 0) return es.raise("rzig: `class` must contain at least one string", .{});
+        _ = try returnLength(classes.len);
+        try validateAttributeStrings(classes, "class");
+    }
+}
+
+fn validateAttributeStrings(values: []const []const u8, comptime attribute_name: []const u8) es.Error!void {
+    for (values, 0..) |value, index| {
+        if (!std.unicode.utf8ValidateSlice(value)) {
+            return es.raise(
+                "rzig: `{s}` string at position {d} is not valid UTF-8",
+                .{ attribute_name, index + 1 },
+            );
+        }
+        if (std.mem.indexOfScalar(u8, value, 0) != null) {
+            return es.raise(
+                "rzig: `{s}` string at position {d} contains an embedded NUL byte",
+                .{ attribute_name, index + 1 },
+            );
+        }
+        if (value.len > std.math.maxInt(c_int)) {
+            return es.raise(
+                "rzig: `{s}` string at position {d} exceeds R's string limit",
+                .{ attribute_name, index + 1 },
+            );
+        }
+    }
+}
+
+fn attachDim(stack: *protect.Stack, result: c.SEXP, dimensions: []const i32) es.Error!void {
+    const attribute = stack.push(c.Rf_allocVector(c.INTSXP, try returnLength(dimensions.len)));
+    if (dimensions.len > 0) @memcpy(c.INTEGER(attribute)[0..dimensions.len], dimensions);
+    _ = c.Rf_setAttrib(result, c.R_DimSymbol, attribute);
+    stack.pop(1);
+}
+
+fn attachStringAttribute(
+    stack: *protect.Stack,
+    result: c.SEXP,
+    symbol: c.SEXP,
+    values: []const []const u8,
+) es.Error!void {
+    const attribute = stack.push(c.Rf_allocVector(c.STRSXP, try returnLength(values.len)));
+    for (values, 0..) |value, index| {
+        const element = c.Rf_mkCharLenCE(value.ptr, @intCast(value.len), c.CE_UTF8);
+        c.SET_STRING_ELT(attribute, @intCast(index), element);
+    }
+    _ = c.Rf_setAttrib(result, symbol, attribute);
+    stack.pop(1);
 }
 
 fn realScalarToSexp(stack: *protect.Stack, value: f64) c.SEXP {
@@ -608,7 +760,7 @@ fn returnLength(length: usize) es.Error!c.R_xlen_t {
 fn unsupportedMessage(comptime T: type, comptime name: []const u8) []const u8 {
     return "rzig: parameter `" ++ name ++ "` has unsupported type '" ++ @typeName(T) ++ "'.\n" ++
         "  supported: f64, i32, bool, usize, ?T,\n" ++
-        "             []const f64, []const i32, []const bool, []const u8, []const []const u8,\n" ++
+        "             []const f64, []const i32, []const bool, []const u8, []const []const u8, rzig.Matrix,\n" ++
         "             rzig.Sexp (escape hatch)\n" ++
         "  nearest supported alternative: " ++ nearestInputAlternative(T) ++ "\n" ++
         "  for a mutable vector use rzig.Mut([]f64)\n" ++
@@ -617,7 +769,8 @@ fn unsupportedMessage(comptime T: type, comptime name: []const u8) []const u8 {
 
 fn unsupportedReturnMessage(comptime T: type) []const u8 {
     return "rzig: unsupported return type '" ++ @typeName(T) ++ "'.\n" ++
-        "  supported: void, f64, i32, bool, []const f64, []f64, []const u8, ?T, rzig.List, rzig.Sexp\n" ++
+        "  supported: void, f64, i32, bool, []const f64, []f64, []const u8, ?T, rzig.List,\n" ++
+        "             rzig.Attributed([]const f64), rzig.Sexp\n" ++
         "  nearest supported alternative: " ++ nearestReturnAlternative(T);
 }
 
