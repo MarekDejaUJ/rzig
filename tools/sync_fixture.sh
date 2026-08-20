@@ -10,6 +10,7 @@ framework_files='alloc.zig
 boundary.zig
 convert.zig
 error_state.zig
+list.zig
 na.zig
 panic.zig
 protect.zig

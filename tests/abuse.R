@@ -27,6 +27,7 @@ echo_string <- function(x) call_native("echo_string", x)
 string_count <- function(x) call_native("string_count", x)
 identity_sexp <- function(x) call_native("identity_sexp", x)
 add_vectors <- function(a, b) call_native("add_vectors", a, b)
+named_summary <- function(x) call_native("named_summary", x)
 
 expect_error_live <- function(call, patterns = character()) {
   condition <- tryCatch(call(), error = identity)
@@ -108,6 +109,14 @@ test_that("real-vector results and user errors cross the complete boundary", {
     function() add_vectors(c(1, 2), c(1, 2, 3)),
     c("lengths differ", "2", "3")
   )
+})
+
+test_that("named list results survive allocation and GC stress", {
+  expect_identical(
+    named_summary(c(1.5, 2.5)),
+    list(values = c(1.5, 2.5), count = 2L)
+  )
+  expect_identical(named_summary(numeric()), list(values = numeric(), count = 0L))
 })
 
 test_that("malformed inputs always become R errors and the session stays alive", {

@@ -4,6 +4,7 @@ const std = @import("std");
 const c = @import("c/abi.zig");
 const convert = @import("convert.zig");
 const es = @import("error_state.zig");
+const list = @import("list.zig");
 const na = @import("na.zig");
 const protect = @import("protect.zig");
 const sexp = @import("sexp.zig");
@@ -15,14 +16,18 @@ const FakeSexp = extern struct {
     reals: [2]f64 = .{ 0, 0 },
     integers: [2]c_int = .{ 0, 0 },
     strings: [2]?*FakeSexp = .{ null, null },
+    vectors: [2]?*FakeSexp = .{ null, null },
+    names: ?*FakeSexp = null,
     text: ?[*:0]const u8 = null,
 };
 
 const mock_na_real: f64 = @bitCast(@as(u64, 0x7ff8_0000_0000_07a2));
 var mock_nil = FakeSexp{ .kind = c.NILSXP, .length = 0 };
 var mock_na_string = FakeSexp{ .kind = c.CHARSXP, .length = 0 };
+var mock_names_symbol = FakeSexp{ .kind = c.SYMSXP, .length = 0 };
 export var R_NilValue: c.SEXP = @ptrCast(&mock_nil);
 export var R_NaString: c.SEXP = @ptrCast(&mock_na_string);
+export var R_NamesSymbol: c.SEXP = @ptrCast(&mock_names_symbol);
 var vmax_get_count: usize = 0;
 var vmax_set_count: usize = 0;
 var mock_objects: [32]FakeSexp = undefined;
@@ -162,6 +167,17 @@ export fn Rf_mkCharLenCE(bytes: [*]const u8, length: c_int, encoding: c_uint) c.
 
 export fn SET_STRING_ELT(value: c.SEXP, index: c.R_xlen_t, element: c.SEXP) void {
     mutableFake(value).strings[@intCast(index)] = mutableFake(element);
+}
+
+export fn SET_VECTOR_ELT(value: c.SEXP, index: c.R_xlen_t, element: c.SEXP) c.SEXP {
+    mutableFake(value).vectors[@intCast(index)] = mutableFake(element);
+    return element;
+}
+
+export fn Rf_setAttrib(value: c.SEXP, symbol: c.SEXP, attribute: c.SEXP) c.SEXP {
+    std.debug.assert(symbol == R_NamesSymbol);
+    mutableFake(value).names = mutableFake(attribute);
+    return value;
 }
 
 export fn R_IsNA(value: f64) c_int {
@@ -544,4 +560,47 @@ test "toSexp recursively marshals present optionals" {
 
     stack.unwindAll();
     stack.deinit();
+}
+
+test "List defers R allocation and materializes a named VECSXP in one pass" {
+    resetOutputMock();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    var result = list.List.init(&ctx);
+    const estimate: []const f64 = &.{ 1.5, 2.5 };
+
+    try result.put("estimate", estimate);
+    try result.put("iterations", @as(i32, 7));
+    try std.testing.expectEqual(@as(usize, 0), mock_object_count);
+
+    var stack = protect.Stack.init();
+    const converted = try convert.toSexp(&stack, &ctx, result);
+    const converted_fake = mutableFake(converted);
+    try std.testing.expectEqual(@as(c_int, c.VECSXP), TYPEOF(converted));
+    try std.testing.expectEqual(@as(c.R_xlen_t, 2), Rf_xlength(converted));
+    try std.testing.expectEqualStrings("estimate", std.mem.span(converted_fake.names.?.strings[0].?.text.?));
+    try std.testing.expectEqualStrings("iterations", std.mem.span(converted_fake.names.?.strings[1].?.text.?));
+    try std.testing.expectEqualSlices(f64, estimate, converted_fake.vectors[0].?.reals[0..2]);
+    try std.testing.expectEqual(@as(c_int, 7), converted_fake.vectors[1].?.integers[0]);
+    try std.testing.expectEqual(@as(usize, 1), mock_protect_count);
+
+    stack.unwindAll();
+    stack.deinit();
+}
+
+test "List validates every string before allocating an R object" {
+    resetOutputMock();
+    es.reset();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    var result = list.List.init(&ctx);
+    const invalid: []const u8 = &.{ 0xff, 0xfe };
+    try result.put("label", invalid);
+
+    var stack = protect.Stack.init();
+    defer stack.deinit();
+    try std.testing.expectError(es.Error.RZigError, convert.toSexp(&stack, &ctx, result));
+    try std.testing.expectEqualStrings("rzig: list string at position 1 is not valid UTF-8", es.take());
+    try std.testing.expectEqual(@as(usize, 0), mock_object_count);
+    try std.testing.expectEqual(@as(usize, 0), mock_protect_count);
 }

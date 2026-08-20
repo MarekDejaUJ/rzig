@@ -98,6 +98,16 @@ pub fn add_vectors(ctx: *rzig.Ctx, a: []const f64, b: []const f64) rzig.Error![]
     return result;
 }
 
+/// Return a named list containing a vector and its length.
+/// @export
+pub fn named_summary(ctx: *rzig.Ctx, values: []const f64) rzig.Error!rzig.List {
+    if (values.len > std.math.maxInt(i32)) return rzig.raise("numeric vector is too long", .{});
+    var result = rzig.List.init(ctx);
+    try result.put("values", values);
+    try result.put("count", @as(i32, @intCast(values.len)));
+    return result;
+}
+
 /// Trigger an intentional ReleaseSafe bounds failure.
 /// @export
 pub fn panic_bounds(values: []const f64) void {

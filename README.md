@@ -141,6 +141,27 @@ borrowed inputs include numeric, integer, logical, string, and string-vector
 slices. Unsupported signatures fail at compile time with the function and
 parameter position in the error.
 
+## Returning named lists
+
+`rzig.List` collects supported return values in Zig-owned memory and converts
+them to one named R list only after the function returns:
+
+```zig
+/// Return values together with their length.
+/// @export
+pub fn summarize(ctx: *rzig.Ctx, values: []const f64) rzig.Error!rzig.List {
+    if (values.len > std.math.maxInt(i32)) return rzig.raise("too many values", .{});
+    var result = rzig.List.init(ctx);
+    try result.put("values", values);
+    try result.put("count", @as(i32, @intCast(values.len)));
+    return result;
+}
+```
+
+List entries may contain `f64`, `i32`, `bool`, numeric slices, UTF-8 strings,
+optional values, or `rzig.Sexp`. Names are copied into the call context, and no
+R object is allocated until boundary conversion begins.
+
 ## Safety model
 
 RZig keeps R's non-local error mechanism at the outer native boundary. Internal

@@ -7,6 +7,15 @@ add_one <- function(x) {
   .Call(C_add_one, x)
 }
 
+#' Summarize a numeric vector as a named list
+#'
+#' @param x A numeric vector.
+#' @return A list with `values` and `count` elements.
+#' @export
+named_summary <- function(x) {
+  .Call(C_named_summary, x)
+}
+
 #' Trigger a handled Zig bounds panic
 #'
 #' This fixture helper verifies that a ReleaseSafe panic becomes an R error.

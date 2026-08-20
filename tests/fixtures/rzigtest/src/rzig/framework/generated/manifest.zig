@@ -87,6 +87,12 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{ "a", "b" },
             },
             .{
+                .name = "named_summary",
+                .func = bound_root.named_summary,
+                .doc = "Return a named list containing a vector and its length.",
+                .parameters = .{"values"},
+            },
+            .{
                 .name = "panic_bounds",
                 .func = bound_root.panic_bounds,
                 .doc = "Trigger an intentional ReleaseSafe bounds failure.",

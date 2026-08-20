@@ -6,6 +6,7 @@
 const std = @import("std");
 const c = @import("c/abi.zig");
 const es = @import("error_state.zig");
+const list = @import("list.zig");
 const na = @import("na.zig");
 const protect = @import("protect.zig");
 const sexp = @import("sexp.zig");
@@ -338,6 +339,7 @@ fn isSupportedReturn(comptime T: type) bool {
         T == []const f64 or
         T == []f64 or
         T == []const u8 or
+        T == list.List or
         T == sexp.Sexp)
     {
         return true;
@@ -421,6 +423,7 @@ pub fn toSexp(
     if (comptime T == bool) return logicalScalarToSexp(stack, value);
     if (comptime T == []const f64 or T == []f64) return realSliceToSexp(stack, value);
     if (comptime T == []const u8) return stringToSexp(stack, value);
+    if (comptime T == list.List) return listToSexp(stack, ctx, value);
     if (comptime T == sexp.Sexp) return stack.push(sexp.toRaw(value));
 
     return switch (@typeInfo(T)) {
@@ -458,17 +461,96 @@ fn realSliceToSexp(stack: *protect.Stack, value: []const f64) es.Error!c.SEXP {
 }
 
 fn stringToSexp(stack: *protect.Stack, value: []const u8) es.Error!c.SEXP {
-    if (!std.unicode.utf8ValidateSlice(value)) {
-        return es.raise("rzig: returned string is not valid UTF-8", .{});
-    }
-    if (value.len > std.math.maxInt(c_int)) {
-        return es.raise("rzig: returned string has {d} bytes, exceeding R's limit", .{value.len});
-    }
+    try validateReturnedString(value);
 
     const result = stack.push(c.Rf_allocVector(c.STRSXP, 1));
     const element = c.Rf_mkCharLenCE(value.ptr, @intCast(value.len), c.CE_UTF8);
     c.SET_STRING_ELT(result, 0, element);
     return result;
+}
+
+fn listToSexp(stack: *protect.Stack, ctx: *Ctx, value: list.List) es.Error!c.SEXP {
+    const entries = value.items();
+    const length = try returnLength(entries.len);
+
+    // Check every recoverable condition before the first R allocation. Once
+    // materialization begins, only R API failures can interrupt the pass, and
+    // the enclosing R_UnwindProtect callback owns Zig-side cleanup.
+    for (entries, 0..) |entry, index| {
+        try validateListName(entry.name, index + 1);
+        switch (entry.value) {
+            .reals => |reals| _ = try returnLength(reals.len),
+            .string => |string| try validateListString(string, index + 1),
+            else => {},
+        }
+    }
+
+    const result = stack.push(c.Rf_allocVector(c.VECSXP, length));
+    if (entries.len == 0) return result;
+    const names = stack.push(c.Rf_allocVector(c.STRSXP, length));
+
+    for (entries, 0..) |entry, index| {
+        const r_index: c.R_xlen_t = @intCast(index);
+        const name = c.Rf_mkCharLenCE(entry.name.ptr, @intCast(entry.name.len), c.CE_UTF8);
+        c.SET_STRING_ELT(names, r_index, name);
+
+        const checkpoint = stack.count;
+        const element = try listValueToSexp(stack, ctx, entry.value);
+        _ = c.SET_VECTOR_ELT(result, r_index, element);
+        stack.pop(stack.count - checkpoint);
+    }
+
+    _ = c.Rf_setAttrib(result, c.R_NamesSymbol, names);
+    stack.pop(1);
+    return result;
+}
+
+fn listValueToSexp(stack: *protect.Stack, ctx: *Ctx, value: list.Value) es.Error!c.SEXP {
+    return switch (value) {
+        .nil => c.R_NilValue,
+        .real => |real| realScalarToSexp(stack, real),
+        .integer => |integer| integerScalarToSexp(stack, integer),
+        .logical => |logical| logicalScalarToSexp(stack, logical),
+        .reals => |reals| realSliceToSexp(stack, reals),
+        .string => |string| stringToSexp(stack, string),
+        .sexp => |value_sexp| toSexp(stack, ctx, value_sexp),
+    };
+}
+
+fn validateReturnedString(value: []const u8) es.Error!void {
+    if (!std.unicode.utf8ValidateSlice(value)) {
+        return es.raise("rzig: returned string is not valid UTF-8", .{});
+    }
+    if (std.mem.indexOfScalar(u8, value, 0) != null) {
+        return es.raise("rzig: returned string contains an embedded NUL byte", .{});
+    }
+    if (value.len > std.math.maxInt(c_int)) {
+        return es.raise("rzig: returned string has {d} bytes, exceeding R's limit", .{value.len});
+    }
+}
+
+fn validateListName(value: []const u8, position: usize) es.Error!void {
+    if (!std.unicode.utf8ValidateSlice(value)) {
+        return es.raise("rzig: list name at position {d} is not valid UTF-8", .{position});
+    }
+    if (std.mem.indexOfScalar(u8, value, 0) != null) {
+        return es.raise("rzig: list name at position {d} contains an embedded NUL byte", .{position});
+    }
+    if (value.len > std.math.maxInt(c_int)) {
+        return es.raise("rzig: list name at position {d} exceeds R's string limit", .{position});
+    }
+}
+
+fn validateListString(value: []const u8, position: usize) es.Error!void {
+    if (!std.unicode.utf8ValidateSlice(value)) {
+        return es.raise("rzig: list string at position {d} is not valid UTF-8", .{position});
+    }
+    if (std.mem.indexOfScalar(u8, value, 0) != null) {
+        return es.raise("rzig: list string at position {d} contains an embedded NUL byte", .{position});
+    }
+    if (value.len > std.math.maxInt(c_int)) {
+        return es.raise("rzig: list string at position {d} exceeds R's string limit", .{position});
+    }
 }
 
 fn returnLength(length: usize) es.Error!c.R_xlen_t {
@@ -493,7 +575,7 @@ fn unsupportedMessage(comptime T: type, comptime name: []const u8) []const u8 {
 
 fn unsupportedReturnMessage(comptime T: type) []const u8 {
     return "rzig: unsupported return type '" ++ @typeName(T) ++ "'.\n" ++
-        "  supported: void, f64, i32, bool, []const f64, []f64, []const u8, ?T, rzig.Sexp\n" ++
+        "  supported: void, f64, i32, bool, []const f64, []f64, []const u8, ?T, rzig.List, rzig.Sexp\n" ++
         "  nearest supported alternative: " ++ nearestReturnAlternative(T);
 }
 

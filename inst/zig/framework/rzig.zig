@@ -14,6 +14,8 @@ pub const warn = @import("error_state.zig").warn;
 pub const NA = @import("na.zig");
 /// Opaque borrowed R value escape hatch.
 pub const Sexp = @import("sexp.zig").Sexp;
+/// Arena-backed builder materialized as a named R list at the boundary.
+pub const List = @import("list.zig").List;
 /// Generate native wrappers and register every manifest export.
 pub const registerModule = @import("register.zig").registerModule;
 /// Last-resort panic handler for a Zig-backed R shared library.
