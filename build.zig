@@ -128,6 +128,9 @@ pub fn build(b: *std.Build) void {
     const makevars_templates = b.addSystemCommand(&.{ "sh", "tools/check_makevars_templates.sh" });
     test_step.dependOn(&makevars_templates.step);
 
+    const rchk_parser = b.addSystemCommand(&.{ "sh", "tools/check_rchk_output.sh", "--self-test" });
+    test_step.dependOn(&rchk_parser.step);
+
     const configure_templates = b.addSystemCommand(&.{ "sh", "tools/check_configure_templates.sh" });
     test_step.dependOn(&configure_templates.step);
 

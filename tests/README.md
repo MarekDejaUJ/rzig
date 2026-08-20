@@ -25,3 +25,12 @@ does that. The value is in what happens when input is wrong.
 
 Six cases per supported type: happy small, happy 1e6, length 0, NA present,
 wrong type, ALTREP variant where one exists.
+
+## Native analysis
+
+Linux CI runs the fixture through valgrind on every change. The scheduled
+`rchk` workflow checks the package's C registration and ABI bridge. Current
+`rchk` uses LLVM 14 bitcode, which cannot consume the newer LLVM bitcode emitted
+by Zig 0.16, so Zig-side protection paths are instead exercised by the full
+gctorture and valgrind suites. This limitation should be revisited when the two
+tools share a compatible LLVM bitcode version.
