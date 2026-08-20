@@ -9,17 +9,17 @@
  *
  * R_init_@PKG@ must match the package name EXACTLY.
  */
-#define R_NO_REMAP
-#include <R.h>
-#include <Rinternals.h>
-#include <R_ext/Rdynload.h>
+#include <R_ext/Visibility.h>
+
+/* DllInfo is opaque. All actual R API declarations are imported by Zig. */
+typedef struct _DllInfo DllInfo;
 
 void rzig_init(DllInfo *dll);   /* defined in Zig, see src/register.zig */
 
-void R_init_@PKG@(DllInfo *dll) {
+void attribute_visible R_init_@PKG@(DllInfo *dll) {
     rzig_init(dll);
 }
 
-void R_unload_@PKG@(DllInfo *dll) {
+void attribute_visible R_unload_@PKG@(DllInfo *dll) {
     (void) dll;
 }

@@ -13,6 +13,10 @@ all: $(SHLIB)
 
 $(SHLIB): $(STATLIB)
 
+entry.o: entry.c
+	$(CC) $(ALL_CPPFLAGS) $(CPICFLAGS) -O2 -Wall -pedantic \
+	  -c entry.c -o entry.o
+
 $(STATLIB): $(ZIG_DIR)/build.zig $(ZIG_DIR)/build.zig.zon \
             $(ZIG_DIR)/src/main.zig
 	cd $(ZIG_DIR) && \
