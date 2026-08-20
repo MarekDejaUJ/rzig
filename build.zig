@@ -87,6 +87,16 @@ pub fn build(b: *std.Build) void {
     const run_parallel_tests = b.addRunArtifact(parallel_tests);
     test_step.dependOn(&run_parallel_tests.step);
 
+    const unwind_test_module = b.createModule(.{
+        .root_source_file = b.path("src/unwind_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const unwind_tests = b.addTest(.{ .root_module = unwind_test_module });
+    const run_unwind_tests = b.addRunArtifact(unwind_tests);
+    test_step.dependOn(&run_unwind_tests.step);
+
     const generator_test_module = b.createModule(.{
         .root_source_file = b.path("tools/gen_wrappers.zig"),
         .target = target,
@@ -174,5 +184,5 @@ pub fn build(b: *std.Build) void {
 
     // --- lint: the one-error-exit rule ---------------------------------------
     const lint = b.addSystemCommand(&.{ "sh", "tools/lint_error_exit.sh" });
-    b.step("lint", "Fail if Rf_error escapes boundary.zig").dependOn(&lint.step);
+    b.step("lint", "Enforce R error, interrupt, and unwind boundaries").dependOn(&lint.step);
 }

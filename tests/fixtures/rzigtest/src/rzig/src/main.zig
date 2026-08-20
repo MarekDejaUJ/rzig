@@ -8,6 +8,44 @@ pub const panic = if (builtin.is_test)
 else
     rzig.Panic;
 
+var unwind_cleanup_count_value: i32 = 0;
+
+const UnwindProbe = struct {
+    memory: []u8,
+    cleaned: bool = false,
+    jumped: bool = false,
+
+    fn returnNil(state: *UnwindProbe) rzig.internal.c.SEXP {
+        _ = state;
+        return rzig.internal.c.R_NilValue;
+    }
+
+    fn stopInR(state: *UnwindProbe) rzig.internal.c.SEXP {
+        _ = state;
+        const c = rzig.internal.c;
+        const stop_symbol = c.Rf_install("stop");
+        var stack = rzig.internal.protect.Stack.init();
+        const call = stack.push(c.Rf_lang1(stop_symbol));
+        const result = c.Rf_eval(call, c.R_BaseEnv);
+        stack.unwindAll();
+        stack.deinit();
+        return result;
+    }
+
+    fn cleanup(state: *UnwindProbe, jumped: bool) void {
+        std.heap.c_allocator.free(state.memory);
+        state.cleaned = true;
+        state.jumped = jumped;
+        unwind_cleanup_count_value +|= 1;
+    }
+};
+
+fn newUnwindProbe() rzig.Error!UnwindProbe {
+    const memory = std.heap.c_allocator.alloc(u8, 4096) catch
+        return rzig.raise("unable to allocate unwind test resource", .{});
+    return .{ .memory = memory };
+}
+
 /// Add one to every value in a numeric vector.
 /// @export
 pub fn add_one(ctx: *rzig.Ctx, values: []const f64) rzig.Error![]f64 {
@@ -190,6 +228,31 @@ pub fn parallel_square(ctx: *rzig.Ctx, values: []const f64) rzig.Error![]f64 {
     var work = Work{ .input = values, .output = result };
     try rzig.parallelFor(ctx, values.len, &work, Work.run);
     return result;
+}
+
+/// Return the number of resources released by unwind cleanup.
+/// @export
+pub fn unwind_cleanup_count() i32 {
+    return unwind_cleanup_count_value;
+}
+
+/// Exercise unwind cleanup after an ordinary R callback return.
+/// @export
+pub fn unwind_cleanup_normal() rzig.Error!i32 {
+    var state = try newUnwindProbe();
+    _ = rzig.internal.unwind.protect(&state, UnwindProbe.returnNil, UnwindProbe.cleanup);
+    if (!state.cleaned or state.jumped) {
+        return rzig.raise("unwind cleanup did not report an ordinary return", .{});
+    }
+    return unwind_cleanup_count_value;
+}
+
+/// Exercise unwind cleanup when evaluation in R raises an error.
+/// @export
+pub fn unwind_cleanup_error() rzig.Error!void {
+    var state = try newUnwindProbe();
+    _ = rzig.internal.unwind.protect(&state, UnwindProbe.stopInR, UnwindProbe.cleanup);
+    return rzig.raise("R evaluation unexpectedly returned", .{});
 }
 
 /// Trigger an intentional ReleaseSafe bounds failure.

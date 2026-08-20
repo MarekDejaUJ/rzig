@@ -99,6 +99,8 @@ pub const CE_ANY: c_uint = 99;
 
 /// R's global environment.
 pub extern var R_GlobalEnv: SEXP;
+/// R's base environment.
+pub extern var R_BaseEnv: SEXP;
 /// R's null singleton.
 pub extern var R_NilValue: SEXP;
 /// R's distinguished missing-string singleton.
@@ -181,6 +183,10 @@ pub extern fn Rf_getAttrib(x: SEXP, symbol: SEXP) SEXP;
 pub extern fn Rf_setAttrib(x: SEXP, symbol: SEXP, value: SEXP) SEXP;
 /// Install a NUL-terminated symbol name; may allocate and longjmp.
 pub extern fn Rf_install(name: [*:0]const u8) SEXP;
+/// Construct a zero-argument R call; may allocate and longjmp.
+pub extern fn Rf_lang1(function: SEXP) SEXP;
+/// Evaluate an expression in an environment; may allocate and longjmp.
+pub extern fn Rf_eval(expression: SEXP, environment: SEXP) SEXP;
 
 /// Protect an R object from garbage collection.
 pub extern fn Rf_protect(x: SEXP) SEXP;

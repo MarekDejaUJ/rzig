@@ -23,6 +23,7 @@ const protect = @import("protect.zig");
 const convert = @import("convert.zig");
 const es = @import("error_state.zig");
 const Ctx = @import("alloc.zig").Ctx;
+const unwind = @import("unwind.zig");
 
 /// Entry point used by every generated fixed-arity wrapper.
 ///
@@ -44,13 +45,7 @@ pub fn invoke(
 
     // R invokes cleanup on both ordinary return and non-local transfer. Passing
     // a C NULL continuation asks R to resume any longjmp after cleanup.
-    const result = c.R_UnwindProtect(
-        &State.run,
-        @ptrCast(&state),
-        &State.cleanup,
-        @ptrCast(&state),
-        null,
-    );
+    const result = unwind.protect(&state, State.run, State.cleanup);
     std.debug.assert(state.cleaned);
 
     if (state.failed) {
@@ -133,19 +128,17 @@ fn InvocationState(
         failed: bool = false,
         cleaned: bool = false,
 
-        fn run(data: ?*anyopaque) callconv(.c) c.SEXP {
-            const self: *Self = @ptrCast(@alignCast(data.?));
+        fn run(self: *Self) c.SEXP {
             return callAndMarshal(func, name, self.sexps, &self.ctx, &self.stack) catch {
                 self.failed = true;
                 return c.R_NilValue;
             };
         }
 
-        fn cleanup(data: ?*anyopaque, jump: c.Rboolean) callconv(.c) void {
-            const self: *Self = @ptrCast(@alignCast(data.?));
+        fn cleanup(self: *Self, jumped: bool) void {
             self.ctx.deinit();
             self.cleaned = true;
-            _ = jump;
+            _ = jumped;
         }
     };
 }

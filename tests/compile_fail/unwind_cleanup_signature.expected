@@ -1,0 +1,2 @@
+rzig.internal.unwind.protect: cleanup must have signature
+bool) void

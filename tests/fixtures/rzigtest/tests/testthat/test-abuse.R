@@ -34,6 +34,9 @@ reshape_values <- function(x, nrow) call_native("reshape_values", x, nrow)
 matrix_trace <- function(x) call_native("matrix_trace", x)
 interruptible_count <- function(iterations) call_native("interruptible_count", iterations)
 parallel_square <- function(x) call_native("parallel_square", x)
+unwind_cleanup_count <- function() call_native("unwind_cleanup_count")
+unwind_cleanup_normal <- function() call_native("unwind_cleanup_normal")
+unwind_cleanup_error <- function() call_native("unwind_cleanup_error")
 
 expect_error_live <- function(call, patterns = character()) {
   condition <- tryCatch(call(), error = identity)
@@ -158,6 +161,13 @@ test_that("parallel workers stay within pure Zig computation", {
   values <- as.numeric(seq_len(large_n))
   expect_identical(parallel_square(values), values * values)
   expect_identical(parallel_square(numeric()), numeric())
+})
+
+test_that("R errors release resources through unwind cleanup", {
+  before <- unwind_cleanup_count()
+  expect_identical(unwind_cleanup_normal(), before + 1L)
+  expect_error_live(function() unwind_cleanup_error())
+  expect_identical(unwind_cleanup_count(), before + 2L)
 })
 
 test_that("malformed inputs always become R errors and the session stays alive", {

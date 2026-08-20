@@ -21,6 +21,7 @@ protect.zig
 register.zig
 rzig.zig
 sexp.zig
+unwind.zig
 c/abi.zig
 generated/arity.zig'
 

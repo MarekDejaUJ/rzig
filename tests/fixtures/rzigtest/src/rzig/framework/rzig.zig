@@ -37,6 +37,7 @@ pub const internal = struct {
     pub const convert = @import("convert.zig");
     pub const parallel = @import("parallel.zig");
     pub const protect = @import("protect.zig");
+    pub const unwind = @import("unwind.zig");
     pub const c = @import("c/abi.zig");
 };
 

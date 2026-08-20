@@ -38,4 +38,18 @@ if [ -n "$BAD_INTERRUPTS" ]; then
   exit 1
 fi
 
-echo "lint: error-exit and interrupt-boundary rules OK"
+BAD_UNWIND=$(grep -rn --include='*.zig' --exclude='*_test.zig' \
+      -E '\bR_UnwindProtect\b' src \
+      | grep -v '^src/c/abi\.zig:' \
+      | grep -v '^src/unwind\.zig:' \
+      | awk -F':' '{ rest = $0; sub(/^[^:]*:[0-9]+:/, "", rest);
+                     gsub(/^[ \t]+/, "", rest);
+                     if (rest !~ /^\/\//) print }' || true)
+
+if [ -n "$BAD_UNWIND" ]; then
+  echo "lint: direct R_UnwindProtect call outside its typed adapter:"
+  echo "$BAD_UNWIND"
+  exit 1
+fi
+
+echo "lint: error-exit, interrupt, and unwind-boundary rules OK"

@@ -129,6 +129,24 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{"values"},
             },
             .{
+                .name = "unwind_cleanup_count",
+                .func = bound_root.unwind_cleanup_count,
+                .doc = "Return the number of resources released by unwind cleanup.",
+                .parameters = .{},
+            },
+            .{
+                .name = "unwind_cleanup_normal",
+                .func = bound_root.unwind_cleanup_normal,
+                .doc = "Exercise unwind cleanup after an ordinary R callback return.",
+                .parameters = .{},
+            },
+            .{
+                .name = "unwind_cleanup_error",
+                .func = bound_root.unwind_cleanup_error,
+                .doc = "Exercise unwind cleanup when evaluation in R raises an error.",
+                .parameters = .{},
+            },
+            .{
                 .name = "panic_bounds",
                 .func = bound_root.panic_bounds,
                 .doc = "Trigger an intentional ReleaseSafe bounds failure.",
