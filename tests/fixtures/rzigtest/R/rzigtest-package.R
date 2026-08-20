@@ -64,6 +64,15 @@ interruptible_count <- function(iterations) {
   .Call(C_interruptible_count, iterations)
 }
 
+#' Square a numeric vector on pure Zig worker threads
+#'
+#' @param x A numeric vector.
+#' @return The elementwise squares.
+#' @export
+parallel_square <- function(x) {
+  .Call(C_parallel_square, x)
+}
+
 #' Trigger a handled Zig bounds panic
 #'
 #' This fixture helper verifies that a ReleaseSafe panic becomes an R error.

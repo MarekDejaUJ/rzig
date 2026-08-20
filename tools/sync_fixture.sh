@@ -16,6 +16,7 @@ list.zig
 matrix.zig
 na.zig
 panic.zig
+parallel.zig
 protect.zig
 register.zig
 rzig.zig

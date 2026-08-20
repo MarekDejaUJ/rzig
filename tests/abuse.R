@@ -33,6 +33,7 @@ decorate_values <- function(x, labels) call_native("decorate_values", x, labels)
 reshape_values <- function(x, nrow) call_native("reshape_values", x, nrow)
 matrix_trace <- function(x) call_native("matrix_trace", x)
 interruptible_count <- function(iterations) call_native("interruptible_count", iterations)
+parallel_square <- function(x) call_native("parallel_square", x)
 
 expect_error_live <- function(call, patterns = character()) {
   condition <- tryCatch(call(), error = identity)
@@ -151,6 +152,12 @@ test_that("attributes and matrix views preserve R metadata", {
 test_that("interrupt polling uses a guarded R trampoline", {
   expect_identical(interruptible_count(0L), 0L)
   expect_identical(interruptible_count(250000L), 250000L)
+})
+
+test_that("parallel workers stay within pure Zig computation", {
+  values <- as.numeric(seq_len(large_n))
+  expect_identical(parallel_square(values), values * values)
+  expect_identical(parallel_square(numeric()), numeric())
 })
 
 test_that("malformed inputs always become R errors and the session stays alive", {

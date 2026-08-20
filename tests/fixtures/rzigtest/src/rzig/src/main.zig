@@ -174,6 +174,24 @@ pub fn interruptible_count(iterations: usize) rzig.Error!i32 {
     return @intCast(index);
 }
 
+/// Square a numeric vector using only pure Zig worker threads.
+/// @export
+pub fn parallel_square(ctx: *rzig.Ctx, values: []const f64) rzig.Error![]f64 {
+    const Work = struct {
+        input: []const f64,
+        output: []f64,
+
+        fn run(work: *@This(), index: usize) void {
+            work.output[index] = work.input[index] * work.input[index];
+        }
+    };
+
+    const result = try ctx.alloc(f64, values.len);
+    var work = Work{ .input = values, .output = result };
+    try rzig.parallelFor(ctx, values.len, &work, Work.run);
+    return result;
+}
+
 /// Trigger an intentional ReleaseSafe bounds failure.
 /// @export
 pub fn panic_bounds(values: []const f64) void {

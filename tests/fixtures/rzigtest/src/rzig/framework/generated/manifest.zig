@@ -123,6 +123,12 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{"iterations"},
             },
             .{
+                .name = "parallel_square",
+                .func = bound_root.parallel_square,
+                .doc = "Square a numeric vector using only pure Zig worker threads.",
+                .parameters = .{"values"},
+            },
+            .{
                 .name = "panic_bounds",
                 .func = bound_root.panic_bounds,
                 .doc = "Trigger an intentional ReleaseSafe bounds failure.",

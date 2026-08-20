@@ -209,6 +209,36 @@ Call `try rzig.checkInterrupt()` about every 100,000 iterations of a long loop.
 It probes through an R trampoline that catches the runtime's non-local interrupt
 exit, allowing Zig cleanup to finish before the boundary returns an R error.
 
+## Pure Zig parallel loops
+
+`rzig.parallelFor` distributes an indexed computation across Zig worker threads.
+Its state is checked at compile time: `Ctx`, `Sexp`, matrices, list builders,
+mutable inputs, attributed results, opaque pointers, and function pointers cannot
+cross into a worker.
+
+```zig
+const Work = struct {
+    input: []const f64,
+    output: []f64,
+
+    fn square(work: *@This(), index: usize) void {
+        work.output[index] = work.input[index] * work.input[index];
+    }
+};
+
+pub fn squares(ctx: *rzig.Ctx, input: []const f64) rzig.Error![]f64 {
+    const output = try ctx.alloc(f64, input.len);
+    var work = Work{ .input = input, .output = output };
+    try rzig.parallelFor(ctx, input.len, &work, Work.square);
+    return output;
+}
+```
+
+The callback has the exact signature `fn(*State, usize) void` and always runs
+off the R thread. It must be panic-free and must not import or call R or RZig
+APIs. If a worker can fail, record that in atomic plain-data state, wait for
+`parallelFor` to join every worker, and call `rzig.raise` on the calling thread.
+
 ## Safety model
 
 RZig keeps R's non-local error mechanism at the outer native boundary. Internal

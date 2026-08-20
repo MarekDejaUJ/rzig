@@ -14,6 +14,8 @@ pub const raise = @import("error_state.zig").raise;
 pub const warn = @import("error_state.zig").warn;
 /// Check for Ctrl-C without allowing R's longjmp to cross Zig frames.
 pub const checkInterrupt = @import("interrupt.zig").checkInterrupt;
+/// Run a pure Zig indexed loop on worker threads without exposing R capabilities.
+pub const parallelFor = @import("parallel.zig").parallelFor;
 /// Missing-value predicates for R scalar representations.
 pub const NA = @import("na.zig");
 /// Opaque borrowed R value escape hatch.
@@ -33,6 +35,7 @@ pub const Panic = @import("panic.zig").Panic;
 pub const internal = struct {
     pub const boundary = @import("boundary.zig");
     pub const convert = @import("convert.zig");
+    pub const parallel = @import("parallel.zig");
     pub const protect = @import("protect.zig");
     pub const c = @import("c/abi.zig");
 };
