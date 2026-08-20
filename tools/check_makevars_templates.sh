@@ -26,6 +26,7 @@ require_line inst/templates/Makevars 'ZIG_TARGET_ARG = @ZIG_TARGET_ARG@'
 require_line inst/templates/Makevars 'STATLIB = @STATLIB@'
 require_line inst/templates/Makevars.win 'ZIG_TARGET_ARG = @ZIG_TARGET_ARG@'
 require_line inst/templates/Makevars.win 'STATLIB = $(ZIG_DIR)/zig-out/lib/zigpkg.lib'
+require_line inst/templates/Makevars.win 'PKG_LIBS = $(STATLIB) -lntdll'
 
 if grep -F -q 'libzigpkg.a' inst/templates/Makevars.win; then
     printf '%s\n' 'Makevars.win must use Zig 0.16 Windows archive naming' >&2

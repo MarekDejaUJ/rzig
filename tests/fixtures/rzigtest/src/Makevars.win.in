@@ -3,7 +3,7 @@ ZIG_TARGET_ARG = @ZIG_TARGET_ARG@
 ZIG_DIR = rzig
 STATLIB = @STATLIB@
 OBJECTS = entry.o abi_check.o
-PKG_LIBS = $(STATLIB)
+PKG_LIBS = $(STATLIB) -lntdll
 
 all: $(SHLIB)
 
