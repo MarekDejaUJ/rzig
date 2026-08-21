@@ -23,6 +23,7 @@ const protect = @import("protect.zig");
 const convert = @import("convert.zig");
 const es = @import("error_state.zig");
 const Ctx = @import("alloc.zig").Ctx;
+const rng = @import("rng.zig");
 const unwind = @import("unwind.zig");
 
 /// Entry point used by every generated fixed-arity wrapper.
@@ -51,6 +52,14 @@ pub fn invoke(
     if (state.failed) {
         state.stack.unwindAll();
         state.stack.deinit();
+
+        if (es.takeInterrupt()) {
+            // The Zig computation cannot resume after its frames have unwound,
+            // so deliver an interrupt without R's optional resume restart.
+            c.Rf_onintrNoResume();
+            c.Rf_errorcall(c.R_NilValue, "%s", "interrupt delivery returned unexpectedly");
+        }
+
         const recorded = es.take();
         const message: [:0]const u8 = if (recorded.len > 0)
             recorded
@@ -136,8 +145,12 @@ fn InvocationState(
         }
 
         fn cleanup(self: *Self, jumped: bool) void {
+            const rng_active = self.ctx.rng_active;
             self.ctx.deinit();
             self.cleaned = true;
+            // PutRNGstate may allocate. At this point no Zig-owned resource is
+            // live, while any successful result remains on the protect stack.
+            rng.finish(rng_active);
             _ = jumped;
         }
     };

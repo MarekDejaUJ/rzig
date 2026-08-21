@@ -13,7 +13,7 @@ correlation_matrix <- function(data) {
 #' @param data A double matrix with observations in rows and variables in columns.
 #' @param alpha The two-sided Gaussian conditional-independence level.
 #' @param max_depth The maximum conditioning-set size, from zero through five.
-#' @return A symmetric zero-one adjacency matrix with a zero diagonal.
+#' @return A symmetric logical adjacency matrix with a false diagonal.
 #'
 #' @export
 pc_skeleton <- function(data, alpha, max_depth) {

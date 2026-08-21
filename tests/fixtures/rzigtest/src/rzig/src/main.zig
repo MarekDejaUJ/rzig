@@ -90,6 +90,18 @@ pub fn echo_reals(values: []const f64) []const f64 {
     return values;
 }
 
+/// Return a borrowed integer vector for copying to R.
+/// @export
+pub fn echo_integers(values: []const i32) []const i32 {
+    return values;
+}
+
+/// Return an arena-backed logical vector for copying to R.
+/// @export
+pub fn echo_logicals(values: []const bool) []const bool {
+    return values;
+}
+
 /// Count values in an integer vector.
 /// @export
 pub fn integer_length(values: []const i32) rzig.Error!i32 {
@@ -112,6 +124,12 @@ pub fn logical_count(values: []const bool) rzig.Error!i32 {
 /// @export
 pub fn echo_string(value: []const u8) []const u8 {
     return value;
+}
+
+/// Return an arena-backed UTF-8 character vector for copying to R.
+/// @export
+pub fn echo_strings(values: []const []const u8) []const []const u8 {
+    return values;
 }
 
 /// Count strings in a character vector.
@@ -143,6 +161,47 @@ pub fn named_summary(ctx: *rzig.Ctx, values: []const f64) rzig.Error!rzig.List {
     var result = rzig.List.init(ctx);
     try result.put("values", values);
     try result.put("count", @as(i32, @intCast(values.len)));
+    return result;
+}
+
+/// Return every supported vector kind inside a named R list.
+/// @export
+pub fn vector_summary(
+    ctx: *rzig.Ctx,
+    integers: []const i32,
+    logicals: []const bool,
+    strings: []const []const u8,
+) rzig.Error!rzig.List {
+    var result = rzig.List.init(ctx);
+    try result.put("integers", integers);
+    try result.put("logicals", logicals);
+    try result.put("strings", strings);
+    return result;
+}
+
+/// Attach matrix dimensions to a logical vector.
+/// @export
+pub fn reshape_logicals(
+    ctx: *rzig.Ctx,
+    values: []const bool,
+    nrow: usize,
+) rzig.Error!rzig.Attributed([]const bool) {
+    const ncol = if (nrow == 0) blk: {
+        if (values.len != 0) return rzig.raise("zero rows require an empty vector", .{});
+        break :blk @as(usize, 0);
+    } else blk: {
+        if (values.len % nrow != 0) {
+            return rzig.raise("length {d} is not divisible by {d} rows", .{ values.len, nrow });
+        }
+        break :blk values.len / nrow;
+    };
+    if (nrow > std.math.maxInt(i32) or ncol > std.math.maxInt(i32)) {
+        return rzig.raise("matrix dimensions exceed R's integer limit", .{});
+    }
+
+    const dimensions = [_]i32{ @intCast(nrow), @intCast(ncol) };
+    var result = rzig.Attributed([]const bool).init(ctx, values);
+    try result.setDim(&dimensions);
     return result;
 }
 
@@ -202,6 +261,44 @@ pub fn matrix_trace(values: rzig.Matrix) rzig.Error!f64 {
     return result;
 }
 
+/// Draw uniforms from R's random-number stream.
+/// @export
+pub fn draw_uniforms(ctx: *rzig.Ctx, count: usize) rzig.Error![]f64 {
+    const random = try ctx.rng();
+    const result = try ctx.alloc(f64, count);
+    for (result) |*value| value.* = random.uniform();
+    return result;
+}
+
+/// Draw standard normals from R's random-number stream.
+/// @export
+pub fn draw_normals(ctx: *rzig.Ctx, count: usize) rzig.Error![]f64 {
+    const random = try ctx.rng();
+    const result = try ctx.alloc(f64, count);
+    for (result) |*value| value.* = random.normal();
+    return result;
+}
+
+/// Draw once, then fail so boundary cleanup must save the advanced RNG state.
+/// @export
+pub fn draw_then_error(ctx: *rzig.Ctx) rzig.Error!void {
+    const random = try ctx.rng();
+    _ = random.uniform();
+    return rzig.raise("intentional error after an R RNG draw", .{});
+}
+
+/// Evaluate Rmath's normal cumulative distribution function.
+/// @export
+pub fn normal_cdf(value: f64) rzig.Error!f64 {
+    return rzig.Rmath.normalCdf(value, 0.0, 1.0, true, false);
+}
+
+/// Evaluate Rmath's normal quantile function.
+/// @export
+pub fn normal_quantile(probability: f64) rzig.Error!f64 {
+    return rzig.Rmath.normalQuantile(probability, 0.0, 1.0, true, false);
+}
+
 /// Count iterations while periodically checking for Ctrl-C.
 /// @export
 pub fn interruptible_count(iterations: usize) rzig.Error!i32 {
@@ -210,6 +307,15 @@ pub fn interruptible_count(iterations: usize) rzig.Error!i32 {
         if (index % 100_000 == 0) try rzig.checkInterrupt();
     }
     return @intCast(index);
+}
+
+/// Allocate a resource, then request fixture-only interrupt delivery.
+/// @export
+pub fn simulate_interrupt(ctx: *rzig.Ctx) rzig.Error!void {
+    const memory = try ctx.alloc(u8, 1024 * 1024);
+    memory[0] = 1;
+    memory[memory.len - 1] = 1;
+    return rzig.internal.interrupt.request();
 }
 
 /// Square a numeric vector using only pure Zig worker threads.

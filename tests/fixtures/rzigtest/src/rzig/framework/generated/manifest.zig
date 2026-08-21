@@ -51,6 +51,18 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{"values"},
             },
             .{
+                .name = "echo_integers",
+                .func = bound_root.echo_integers,
+                .doc = "Return a borrowed integer vector for copying to R.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "echo_logicals",
+                .func = bound_root.echo_logicals,
+                .doc = "Return an arena-backed logical vector for copying to R.",
+                .parameters = .{"values"},
+            },
+            .{
                 .name = "integer_length",
                 .func = bound_root.integer_length,
                 .doc = "Count values in an integer vector.",
@@ -67,6 +79,12 @@ pub fn Bind(comptime root: type) type {
                 .func = bound_root.echo_string,
                 .doc = "Return one UTF-8 string unchanged.",
                 .parameters = .{"value"},
+            },
+            .{
+                .name = "echo_strings",
+                .func = bound_root.echo_strings,
+                .doc = "Return an arena-backed UTF-8 character vector for copying to R.",
+                .parameters = .{"values"},
             },
             .{
                 .name = "string_count",
@@ -93,6 +111,18 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{"values"},
             },
             .{
+                .name = "vector_summary",
+                .func = bound_root.vector_summary,
+                .doc = "Return every supported vector kind inside a named R list.",
+                .parameters = .{ "integers", "logicals", "strings" },
+            },
+            .{
+                .name = "reshape_logicals",
+                .func = bound_root.reshape_logicals,
+                .doc = "Attach matrix dimensions to a logical vector.",
+                .parameters = .{ "values", "nrow" },
+            },
+            .{
                 .name = "scale_in_place",
                 .func = bound_root.scale_in_place,
                 .doc = "Scale a duplicated numeric vector without mutating the caller's input.",
@@ -117,10 +147,46 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{"values"},
             },
             .{
+                .name = "draw_uniforms",
+                .func = bound_root.draw_uniforms,
+                .doc = "Draw uniforms from R's random-number stream.",
+                .parameters = .{"count"},
+            },
+            .{
+                .name = "draw_normals",
+                .func = bound_root.draw_normals,
+                .doc = "Draw standard normals from R's random-number stream.",
+                .parameters = .{"count"},
+            },
+            .{
+                .name = "draw_then_error",
+                .func = bound_root.draw_then_error,
+                .doc = "Draw once, then fail so boundary cleanup must save the advanced RNG state.",
+                .parameters = .{},
+            },
+            .{
+                .name = "normal_cdf",
+                .func = bound_root.normal_cdf,
+                .doc = "Evaluate Rmath's normal cumulative distribution function.",
+                .parameters = .{"value"},
+            },
+            .{
+                .name = "normal_quantile",
+                .func = bound_root.normal_quantile,
+                .doc = "Evaluate Rmath's normal quantile function.",
+                .parameters = .{"probability"},
+            },
+            .{
                 .name = "interruptible_count",
                 .func = bound_root.interruptible_count,
                 .doc = "Count iterations while periodically checking for Ctrl-C.",
                 .parameters = .{"iterations"},
+            },
+            .{
+                .name = "simulate_interrupt",
+                .func = bound_root.simulate_interrupt,
+                .doc = "Allocate a resource, then request fixture-only interrupt delivery.",
+                .parameters = .{},
             },
             .{
                 .name = "parallel_square",

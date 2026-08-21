@@ -2,7 +2,8 @@
 set -eu
 
 repo_dir=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
-framework_dir="$repo_dir/tests/fixtures/rzigtest/src/rzig/framework"
+framework_dirs="$repo_dir/tests/fixtures/rzigtest/src/rzig/framework
+$repo_dir/examples/rzigcausal/src/rzig/framework"
 mode=${1:---write}
 failed=0
 
@@ -19,6 +20,8 @@ panic.zig
 parallel.zig
 protect.zig
 register.zig
+rmath.zig
+rng.zig
 rzig.zig
 sexp.zig
 unwind.zig
@@ -26,21 +29,25 @@ c/abi.zig
 generated/arity.zig'
 
 if test "$mode" = "--write"; then
-    mkdir -p "$framework_dir/c" "$framework_dir/generated"
+    for framework_dir in $framework_dirs; do
+        mkdir -p "$framework_dir/c" "$framework_dir/generated"
+    done
 elif test "$mode" != "--check"; then
     printf 'usage: %s [--write|--check]\n' "$0" >&2
     exit 2
 fi
 
-for relative in $framework_files; do
-    source_file="$repo_dir/src/$relative"
-    fixture_file="$framework_dir/$relative"
-    if test "$mode" = "--write"; then
-        cp "$source_file" "$fixture_file"
-    elif ! cmp -s "$source_file" "$fixture_file"; then
-        printf 'fixture copy is stale: %s\n' "$relative" >&2
-        failed=1
-    fi
+for framework_dir in $framework_dirs; do
+    for relative in $framework_files; do
+        source_file="$repo_dir/src/$relative"
+        fixture_file="$framework_dir/$relative"
+        if test "$mode" = "--write"; then
+            cp "$source_file" "$fixture_file"
+        elif ! cmp -s "$source_file" "$fixture_file"; then
+            printf 'framework copy is stale: %s/%s\n' "$framework_dir" "$relative" >&2
+            failed=1
+        fi
+    done
 done
 
 repack_source="$repo_dir/tools/repack_macos_archive.sh"

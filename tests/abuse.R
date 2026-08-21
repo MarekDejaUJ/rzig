@@ -21,18 +21,31 @@ echo_bool <- function(x) call_native("echo_bool", x)
 echo_usize <- function(x) call_native("echo_usize", x)
 echo_optional <- function(x) call_native("echo_optional", x)
 echo_reals <- function(x) call_native("echo_reals", x)
+echo_integers <- function(x) call_native("echo_integers", x)
+echo_logicals <- function(x) call_native("echo_logicals", x)
 integer_length <- function(x) call_native("integer_length", x)
 logical_count <- function(x) call_native("logical_count", x)
 echo_string <- function(x) call_native("echo_string", x)
+echo_strings <- function(x) call_native("echo_strings", x)
 string_count <- function(x) call_native("string_count", x)
 identity_sexp <- function(x) call_native("identity_sexp", x)
 add_vectors <- function(a, b) call_native("add_vectors", a, b)
 named_summary <- function(x) call_native("named_summary", x)
+vector_summary <- function(integers, logicals, strings) {
+  call_native("vector_summary", integers, logicals, strings)
+}
+reshape_logicals <- function(x, nrow) call_native("reshape_logicals", x, nrow)
 scale_in_place <- function(x, factor) call_native("scale_in_place", x, factor)
 decorate_values <- function(x, labels) call_native("decorate_values", x, labels)
 reshape_values <- function(x, nrow) call_native("reshape_values", x, nrow)
 matrix_trace <- function(x) call_native("matrix_trace", x)
+draw_uniforms <- function(n) call_native("draw_uniforms", n)
+draw_normals <- function(n) call_native("draw_normals", n)
+draw_then_error <- function() call_native("draw_then_error")
+normal_cdf <- function(x) call_native("normal_cdf", x)
+normal_quantile <- function(p) call_native("normal_quantile", p)
 interruptible_count <- function(iterations) call_native("interruptible_count", iterations)
+simulate_interrupt <- function() call_native("simulate_interrupt")
 parallel_square <- function(x) call_native("parallel_square", x)
 unwind_cleanup_count <- function() call_native("unwind_cleanup_count")
 unwind_cleanup_normal <- function() call_native("unwind_cleanup_normal")
@@ -84,6 +97,34 @@ test_that("borrowed vectors cover empty, missing, large, and ALTREP inputs", {
   expect_identical(large_real_result[c(1L, large_n)], c(1, as.double(large_n)))
   expect_identical(integer_length(seq_len(large_n)), large_n)
   expect_identical(logical_count(rep_len(c(TRUE, FALSE), large_n)), large_n %/% 2L)
+})
+
+test_that("integer, logical, and character vectors return with native R types", {
+  integers <- c(1L, NA_integer_, -7L)
+  logicals <- c(TRUE, FALSE, TRUE)
+  strings <- c("alpha", "\U0001F600", "caf\u00e9")
+
+  expect_identical(echo_integers(integer()), integer())
+  expect_identical(echo_integers(integers), integers)
+  expect_identical(echo_logicals(logical()), logical())
+  expect_identical(echo_logicals(logicals), logicals)
+  expect_identical(echo_strings(character()), character())
+  expect_identical(echo_strings(strings), strings)
+
+  large_integers <- seq_len(large_n)
+  expect_identical(echo_integers(large_integers), large_integers)
+  large_logicals <- rep_len(c(TRUE, FALSE), large_n)
+  expect_identical(echo_logicals(large_logicals), large_logicals)
+  expect_identical(echo_strings(rep_len("value", large_n)), rep_len("value", large_n))
+
+  expect_identical(
+    vector_summary(integers, logicals, strings),
+    list(integers = integers, logicals = logicals, strings = strings)
+  )
+  expect_identical(
+    reshape_logicals(c(TRUE, FALSE, FALSE, TRUE), 2L),
+    matrix(c(TRUE, FALSE, FALSE, TRUE), 2L)
+  )
 })
 
 test_that("strings are normalized to UTF-8 and copied safely", {
@@ -152,9 +193,60 @@ test_that("attributes and matrix views preserve R metadata", {
   expect_error_live(function() matrix_trace(matrix(1:4, 2L)), c("storage.mode"))
 })
 
+test_that("R RNG draws reproduce base R under set.seed", {
+  set.seed(20260821)
+  expected_uniforms <- runif(8L)
+  set.seed(20260821)
+  expect_identical(draw_uniforms(8L), expected_uniforms)
+
+  set.seed(20260822)
+  expected_normals <- rnorm(8L)
+  set.seed(20260822)
+  expect_identical(draw_normals(8L), expected_normals)
+
+  set.seed(20260823)
+  runif(1L)
+  expected_next <- runif(1L)
+  set.seed(20260823)
+  expect_error_live(function() draw_then_error(), c("intentional error", "R RNG draw"))
+  expect_identical(runif(1L), expected_next)
+})
+
+test_that("Rmath normal functions agree exactly with stats", {
+  values <- c(-8, -1, 0, 1, 8)
+  probabilities <- c(1e-12, 0.025, 0.5, 0.975, 1 - 1e-12)
+  expect_identical(vapply(values, normal_cdf, numeric(1L)), pnorm(values))
+  expect_identical(vapply(probabilities, normal_quantile, numeric(1L)), qnorm(probabilities))
+  expect_error_live(function() normal_quantile(1.1), c("between zero and one", "1.1"))
+})
+
 test_that("interrupt polling uses a guarded R trampoline", {
   expect_identical(interruptible_count(0L), 0L)
   expect_identical(interruptible_count(250000L), 250000L)
+})
+
+test_that("caught interrupts retain R's interrupt condition class", {
+  caught_by_error <- FALSE
+  condition <- tryCatch(
+    tryCatch(
+      simulate_interrupt(),
+      error = function(error) {
+        caught_by_error <<- TRUE
+        error
+      }
+    ),
+    interrupt = identity
+  )
+  expect_s3_class(condition, "interrupt")
+  expect_false(inherits(condition, "error"))
+  expect_false(caught_by_error)
+
+  through_try <- tryCatch(
+    try(simulate_interrupt(), silent = TRUE),
+    interrupt = identity
+  )
+  expect_s3_class(through_try, "interrupt")
+  expect_identical(echo_i32(7L), 7L)
 })
 
 test_that("parallel workers stay within pure Zig computation", {

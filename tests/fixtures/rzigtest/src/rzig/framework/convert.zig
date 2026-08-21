@@ -426,7 +426,13 @@ fn isSupportedReturn(comptime T: type) bool {
         T == bool or
         T == []const f64 or
         T == []f64 or
+        T == []const i32 or
+        T == []i32 or
+        T == []const bool or
+        T == []bool or
         T == []const u8 or
+        T == []const []const u8 or
+        T == [][]const u8 or
         T == list.List or
         T == sexp.Sexp)
     {
@@ -440,7 +446,14 @@ fn isSupportedReturn(comptime T: type) bool {
 
 fn isSupportedAttributedReturn(comptime T: type) bool {
     if (!attributes.isAttributed(T)) return false;
-    return T.rzig_attributed_inner == []const f64 or T.rzig_attributed_inner == []f64;
+    return isSupportedVectorReturn(T.rzig_attributed_inner);
+}
+
+fn isSupportedVectorReturn(comptime T: type) bool {
+    return T == []const f64 or T == []f64 or
+        T == []const i32 or T == []i32 or
+        T == []const bool or T == []bool or
+        T == []const []const u8 or T == [][]const u8;
 }
 
 fn nearestInputAlternative(comptime T: type) []const u8 {
@@ -486,12 +499,11 @@ fn nearestInputAlternative(comptime T: type) []const u8 {
 }
 
 fn nearestReturnAlternative(comptime T: type) []const u8 {
-    if (attributes.isAttributed(T)) return "rzig.Attributed([]const f64) for an attributed numeric vector";
+    if (attributes.isAttributed(T)) return "rzig.Attributed(T) where T is a supported vector return";
     if (T == usize) return "i32 for an R integer scalar";
     if (T == f32 or T == f16 or T == f128) return "f64 for an R numeric scalar";
     if (T == []const f32 or T == []const f16 or T == []const f128 or
-        T == []f32 or T == []f16 or T == []f128 or
-        T == []const i32 or T == []i32)
+        T == []f32 or T == []f16 or T == []f128)
     {
         return "[]const f64 for an R numeric vector";
     }
@@ -518,7 +530,10 @@ pub fn toSexp(
     if (comptime T == i32) return integerScalarToSexp(stack, value);
     if (comptime T == bool) return logicalScalarToSexp(stack, value);
     if (comptime T == []const f64 or T == []f64) return realSliceToSexp(stack, value);
+    if (comptime T == []const i32 or T == []i32) return integerSliceToSexp(stack, value);
+    if (comptime T == []const bool or T == []bool) return logicalSliceToSexp(stack, value);
     if (comptime T == []const u8) return stringToSexp(stack, value);
+    if (comptime T == []const []const u8 or T == [][]const u8) return stringSliceToSexp(stack, value);
     if (comptime attributes.isAttributed(T)) return attributedToSexp(stack, ctx, value);
     if (comptime T == list.List) return listToSexp(stack, ctx, value);
     if (comptime T == sexp.Sexp) return stack.push(sexp.toRaw(value));
@@ -537,11 +552,10 @@ fn attributedToSexp(stack: *protect.Stack, ctx: *Ctx, value: anytype) es.Error!c
     const value_length = value.value.len;
     try validateAttributes(metadata, value_length);
 
-    const result = try realSliceToSexp(stack, value.value);
+    const result = try toSexp(stack, ctx, value.value);
     if (metadata.dim) |dimensions| try attachDim(stack, result, dimensions);
     if (metadata.names) |names| try attachStringAttribute(stack, result, c.R_NamesSymbol, names);
     if (metadata.class) |classes| try attachStringAttribute(stack, result, c.R_ClassSymbol, classes);
-    _ = ctx;
     return result;
 }
 
@@ -654,12 +668,43 @@ fn realSliceToSexp(stack: *protect.Stack, value: []const f64) es.Error!c.SEXP {
     return result;
 }
 
+fn integerSliceToSexp(stack: *protect.Stack, value: []const i32) es.Error!c.SEXP {
+    const length = try returnLength(value.len);
+    const result = stack.push(c.Rf_allocVector(c.INTSXP, length));
+    if (value.len > 0) @memcpy(c.INTEGER(result)[0..value.len], value);
+    return result;
+}
+
+fn logicalSliceToSexp(stack: *protect.Stack, value: []const bool) es.Error!c.SEXP {
+    const length = try returnLength(value.len);
+    const result = stack.push(c.Rf_allocVector(c.LGLSXP, length));
+    for (value, c.LOGICAL(result)[0..value.len]) |source, *target| {
+        target.* = if (source) c.TRUE else c.FALSE;
+    }
+    return result;
+}
+
 fn stringToSexp(stack: *protect.Stack, value: []const u8) es.Error!c.SEXP {
     try validateReturnedString(value);
 
     const result = stack.push(c.Rf_allocVector(c.STRSXP, 1));
     const element = c.Rf_mkCharLenCE(value.ptr, @intCast(value.len), c.CE_UTF8);
     c.SET_STRING_ELT(result, 0, element);
+    return result;
+}
+
+fn stringSliceToSexp(stack: *protect.Stack, value: []const []const u8) es.Error!c.SEXP {
+    try validateReturnedStrings(value);
+
+    const result = stack.push(c.Rf_allocVector(c.STRSXP, try returnLength(value.len)));
+    for (value, 0..) |element_value, index| {
+        const element = c.Rf_mkCharLenCE(
+            element_value.ptr,
+            @intCast(element_value.len),
+            c.CE_UTF8,
+        );
+        c.SET_STRING_ELT(result, @intCast(index), element);
+    }
     return result;
 }
 
@@ -674,7 +719,13 @@ fn listToSexp(stack: *protect.Stack, ctx: *Ctx, value: list.List) es.Error!c.SEX
         try validateListName(entry.name, index + 1);
         switch (entry.value) {
             .reals => |reals| _ = try returnLength(reals.len),
+            .integers => |integers| _ = try returnLength(integers.len),
+            .logicals => |logicals| _ = try returnLength(logicals.len),
             .string => |string| try validateListString(string, index + 1),
+            .strings => |strings| {
+                _ = try returnLength(strings.len);
+                for (strings) |string| try validateListString(string, index + 1);
+            },
             else => {},
         }
     }
@@ -706,7 +757,10 @@ fn listValueToSexp(stack: *protect.Stack, ctx: *Ctx, value: list.Value) es.Error
         .integer => |integer| integerScalarToSexp(stack, integer),
         .logical => |logical| logicalScalarToSexp(stack, logical),
         .reals => |reals| realSliceToSexp(stack, reals),
+        .integers => |integers| integerSliceToSexp(stack, integers),
+        .logicals => |logicals| logicalSliceToSexp(stack, logicals),
         .string => |string| stringToSexp(stack, string),
+        .strings => |strings| stringSliceToSexp(stack, strings),
         .sexp => |value_sexp| toSexp(stack, ctx, value_sexp),
     };
 }
@@ -720,6 +774,21 @@ fn validateReturnedString(value: []const u8) es.Error!void {
     }
     if (value.len > std.math.maxInt(c_int)) {
         return es.raise("rzig: returned string has {d} bytes, exceeding R's limit", .{value.len});
+    }
+}
+
+fn validateReturnedStrings(values: []const []const u8) es.Error!void {
+    _ = try returnLength(values.len);
+    for (values, 0..) |value, index| {
+        if (!std.unicode.utf8ValidateSlice(value)) {
+            return es.raise("rzig: returned string at position {d} is not valid UTF-8", .{index + 1});
+        }
+        if (std.mem.indexOfScalar(u8, value, 0) != null) {
+            return es.raise("rzig: returned string at position {d} contains an embedded NUL byte", .{index + 1});
+        }
+        if (value.len > std.math.maxInt(c_int)) {
+            return es.raise("rzig: returned string at position {d} exceeds R's string limit", .{index + 1});
+        }
     }
 }
 
@@ -769,8 +838,8 @@ fn unsupportedMessage(comptime T: type, comptime name: []const u8) []const u8 {
 
 fn unsupportedReturnMessage(comptime T: type) []const u8 {
     return "rzig: unsupported return type '" ++ @typeName(T) ++ "'.\n" ++
-        "  supported: void, f64, i32, bool, []const f64, []f64, []const u8, ?T, rzig.List,\n" ++
-        "             rzig.Attributed([]const f64), rzig.Sexp\n" ++
+        "  supported: void, f64, i32, bool, atomic vector slices, []const u8, ?T, rzig.List,\n" ++
+        "             rzig.Attributed(T), rzig.Sexp\n" ++
         "  nearest supported alternative: " ++ nearestReturnAlternative(T);
 }
 

@@ -6,6 +6,7 @@
 
 const std = @import("std");
 const es = @import("error_state.zig");
+const rng_api = @import("rng.zig");
 
 /// Per-call storage for Zig-owned scratch memory and intermediate results.
 ///
@@ -13,10 +14,14 @@ const es = @import("error_state.zig");
 /// conversion has copied the result into R-owned memory.
 pub const Ctx = struct {
     arena: std.heap.ArenaAllocator,
+    rng_active: bool,
 
     /// Create an empty context backed by Zig's C allocator.
     pub fn init() Ctx {
-        return .{ .arena = std.heap.ArenaAllocator.init(std.heap.c_allocator) };
+        return .{
+            .arena = std.heap.ArenaAllocator.init(std.heap.c_allocator),
+            .rng_active = false,
+        };
     }
 
     /// Release every allocation owned by this context.
@@ -41,6 +46,12 @@ pub const Ctx = struct {
     pub fn dupe(self: *Ctx, comptime T: type, src: []const T) es.Error![]T {
         return self.allocator().dupe(T, src) catch
             es.raise("out of memory copying {d} elements", .{src.len});
+    }
+
+    /// Enter R's random-number stream for reproducible draws under `set.seed()`.
+    /// Repeated calls during one exported invocation reuse the same RNG state.
+    pub fn rng(self: *Ctx) es.Error!rng_api.Rng {
+        return rng_api.begin(&self.rng_active);
     }
 };
 

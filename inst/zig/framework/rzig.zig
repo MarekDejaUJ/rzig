@@ -4,7 +4,7 @@ const std = @import("std");
 
 /// Per-call arena for Zig-owned scratch and result memory.
 pub const Ctx = @import("alloc.zig").Ctx;
-/// Numeric return wrapper with arena-backed names, dimensions, and classes.
+/// Atomic-vector return wrapper with arena-backed names, dimensions, and classes.
 pub const Attributed = @import("attributes.zig").Attributed;
 /// Recoverable error set used by exported functions.
 pub const Error = @import("error_state.zig").Error;
@@ -16,6 +16,10 @@ pub const warn = @import("error_state.zig").warn;
 pub const checkInterrupt = @import("interrupt.zig").checkInterrupt;
 /// Run a pure Zig indexed loop on worker threads without exposing R capabilities.
 pub const parallelFor = @import("parallel.zig").parallelFor;
+/// Calling-thread capability for draws controlled by R's `set.seed()`.
+pub const Rng = @import("rng.zig").Rng;
+/// Deterministic distribution functions supplied by the linked R runtime.
+pub const Rmath = @import("rmath.zig").Rmath;
 /// Missing-value predicates for R scalar representations.
 pub const NA = @import("na.zig");
 /// Opaque borrowed R value escape hatch.
@@ -35,6 +39,7 @@ pub const Panic = @import("panic.zig").Panic;
 pub const internal = struct {
     pub const boundary = @import("boundary.zig");
     pub const convert = @import("convert.zig");
+    pub const interrupt = @import("interrupt.zig");
     pub const parallel = @import("parallel.zig");
     pub const protect = @import("protect.zig");
     pub const unwind = @import("unwind.zig");

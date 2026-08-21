@@ -79,6 +79,16 @@ pub fn build(b: *std.Build) void {
     const run_interrupt_tests = b.addRunArtifact(interrupt_tests);
     test_step.dependOn(&run_interrupt_tests.step);
 
+    const rng_test_module = b.createModule(.{
+        .root_source_file = b.path("src/rng_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const rng_tests = b.addTest(.{ .root_module = rng_test_module });
+    const run_rng_tests = b.addRunArtifact(rng_tests);
+    test_step.dependOn(&run_rng_tests.step);
+
     const parallel_test_module = b.createModule(.{
         .root_source_file = b.path("src/parallel_test.zig"),
         .target = target,
@@ -175,10 +185,23 @@ pub fn build(b: *std.Build) void {
     });
     fmt_fixture_manifest.step.dependOn(&run_fixture_scan.step);
 
+    const run_causal_scan = b.addRunArtifact(scan);
+    run_causal_scan.addArgs(&.{
+        "examples/rzigcausal/src/rzig/src/main.zig",
+        "examples/rzigcausal/src/rzig/framework/generated/manifest.zig",
+    });
+    const fmt_causal_manifest = b.addSystemCommand(&.{
+        b.graph.zig_exe,
+        "fmt",
+        "examples/rzigcausal/src/rzig/framework/generated/manifest.zig",
+    });
+    fmt_causal_manifest.step.dependOn(&run_causal_scan.step);
+
     const gen_step = b.step("gen", "Regenerate src/generated/*");
     gen_step.dependOn(&fmt_gen.step);
     gen_step.dependOn(&fmt_manifest.step);
     gen_step.dependOn(&fmt_fixture_manifest.step);
+    gen_step.dependOn(&fmt_causal_manifest.step);
 
     // --- R ABI verification source -------------------------------------------
     const update_abi_check = b.addUpdateSourceFiles();

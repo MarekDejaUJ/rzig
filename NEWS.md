@@ -1,3 +1,23 @@
+# rzig 0.2.0
+
+## Statistical interface breadth
+
+- Integer, logical, and character vectors can be returned directly, decorated
+  with attributes, and placed in generated lists.
+- `Ctx.rng()` provides boundary-managed draws from R's random-number stream,
+  preserving `set.seed()` reproducibility on success and error paths.
+- `Rmath.normalCdf()` and `Rmath.normalQuantile()` expose the linked R
+  runtime's normal distribution functions without consuming random state.
+
+## Boundary behavior
+
+- User interrupts retain R's `interrupt` condition class after Zig cleanup;
+  ordinary error handlers and `try()` no longer swallow Ctrl-C.
+- The POSIX integration gate sends a real `SIGINT`, checks the condition class,
+  and verifies that the R session remains usable.
+- The causal demonstration now returns a logical adjacency matrix and covers
+  all three-variable orders plus a 12-variable search through depth five.
+
 # rzig 0.1.0
 
 ## Package authoring

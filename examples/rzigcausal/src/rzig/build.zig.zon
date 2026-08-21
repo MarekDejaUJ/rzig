@@ -1,6 +1,6 @@
 .{
     .name = .rzig_native,
-    .version = "0.0.1",
+    .version = "0.1.0",
     .fingerprint = 0xa29bf498ae8f95cf,
     .minimum_zig_version = "0.16.0",
     .dependencies = .{},
