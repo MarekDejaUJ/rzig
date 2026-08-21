@@ -71,7 +71,7 @@ const header =
     \\#include <R_ext/Random.h>
     \\#include <R_ext/Rdynload.h>
     \\#include <Rmath.h>
-    \\#include <Rinterface.h>
+    \\/* Rinterface.h is deliberately absent from the Windows R SDK. */
     \\#if defined(__clang__)
     \\# pragma clang diagnostic pop
     \\#endif
