@@ -1,4 +1,4 @@
-//! Arena-backed metadata for attributes on returned numeric vectors.
+//! Arena-backed metadata for attributes on returned atomic vectors.
 
 const std = @import("std");
 const Ctx = @import("alloc.zig").Ctx;
@@ -11,7 +11,7 @@ pub const Metadata = struct {
     class: ?[]const []const u8 = null,
 };
 
-/// Wrap a numeric return value with optional `names`, `dim`, and `class`.
+/// Wrap a supported vector return value with optional `names`, `dim`, and `class`.
 pub fn Attributed(comptime T: type) type {
     return struct {
         const Self = @This();

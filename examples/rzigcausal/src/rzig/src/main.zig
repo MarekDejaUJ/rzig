@@ -97,14 +97,14 @@ pub fn correlation_matrix(
 /// @param data A double matrix with observations in rows and variables in columns.
 /// @param alpha The two-sided Gaussian conditional-independence level.
 /// @param max_depth The maximum conditioning-set size, from zero through five.
-/// @return A symmetric zero-one adjacency matrix with a zero diagonal.
+/// @return A symmetric logical adjacency matrix with a false diagonal.
 /// @export
 pub fn pc_skeleton(
     ctx: *rzig.Ctx,
     data: rzig.Matrix,
     alpha: f64,
     max_depth: usize,
-) rzig.Error!rzig.Attributed([]const f64) {
+) rzig.Error!rzig.Attributed([]const bool) {
     if (!std.math.isFinite(alpha) or alpha <= 0.0 or alpha >= 1.0) {
         return rzig.raise("alpha must be finite and strictly between zero and one", .{});
     }
@@ -217,10 +217,10 @@ pub fn pc_skeleton(
         if (!eligible) break;
     }
 
-    const result_values = try ctx.alloc(f64, matrix_size);
-    for (adjacency, result_values) |edge, *value| value.* = @floatFromInt(edge);
+    const result_values = try ctx.alloc(bool, matrix_size);
+    for (adjacency, result_values) |edge, *value| value.* = edge != 0;
     const dimensions = [_]i32{ @intCast(variable_count), @intCast(variable_count) };
-    var result = rzig.Attributed([]const f64).init(ctx, result_values);
+    var result = rzig.Attributed([]const bool).init(ctx, result_values);
     try result.setDim(&dimensions);
     return result;
 }

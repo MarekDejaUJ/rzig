@@ -51,6 +51,18 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{"values"},
             },
             .{
+                .name = "echo_integers",
+                .func = bound_root.echo_integers,
+                .doc = "Return a borrowed integer vector for copying to R.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "echo_logicals",
+                .func = bound_root.echo_logicals,
+                .doc = "Return an arena-backed logical vector for copying to R.",
+                .parameters = .{"values"},
+            },
+            .{
                 .name = "integer_length",
                 .func = bound_root.integer_length,
                 .doc = "Count values in an integer vector.",
@@ -67,6 +79,12 @@ pub fn Bind(comptime root: type) type {
                 .func = bound_root.echo_string,
                 .doc = "Return one UTF-8 string unchanged.",
                 .parameters = .{"value"},
+            },
+            .{
+                .name = "echo_strings",
+                .func = bound_root.echo_strings,
+                .doc = "Return an arena-backed UTF-8 character vector for copying to R.",
+                .parameters = .{"values"},
             },
             .{
                 .name = "string_count",
@@ -91,6 +109,18 @@ pub fn Bind(comptime root: type) type {
                 .func = bound_root.named_summary,
                 .doc = "Return a named list containing a vector and its length.",
                 .parameters = .{"values"},
+            },
+            .{
+                .name = "vector_summary",
+                .func = bound_root.vector_summary,
+                .doc = "Return every supported vector kind inside a named R list.",
+                .parameters = .{ "integers", "logicals", "strings" },
+            },
+            .{
+                .name = "reshape_logicals",
+                .func = bound_root.reshape_logicals,
+                .doc = "Attach matrix dimensions to a logical vector.",
+                .parameters = .{ "values", "nrow" },
             },
             .{
                 .name = "scale_in_place",

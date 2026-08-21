@@ -4,7 +4,7 @@ const std = @import("std");
 
 /// Per-call arena for Zig-owned scratch and result memory.
 pub const Ctx = @import("alloc.zig").Ctx;
-/// Numeric return wrapper with arena-backed names, dimensions, and classes.
+/// Atomic-vector return wrapper with arena-backed names, dimensions, and classes.
 pub const Attributed = @import("attributes.zig").Attributed;
 /// Recoverable error set used by exported functions.
 pub const Error = @import("error_state.zig").Error;

@@ -15,7 +15,10 @@ pub const Value = union(enum) {
     integer: i32,
     logical: bool,
     reals: []const f64,
+    integers: []const i32,
+    logicals: []const bool,
     string: []const u8,
+    strings: []const []const u8,
     sexp: sexp.Sexp,
 
     fn from(value: anytype) Value {
@@ -24,7 +27,10 @@ pub const Value = union(enum) {
         if (comptime T == i32) return .{ .integer = value };
         if (comptime T == bool) return .{ .logical = value };
         if (comptime T == []const f64 or T == []f64) return .{ .reals = value };
+        if (comptime T == []const i32 or T == []i32) return .{ .integers = value };
+        if (comptime T == []const bool or T == []bool) return .{ .logicals = value };
         if (comptime T == []const u8) return .{ .string = value };
+        if (comptime T == []const []const u8 or T == [][]const u8) return .{ .strings = value };
         if (comptime T == sexp.Sexp) return .{ .sexp = value };
         if (comptime isStringLiteral(T)) return .{ .string = value[0..] };
         if (comptime T == comptime_float) return .{ .real = @as(f64, value) };
@@ -35,7 +41,7 @@ pub const Value = union(enum) {
             .null => .nil,
             else => @compileError(
                 "rzig.List.put: unsupported value type '" ++ @typeName(T) ++ "'.\n" ++
-                    "  supported: f64, i32, bool, []const f64, []f64, []const u8, ?T, rzig.Sexp",
+                    "  supported: f64, i32, bool, atomic vector slices, []const u8, ?T, rzig.Sexp",
             ),
         };
     }

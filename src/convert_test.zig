@@ -542,6 +542,27 @@ test "toSexp copies const and mutable real slices" {
     stack.deinit();
 }
 
+test "toSexp copies integer and logical slices into matching R vectors" {
+    resetOutputMock();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    var stack = protect.Stack.init();
+
+    const integers: []const i32 = &.{ 7, c.NA_INTEGER };
+    var logical_storage = [_]bool{ true, false };
+    const integer_result = try convert.toSexp(&stack, &ctx, integers);
+    const logical_slice: []bool = logical_storage[0..];
+    const logical_result = try convert.toSexp(&stack, &ctx, logical_slice);
+
+    try std.testing.expectEqual(@as(c_int, c.INTSXP), TYPEOF(integer_result));
+    try std.testing.expectEqual(@as(c_int, c.LGLSXP), TYPEOF(logical_result));
+    try std.testing.expectEqualSlices(c_int, &.{ 7, c.NA_INTEGER }, &mutableFake(integer_result).integers);
+    try std.testing.expectEqualSlices(c_int, &.{ c.TRUE, c.FALSE }, &mutableFake(logical_result).integers);
+
+    stack.unwindAll();
+    stack.deinit();
+}
+
 test "toSexp creates a UTF-8 character vector" {
     resetOutputMock();
     var ctx = Ctx.init();
@@ -557,6 +578,41 @@ test "toSexp creates a UTF-8 character vector" {
 
     stack.unwindAll();
     stack.deinit();
+}
+
+test "toSexp creates multi-element UTF-8 character vectors" {
+    resetOutputMock();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    var stack = protect.Stack.init();
+    const source: []const []const u8 = &.{ "alpha", "\xf0\x9f\x98\x80" };
+
+    const result = try convert.toSexp(&stack, &ctx, source);
+    const fake = mutableFake(result);
+    try std.testing.expectEqual(@as(c_int, c.STRSXP), TYPEOF(result));
+    try std.testing.expectEqual(@as(c.R_xlen_t, 2), Rf_xlength(result));
+    try std.testing.expectEqualStrings(source[0], std.mem.span(fake.strings[0].?.text.?));
+    try std.testing.expectEqualStrings(source[1], std.mem.span(fake.strings[1].?.text.?));
+    try std.testing.expectEqual(c.CE_UTF8, mock_last_encoding);
+
+    stack.unwindAll();
+    stack.deinit();
+}
+
+test "toSexp validates every returned character-vector element before allocating" {
+    resetOutputMock();
+    es.reset();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    var stack = protect.Stack.init();
+    defer stack.deinit();
+    const invalid: []const u8 = &.{ 0xff, 0xfe };
+    const source: []const []const u8 = &.{ "valid", invalid };
+
+    try std.testing.expectError(es.Error.RZigError, convert.toSexp(&stack, &ctx, source));
+    try std.testing.expectEqualStrings("rzig: returned string at position 2 is not valid UTF-8", es.take());
+    try std.testing.expectEqual(@as(usize, 0), mock_object_count);
+    try std.testing.expectEqual(@as(usize, 0), mock_protect_count);
 }
 
 test "toSexp rejects invalid UTF-8 before calling R" {
@@ -760,6 +816,26 @@ test "Attributed numeric vectors materialize names, dimensions, and class safely
     try std.testing.expectEqualSlices(c_int, &.{ 1, 2 }, &fake.dim.?.integers);
     try std.testing.expectEqualStrings("rzig_values", std.mem.span(fake.class.?.strings[0].?.text.?));
     try std.testing.expectEqual(@as(usize, 1), mock_protect_count);
+
+    stack.unwindAll();
+    stack.deinit();
+}
+
+test "Attributed logical vectors materialize as logical matrices" {
+    resetOutputMock();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    const values: []const bool = &.{ true, false };
+    const dimensions: []const i32 = &.{ 1, 2 };
+    var result = attributes.Attributed([]const bool).init(&ctx, values);
+    try result.setDim(dimensions);
+
+    var stack = protect.Stack.init();
+    const converted = try convert.toSexp(&stack, &ctx, result);
+    const fake = mutableFake(converted);
+    try std.testing.expectEqual(@as(c_int, c.LGLSXP), TYPEOF(converted));
+    try std.testing.expectEqualSlices(c_int, &.{ c.TRUE, c.FALSE }, &fake.integers);
+    try std.testing.expectEqualSlices(c_int, &.{ 1, 2 }, &fake.dim.?.integers);
 
     stack.unwindAll();
     stack.deinit();

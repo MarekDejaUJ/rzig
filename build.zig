@@ -175,10 +175,23 @@ pub fn build(b: *std.Build) void {
     });
     fmt_fixture_manifest.step.dependOn(&run_fixture_scan.step);
 
+    const run_causal_scan = b.addRunArtifact(scan);
+    run_causal_scan.addArgs(&.{
+        "examples/rzigcausal/src/rzig/src/main.zig",
+        "examples/rzigcausal/src/rzig/framework/generated/manifest.zig",
+    });
+    const fmt_causal_manifest = b.addSystemCommand(&.{
+        b.graph.zig_exe,
+        "fmt",
+        "examples/rzigcausal/src/rzig/framework/generated/manifest.zig",
+    });
+    fmt_causal_manifest.step.dependOn(&run_causal_scan.step);
+
     const gen_step = b.step("gen", "Regenerate src/generated/*");
     gen_step.dependOn(&fmt_gen.step);
     gen_step.dependOn(&fmt_manifest.step);
     gen_step.dependOn(&fmt_fixture_manifest.step);
+    gen_step.dependOn(&fmt_causal_manifest.step);
 
     // --- R ABI verification source -------------------------------------------
     const update_abi_check = b.addUpdateSourceFiles();

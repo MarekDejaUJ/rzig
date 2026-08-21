@@ -45,13 +45,13 @@ observations <- cbind(x, z, y)
 
 correlation_matrix(observations)
 pc_skeleton(observations, alpha = 0.05, max_depth = 1L)
-#>      [,1] [,2] [,3]
-#> [1,]    0    1    0
-#> [2,]    1    0    1
-#> [3,]    0    1    0
+#>       [,1]  [,2]  [,3]
+#> [1,] FALSE  TRUE FALSE
+#> [2,]  TRUE FALSE  TRUE
+#> [3,] FALSE  TRUE FALSE
 ```
 
-`pc_skeleton()` returns an undirected zero-one adjacency matrix. It uses a
+`pc_skeleton()` returns an undirected logical adjacency matrix. It uses a
 depth-frozen adjacency snapshot, so edge removal within one depth does not
 depend on variable order in the way the original PC adjacency search can.
 

@@ -10,7 +10,7 @@ pc_skeleton(data, alpha, max_depth)
 \item{max_depth}{A non-negative integer conditioning-set limit no greater than five.}
 }
 \value{
-A symmetric zero-one adjacency matrix with a zero diagonal.
+A symmetric logical adjacency matrix with a false diagonal.
 }
 \description{
 Runs the undirected adjacency-search portion of Gaussian PC-stable. Conditional

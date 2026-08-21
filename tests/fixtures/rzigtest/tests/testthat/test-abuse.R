@@ -21,13 +21,20 @@ echo_bool <- function(x) call_native("echo_bool", x)
 echo_usize <- function(x) call_native("echo_usize", x)
 echo_optional <- function(x) call_native("echo_optional", x)
 echo_reals <- function(x) call_native("echo_reals", x)
+echo_integers <- function(x) call_native("echo_integers", x)
+echo_logicals <- function(x) call_native("echo_logicals", x)
 integer_length <- function(x) call_native("integer_length", x)
 logical_count <- function(x) call_native("logical_count", x)
 echo_string <- function(x) call_native("echo_string", x)
+echo_strings <- function(x) call_native("echo_strings", x)
 string_count <- function(x) call_native("string_count", x)
 identity_sexp <- function(x) call_native("identity_sexp", x)
 add_vectors <- function(a, b) call_native("add_vectors", a, b)
 named_summary <- function(x) call_native("named_summary", x)
+vector_summary <- function(integers, logicals, strings) {
+  call_native("vector_summary", integers, logicals, strings)
+}
+reshape_logicals <- function(x, nrow) call_native("reshape_logicals", x, nrow)
 scale_in_place <- function(x, factor) call_native("scale_in_place", x, factor)
 decorate_values <- function(x, labels) call_native("decorate_values", x, labels)
 reshape_values <- function(x, nrow) call_native("reshape_values", x, nrow)
@@ -84,6 +91,34 @@ test_that("borrowed vectors cover empty, missing, large, and ALTREP inputs", {
   expect_identical(large_real_result[c(1L, large_n)], c(1, as.double(large_n)))
   expect_identical(integer_length(seq_len(large_n)), large_n)
   expect_identical(logical_count(rep_len(c(TRUE, FALSE), large_n)), large_n %/% 2L)
+})
+
+test_that("integer, logical, and character vectors return with native R types", {
+  integers <- c(1L, NA_integer_, -7L)
+  logicals <- c(TRUE, FALSE, TRUE)
+  strings <- c("alpha", "\U0001F600", "caf\u00e9")
+
+  expect_identical(echo_integers(integer()), integer())
+  expect_identical(echo_integers(integers), integers)
+  expect_identical(echo_logicals(logical()), logical())
+  expect_identical(echo_logicals(logicals), logicals)
+  expect_identical(echo_strings(character()), character())
+  expect_identical(echo_strings(strings), strings)
+
+  large_integers <- seq_len(large_n)
+  expect_identical(echo_integers(large_integers), large_integers)
+  large_logicals <- rep_len(c(TRUE, FALSE), large_n)
+  expect_identical(echo_logicals(large_logicals), large_logicals)
+  expect_identical(echo_strings(rep_len("value", large_n)), rep_len("value", large_n))
+
+  expect_identical(
+    vector_summary(integers, logicals, strings),
+    list(integers = integers, logicals = logicals, strings = strings)
+  )
+  expect_identical(
+    reshape_logicals(c(TRUE, FALSE, FALSE, TRUE), 2L),
+    matrix(c(TRUE, FALSE, FALSE, TRUE), 2L)
+  )
 })
 
 test_that("strings are normalized to UTF-8 and copied safely", {

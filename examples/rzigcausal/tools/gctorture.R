@@ -25,7 +25,10 @@ run_gc_stress <- function(iterations = 25L) {
   gctorture(TRUE)
   on.exit(gctorture(FALSE), add = TRUE)
 
-  expected_skeleton <- matrix(c(0, 1, 0, 1, 0, 1, 0, 1, 0), 3L)
+  expected_skeleton <- matrix(
+    c(FALSE, TRUE, FALSE, TRUE, FALSE, TRUE, FALSE, TRUE, FALSE),
+    3L
+  )
   for (iteration in seq_len(iterations)) {
     data <- chain_data()
     observed <- correlation_matrix(data)
