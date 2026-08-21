@@ -197,3 +197,9 @@ if (nzchar(output_file)) {
   utils::write.csv(summary, output_file, row.names = FALSE)
   cat("Wrote:", normalizePath(output_file, mustWork = FALSE), "\n")
 }
+
+raw_output_file <- Sys.getenv("RZIG_BENCH_RAW_OUTPUT", unset = "")
+if (nzchar(raw_output_file)) {
+  utils::write.csv(timings, raw_output_file, row.names = FALSE)
+  cat("Wrote raw batches:", normalizePath(raw_output_file, mustWork = FALSE), "\n")
+}
