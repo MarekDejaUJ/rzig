@@ -52,6 +52,14 @@ pub fn invoke(
     if (state.failed) {
         state.stack.unwindAll();
         state.stack.deinit();
+
+        if (es.takeInterrupt()) {
+            // The Zig computation cannot resume after its frames have unwound,
+            // so deliver an interrupt without R's optional resume restart.
+            c.Rf_onintrNoResume();
+            c.Rf_errorcall(c.R_NilValue, "%s", "interrupt delivery returned unexpectedly");
+        }
+
         const recorded = es.take();
         const message: [:0]const u8 = if (recorded.len > 0)
             recorded

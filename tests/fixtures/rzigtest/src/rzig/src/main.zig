@@ -309,6 +309,15 @@ pub fn interruptible_count(iterations: usize) rzig.Error!i32 {
     return @intCast(index);
 }
 
+/// Allocate a resource, then request fixture-only interrupt delivery.
+/// @export
+pub fn simulate_interrupt(ctx: *rzig.Ctx) rzig.Error!void {
+    const memory = try ctx.alloc(u8, 1024 * 1024);
+    memory[0] = 1;
+    memory[memory.len - 1] = 1;
+    return rzig.internal.interrupt.request();
+}
+
 /// Square a numeric vector using only pure Zig worker threads.
 /// @export
 pub fn parallel_square(ctx: *rzig.Ctx, values: []const f64) rzig.Error![]f64 {

@@ -108,6 +108,14 @@ jobs:
         if: runner.os == 'Linux'
         run: ZIG="$(command -v zig)" sh tools/check_readme_onboarding.sh
         shell: bash
+      - name: Preserve real interrupt conditions
+        if: runner.os != 'Windows'
+        run: |
+          interrupt_library="$RUNNER_TEMP/rzig-interrupt-library"
+          mkdir -p "$interrupt_library"
+          R CMD INSTALL --library="$interrupt_library" rzigtest_*.tar.gz
+          R_LIBS="$interrupt_library" sh tools/check_interrupt.sh
+        shell: bash
       - name: Run GC stress suite
         if: runner.os == 'macOS'
         run: |

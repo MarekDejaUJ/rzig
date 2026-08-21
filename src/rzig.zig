@@ -39,6 +39,7 @@ pub const Panic = @import("panic.zig").Panic;
 pub const internal = struct {
     pub const boundary = @import("boundary.zig");
     pub const convert = @import("convert.zig");
+    pub const interrupt = @import("interrupt.zig");
     pub const parallel = @import("parallel.zig");
     pub const protect = @import("protect.zig");
     pub const unwind = @import("unwind.zig");

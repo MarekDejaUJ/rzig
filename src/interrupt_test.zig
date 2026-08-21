@@ -29,11 +29,12 @@ test "checkInterrupt probes through R_ToplevelExec" {
     try std.testing.expectEqual(@as(usize, 1), probe_count);
 }
 
-test "checkInterrupt converts a caught interrupt into an explicit error" {
+test "checkInterrupt marks a caught interrupt for boundary delivery" {
     es.reset();
     allow_callback = false;
     probe_count = 0;
     try std.testing.expectError(es.Error.RZigError, interrupt.checkInterrupt());
-    try std.testing.expectEqualStrings("interrupted by user", es.take());
+    try std.testing.expect(es.takeInterrupt());
+    try std.testing.expectEqualStrings("", es.take());
     try std.testing.expectEqual(@as(usize, 0), probe_count);
 }

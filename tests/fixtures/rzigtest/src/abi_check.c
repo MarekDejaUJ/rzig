@@ -15,6 +15,7 @@
 #include <R_ext/Random.h>
 #include <R_ext/Rdynload.h>
 #include <Rmath.h>
+#include <Rinterface.h>
 #if defined(__clang__)
 # pragma clang diagnostic pop
 #endif

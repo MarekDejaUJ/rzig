@@ -211,6 +211,8 @@ pub extern fn REprintf(format: [*:0]const u8, ...) void;
 
 /// Probe for a user interrupt; longjmps when an interrupt is pending.
 pub extern fn R_CheckUserInterrupt() void;
+/// Signal R's interrupt condition without offering a resume restart.
+pub extern fn Rf_onintrNoResume() void;
 /// Run a callback behind an R top-level context that catches longjmp.
 pub extern fn R_ToplevelExec(callback: *const fn (?*anyopaque) callconv(.c) void, data: ?*anyopaque) Rboolean;
 /// Run a callback with cleanup that R invokes during non-local unwinding.

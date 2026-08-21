@@ -183,6 +183,12 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{"iterations"},
             },
             .{
+                .name = "simulate_interrupt",
+                .func = bound_root.simulate_interrupt,
+                .doc = "Allocate a resource, then request fixture-only interrupt delivery.",
+                .parameters = .{},
+            },
+            .{
                 .name = "parallel_square",
                 .func = bound_root.parallel_square,
                 .doc = "Square a numeric vector using only pure Zig worker threads.",

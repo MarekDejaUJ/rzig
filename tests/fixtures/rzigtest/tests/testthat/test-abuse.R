@@ -45,6 +45,7 @@ draw_then_error <- function() call_native("draw_then_error")
 normal_cdf <- function(x) call_native("normal_cdf", x)
 normal_quantile <- function(p) call_native("normal_quantile", p)
 interruptible_count <- function(iterations) call_native("interruptible_count", iterations)
+simulate_interrupt <- function() call_native("simulate_interrupt")
 parallel_square <- function(x) call_native("parallel_square", x)
 unwind_cleanup_count <- function() call_native("unwind_cleanup_count")
 unwind_cleanup_normal <- function() call_native("unwind_cleanup_normal")
@@ -222,6 +223,30 @@ test_that("Rmath normal functions agree exactly with stats", {
 test_that("interrupt polling uses a guarded R trampoline", {
   expect_identical(interruptible_count(0L), 0L)
   expect_identical(interruptible_count(250000L), 250000L)
+})
+
+test_that("caught interrupts retain R's interrupt condition class", {
+  caught_by_error <- FALSE
+  condition <- tryCatch(
+    tryCatch(
+      simulate_interrupt(),
+      error = function(error) {
+        caught_by_error <<- TRUE
+        error
+      }
+    ),
+    interrupt = identity
+  )
+  expect_s3_class(condition, "interrupt")
+  expect_false(inherits(condition, "error"))
+  expect_false(caught_by_error)
+
+  through_try <- tryCatch(
+    try(simulate_interrupt(), silent = TRUE),
+    interrupt = identity
+  )
+  expect_s3_class(through_try, "interrupt")
+  expect_identical(echo_i32(7L), 7L)
 })
 
 test_that("parallel workers stay within pure Zig computation", {

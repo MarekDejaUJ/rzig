@@ -18,6 +18,7 @@ const ELLIPSIS = "...";
 
 var error_buffer: [MESSAGE_CAPACITY]u8 = [_]u8{0} ** MESSAGE_CAPACITY;
 var error_length: usize = 0;
+var interrupt_pending: bool = false;
 
 var warning_buffers: [MAX_WARNINGS][MESSAGE_CAPACITY]u8 =
     [_][MESSAGE_CAPACITY]u8{[_]u8{0} ** MESSAGE_CAPACITY} ** MAX_WARNINGS;
@@ -30,6 +31,7 @@ var overflow_buffer: [MESSAGE_CAPACITY]u8 = [_]u8{0} ** MESSAGE_CAPACITY;
 /// Clear state at the beginning of an outer R call.
 pub fn reset() void {
     error_length = 0;
+    interrupt_pending = false;
     warning_count = 0;
     warning_read = 0;
     warning_dropped = 0;
@@ -53,6 +55,19 @@ pub fn take() [:0]const u8 {
     const message = error_buffer[0..error_length :0];
     error_length = 0;
     return message;
+}
+
+/// Record a caught user interrupt for class-preserving boundary delivery.
+pub fn interrupt() Error {
+    interrupt_pending = true;
+    return Error.RZigError;
+}
+
+/// Take and clear the pending-interrupt marker.
+pub fn takeInterrupt() bool {
+    const pending = interrupt_pending;
+    interrupt_pending = false;
+    return pending;
 }
 
 /// Queue a warning without allocating or calling R.
@@ -133,6 +148,14 @@ test "warnings drain in insertion order" {
     try std.testing.expectEqualStrings("first 1", takeWarning().?);
     try std.testing.expectEqualStrings("second", takeWarning().?);
     try std.testing.expectEqual(@as(?[:0]const u8, null), takeWarning());
+}
+
+test "interrupt state is distinct from ordinary error text" {
+    reset();
+    try std.testing.expectEqual(error.RZigError, interrupt());
+    try std.testing.expect(takeInterrupt());
+    try std.testing.expect(!takeInterrupt());
+    try std.testing.expectEqualStrings("", take());
 }
 
 test "warning overflow is summarized without allocation" {

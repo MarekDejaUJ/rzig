@@ -25,15 +25,16 @@ if [ -n "$BAD" ]; then
 fi
 
 BAD_INTERRUPTS=$(grep -rn --include='*.zig' --exclude='*_test.zig' \
-      -E '\bR_CheckUserInterrupt\b' src \
+      -E '\b(R_CheckUserInterrupt|Rf_onintr(NoResume)?)\b' src \
       | grep -v '^src/c/abi\.zig:' \
       | grep -v '^src/interrupt\.zig:' \
+      | grep -v '^src/boundary\.zig:' \
       | awk -F':' '{ rest = $0; sub(/^[^:]*:[0-9]+:/, "", rest);
                      gsub(/^[ \t]+/, "", rest);
                      if (rest !~ /^\/\//) print }' || true)
 
 if [ -n "$BAD_INTERRUPTS" ]; then
-  echo "lint: R_CheckUserInterrupt outside its guarded trampoline:"
+  echo "lint: interrupt probe or delivery outside its sanctioned boundary:"
   echo "$BAD_INTERRUPTS"
   exit 1
 fi
