@@ -23,9 +23,9 @@ jobs:
       - run: zig build gen-abi-check
       - run: git diff --exit-code -- tools/abi_check.c tests/fixtures/rzigtest/src/abi_check.c
       - run: zig build gen
-      - run: git diff --exit-code -- src/generated/arity.zig src/generated/manifest.zig tests/fixtures/rzigtest/src/rzig/framework/generated/manifest.zig
+      - run: git diff --exit-code -- src/generated/arity.zig src/generated/manifest.zig tests/fixtures/rzigtest/src/rzig/framework/generated/manifest.zig examples/rzigcausal/src/rzig/framework/generated/manifest.zig
       - run: sh tools/sync_fixture.sh --check
-      - run: zig fmt --check build.zig src tools tests/fixtures/rzigtest/src/rzig
+      - run: zig fmt --check build.zig src tools tests/fixtures/rzigtest/src/rzig examples/rzigcausal/src/rzig
       - run: zig build test
       - run: zig build --release=safe
       - run: zig build lint
@@ -50,6 +50,10 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           packages: deps::.
+          working-directory: .
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: deps::.
           working-directory: tests/fixtures/rzigtest
       - name: Install CRAN shell checker (Linux)
         if: runner.os == 'Linux'
@@ -57,7 +61,16 @@ jobs:
       - name: Install CRAN shell checker (macOS)
         if: runner.os == 'macOS'
         run: brew install checkbashisms
-      - name: R CMD check
+      - name: Check RZig package
+        run: |
+          R CMD build .
+          R CMD check --as-cran --no-manual rzig_*.tar.gz
+          if grep -Eq 'Status:.*(ERROR|WARNING)' rzig.Rcheck/00check.log; then
+            cat rzig.Rcheck/00check.log
+            exit 1
+          fi
+        shell: bash
+      - name: Check integration fixture
         run: |
           zig version
           chmod +x tests/fixtures/rzigtest/configure tests/fixtures/rzigtest/configure.win
@@ -93,6 +106,7 @@ jobs:
       - name: Show check log on failure
         if: failure()
         run: |
+          cat rzig.Rcheck/00install.out rzig.Rcheck/00check.log || true
           cat rzigtest.Rcheck/00install.out rzigtest.Rcheck/00check.log rzigtest.Rcheck/tests/testthat.Rout* || true
           cat rzigcausal.Rcheck/00install.out rzigcausal.Rcheck/00check.log rzigcausal.Rcheck/tests/testthat.Rout* || true
         shell: bash
@@ -113,7 +127,7 @@ jobs:
         run: |
           interrupt_library="$RUNNER_TEMP/rzig-interrupt-library"
           mkdir -p "$interrupt_library"
-          R CMD INSTALL --library="$interrupt_library" rzigtest_*.tar.gz
+          R CMD INSTALL -l "$interrupt_library" rzigtest_*.tar.gz
           R_LIBS="$interrupt_library" sh tools/check_interrupt.sh
         shell: bash
       - name: Run GC stress suite
