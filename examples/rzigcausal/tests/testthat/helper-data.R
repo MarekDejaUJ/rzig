@@ -10,6 +10,13 @@ chain_data <- function(
   cbind(x, z, y)
 }
 
+dense_gaussian_data <- function(n = 512L, variables = 12L, seed = 20260821L) {
+  set.seed(seed)
+  latent <- stats::rnorm(n)
+  noise <- matrix(stats::rnorm(n * variables, sd = 0.2), nrow = n)
+  unname(sweep(noise, 1L, latent, "+"))
+}
+
 expect_error_live <- function(call, pattern) {
   condition <- tryCatch(call(), error = identity)
   expect_s3_class(condition, "error")
