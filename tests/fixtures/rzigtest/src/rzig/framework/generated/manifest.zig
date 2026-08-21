@@ -147,6 +147,36 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{"values"},
             },
             .{
+                .name = "draw_uniforms",
+                .func = bound_root.draw_uniforms,
+                .doc = "Draw uniforms from R's random-number stream.",
+                .parameters = .{"count"},
+            },
+            .{
+                .name = "draw_normals",
+                .func = bound_root.draw_normals,
+                .doc = "Draw standard normals from R's random-number stream.",
+                .parameters = .{"count"},
+            },
+            .{
+                .name = "draw_then_error",
+                .func = bound_root.draw_then_error,
+                .doc = "Draw once, then fail so boundary cleanup must save the advanced RNG state.",
+                .parameters = .{},
+            },
+            .{
+                .name = "normal_cdf",
+                .func = bound_root.normal_cdf,
+                .doc = "Evaluate Rmath's normal cumulative distribution function.",
+                .parameters = .{"value"},
+            },
+            .{
+                .name = "normal_quantile",
+                .func = bound_root.normal_quantile,
+                .doc = "Evaluate Rmath's normal quantile function.",
+                .parameters = .{"probability"},
+            },
+            .{
                 .name = "interruptible_count",
                 .func = bound_root.interruptible_count,
                 .doc = "Count iterations while periodically checking for Ctrl-C.",

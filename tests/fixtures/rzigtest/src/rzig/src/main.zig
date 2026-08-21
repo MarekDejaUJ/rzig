@@ -261,6 +261,44 @@ pub fn matrix_trace(values: rzig.Matrix) rzig.Error!f64 {
     return result;
 }
 
+/// Draw uniforms from R's random-number stream.
+/// @export
+pub fn draw_uniforms(ctx: *rzig.Ctx, count: usize) rzig.Error![]f64 {
+    const random = try ctx.rng();
+    const result = try ctx.alloc(f64, count);
+    for (result) |*value| value.* = random.uniform();
+    return result;
+}
+
+/// Draw standard normals from R's random-number stream.
+/// @export
+pub fn draw_normals(ctx: *rzig.Ctx, count: usize) rzig.Error![]f64 {
+    const random = try ctx.rng();
+    const result = try ctx.alloc(f64, count);
+    for (result) |*value| value.* = random.normal();
+    return result;
+}
+
+/// Draw once, then fail so boundary cleanup must save the advanced RNG state.
+/// @export
+pub fn draw_then_error(ctx: *rzig.Ctx) rzig.Error!void {
+    const random = try ctx.rng();
+    _ = random.uniform();
+    return rzig.raise("intentional error after an R RNG draw", .{});
+}
+
+/// Evaluate Rmath's normal cumulative distribution function.
+/// @export
+pub fn normal_cdf(value: f64) rzig.Error!f64 {
+    return rzig.Rmath.normalCdf(value, 0.0, 1.0, true, false);
+}
+
+/// Evaluate Rmath's normal quantile function.
+/// @export
+pub fn normal_quantile(probability: f64) rzig.Error!f64 {
+    return rzig.Rmath.normalQuantile(probability, 0.0, 1.0, true, false);
+}
+
 /// Count iterations while periodically checking for Ctrl-C.
 /// @export
 pub fn interruptible_count(iterations: usize) rzig.Error!i32 {

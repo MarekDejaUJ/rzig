@@ -125,7 +125,7 @@ pub fn pc_skeleton(
     if (probability >= 1.0) {
         return rzig.raise("alpha is too small for double-precision Gaussian testing", .{});
     }
-    const critical_z = normalQuantile(probability);
+    const critical_z = try rzig.Rmath.normalQuantile(probability, 0.0, 1.0, true, false);
     if (!std.math.isFinite(critical_z)) {
         return rzig.raise("could not derive a finite Gaussian critical value from alpha", .{});
     }
@@ -399,48 +399,6 @@ fn selectedVariable(
         1 => right,
         else => conditioning[position - 2],
     };
-}
-
-fn normalQuantile(probability: f64) f64 {
-    const a1 = -3.969_683_028_665_376e1;
-    const a2 = 2.209_460_984_245_205e2;
-    const a3 = -2.759_285_104_469_687e2;
-    const a4 = 1.383_577_518_672_690e2;
-    const a5 = -3.066_479_806_614_716e1;
-    const a6 = 2.506_628_277_459_239;
-    const b1 = -5.447_609_879_822_406e1;
-    const b2 = 1.615_858_368_580_409e2;
-    const b3 = -1.556_989_798_598_866e2;
-    const b4 = 6.680_131_188_771_972e1;
-    const b5 = -1.328_068_155_288_572e1;
-    const c1 = -7.784_894_002_430_293e-3;
-    const c2 = -3.223_964_580_411_365e-1;
-    const c3 = -2.400_758_277_161_838;
-    const c4 = -2.549_732_539_343_734;
-    const c5 = 4.374_664_141_464_968;
-    const c6 = 2.938_163_982_698_783;
-    const d1 = 7.784_695_709_041_462e-3;
-    const d2 = 3.224_671_290_700_398e-1;
-    const d3 = 2.445_134_137_142_996;
-    const d4 = 3.754_408_661_907_416;
-    const lower = 0.024_25;
-    const upper = 1.0 - lower;
-
-    if (probability < lower) {
-        const q = @sqrt(-2.0 * @log(probability));
-        return (((((c1 * q + c2) * q + c3) * q + c4) * q + c5) * q + c6) /
-            ((((d1 * q + d2) * q + d3) * q + d4) * q + 1.0);
-    }
-    if (probability <= upper) {
-        const q = probability - 0.5;
-        const r = q * q;
-        return (((((a1 * r + a2) * r + a3) * r + a4) * r + a5) * r + a6) * q /
-            (((((b1 * r + b2) * r + b3) * r + b4) * r + b5) * r + 1.0);
-    }
-
-    const q = @sqrt(-2.0 * @log(1.0 - probability));
-    return -(((((c1 * q + c2) * q + c3) * q + c4) * q + c5) * q + c6) /
-        ((((d1 * q + d2) * q + d3) * q + d4) * q + 1.0);
 }
 
 comptime {

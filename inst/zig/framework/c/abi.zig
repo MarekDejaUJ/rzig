@@ -222,6 +222,22 @@ pub extern fn R_UnwindProtect(
     continuation: ?SEXP,
 ) SEXP;
 
+/// Load R's random-number state for native draws; may allocate and longjmp.
+pub extern fn GetRNGstate() void;
+/// Save R's random-number state after native draws; may allocate and longjmp.
+pub extern fn PutRNGstate() void;
+/// Draw from R's current uniform random-number generator.
+pub extern fn unif_rand() f64;
+/// Draw from R's current standard-normal random-number generator.
+pub extern fn norm_rand() f64;
+/// Draw from R's current standard-exponential random-number generator.
+pub extern fn exp_rand() f64;
+
+/// Evaluate the normal cumulative distribution function from Rmath.
+pub extern fn Rf_pnorm5(x: f64, mean: f64, standard_deviation: f64, lower_tail: c_int, log_probability: c_int) f64;
+/// Evaluate the normal quantile function from Rmath.
+pub extern fn Rf_qnorm5(probability: f64, mean: f64, standard_deviation: f64, lower_tail: c_int, log_probability: c_int) f64;
+
 /// Distinguish R's missing-real payload from other NaN values.
 pub extern fn R_IsNA(value: f64) c_int;
 /// Test for a non-NA NaN value.

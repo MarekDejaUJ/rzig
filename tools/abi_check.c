@@ -12,7 +12,9 @@
 #include <Rinternals.h>
 #include <R_ext/Arith.h>
 #include <R_ext/Boolean.h>
+#include <R_ext/Random.h>
 #include <R_ext/Rdynload.h>
+#include <Rmath.h>
 #if defined(__clang__)
 # pragma clang diagnostic pop
 #endif

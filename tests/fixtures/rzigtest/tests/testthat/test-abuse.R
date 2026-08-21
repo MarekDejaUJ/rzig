@@ -39,6 +39,11 @@ scale_in_place <- function(x, factor) call_native("scale_in_place", x, factor)
 decorate_values <- function(x, labels) call_native("decorate_values", x, labels)
 reshape_values <- function(x, nrow) call_native("reshape_values", x, nrow)
 matrix_trace <- function(x) call_native("matrix_trace", x)
+draw_uniforms <- function(n) call_native("draw_uniforms", n)
+draw_normals <- function(n) call_native("draw_normals", n)
+draw_then_error <- function() call_native("draw_then_error")
+normal_cdf <- function(x) call_native("normal_cdf", x)
+normal_quantile <- function(p) call_native("normal_quantile", p)
 interruptible_count <- function(iterations) call_native("interruptible_count", iterations)
 parallel_square <- function(x) call_native("parallel_square", x)
 unwind_cleanup_count <- function() call_native("unwind_cleanup_count")
@@ -185,6 +190,33 @@ test_that("attributes and matrix views preserve R metadata", {
   expect_identical(matrix_trace(matrix(c(1, 2, 3, 4), 2L)), 5)
   expect_error_live(function() matrix_trace(c(1, 2)), c("without dimensions"))
   expect_error_live(function() matrix_trace(matrix(1:4, 2L)), c("storage.mode"))
+})
+
+test_that("R RNG draws reproduce base R under set.seed", {
+  set.seed(20260821)
+  expected_uniforms <- runif(8L)
+  set.seed(20260821)
+  expect_identical(draw_uniforms(8L), expected_uniforms)
+
+  set.seed(20260822)
+  expected_normals <- rnorm(8L)
+  set.seed(20260822)
+  expect_identical(draw_normals(8L), expected_normals)
+
+  set.seed(20260823)
+  runif(1L)
+  expected_next <- runif(1L)
+  set.seed(20260823)
+  expect_error_live(function() draw_then_error(), c("intentional error", "R RNG draw"))
+  expect_identical(runif(1L), expected_next)
+})
+
+test_that("Rmath normal functions agree exactly with stats", {
+  values <- c(-8, -1, 0, 1, 8)
+  probabilities <- c(1e-12, 0.025, 0.5, 0.975, 1 - 1e-12)
+  expect_identical(vapply(values, normal_cdf, numeric(1L)), pnorm(values))
+  expect_identical(vapply(probabilities, normal_quantile, numeric(1L)), qnorm(probabilities))
+  expect_error_live(function() normal_quantile(1.1), c("between zero and one", "1.1"))
 })
 
 test_that("interrupt polling uses a guarded R trampoline", {

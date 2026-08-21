@@ -20,6 +20,8 @@ panic.zig
 parallel.zig
 protect.zig
 register.zig
+rmath.zig
+rng.zig
 rzig.zig
 sexp.zig
 unwind.zig

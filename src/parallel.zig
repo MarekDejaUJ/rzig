@@ -10,6 +10,7 @@ const convert = @import("convert.zig");
 const es = @import("error_state.zig");
 const list = @import("list.zig");
 const matrix = @import("matrix.zig");
+const rng = @import("rng.zig");
 const sexp = @import("sexp.zig");
 
 const max_worker_threads = 32;
@@ -145,7 +146,7 @@ fn validatePlainType(comptime T: type, comptime depth: usize) void {
 }
 
 fn isRCapability(comptime T: type) bool {
-    if (T == Ctx or T == sexp.Sexp or T == matrix.Matrix or T == list.List) return true;
+    if (T == Ctx or T == rng.Rng or T == sexp.Sexp or T == matrix.Matrix or T == list.List) return true;
     return switch (@typeInfo(T)) {
         .@"struct" => @hasDecl(T, "rzig_mut_inner") or @hasDecl(T, "rzig_attributed_inner"),
         else => false,

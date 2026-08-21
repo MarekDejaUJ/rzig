@@ -16,6 +16,10 @@ pub const warn = @import("error_state.zig").warn;
 pub const checkInterrupt = @import("interrupt.zig").checkInterrupt;
 /// Run a pure Zig indexed loop on worker threads without exposing R capabilities.
 pub const parallelFor = @import("parallel.zig").parallelFor;
+/// Calling-thread capability for draws controlled by R's `set.seed()`.
+pub const Rng = @import("rng.zig").Rng;
+/// Deterministic distribution functions supplied by the linked R runtime.
+pub const Rmath = @import("rmath.zig").Rmath;
 /// Missing-value predicates for R scalar representations.
 pub const NA = @import("na.zig");
 /// Opaque borrowed R value escape hatch.
