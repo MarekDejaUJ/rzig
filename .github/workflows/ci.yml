@@ -63,7 +63,14 @@ jobs:
         run: brew install checkbashisms
       - name: Check RZig package
         run: |
-          R CMD build .
+          # R CMD build installs the checkout before .Rbuildignore is applied
+          # when rendering vignettes. Stage the R-only tree so Windows does not
+          # mistake the framework's Zig source directory for package DLL input.
+          root_source="$RUNNER_TEMP/rzig-r-package"
+          mkdir -p "$root_source"
+          git archive HEAD | tar -x -C "$root_source"
+          mv "$root_source/src" "$RUNNER_TEMP/rzig-framework-source"
+          R CMD build "$root_source"
           R CMD check --as-cran --no-manual rzig_*.tar.gz
           if grep -Eq 'Status:.*(ERROR|WARNING)' rzig.Rcheck/00check.log; then
             cat rzig.Rcheck/00check.log
