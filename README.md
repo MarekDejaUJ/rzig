@@ -8,7 +8,8 @@ RZig is an early 0.x release. Its API may change before version 1.0.0.
 ## Requirements
 
 - R and the platform toolchain used to build R source packages
-- Zig 0.16.0 available as `zig`, or through the `ZIG` environment variable
+- Zig 0.16.0 or newer. Release verification uses Zig 0.16.0; newer versions are
+  accepted but are not claimed as tested until they appear in the CI matrix.
 
 Confirm the Zig version before starting:
 
@@ -36,6 +37,11 @@ If Zig is not on `PATH`, tell RZig where it is:
 Sys.setenv(ZIG = "/absolute/path/to/zig")
 ```
 
+Both `use_rzig()`/`document()` and the generated package configuration search
+in this order: `ZIG`, `PATH`, `~/.local/share/zig/*/zig`, then `~/zig/zig`.
+An R session launched from an IDE may not inherit variables exported by a shell;
+in that case, set `ZIG` with `Sys.setenv()` before running either command.
+
 ## Create a working package
 
 Start in R from the directory where the package should be created:
@@ -59,18 +65,12 @@ writeLines(
 rzig::use_rzig(pkg)
 ```
 
-Replace `rzhello/src/rzig/src/main.zig` with:
+`use_rzig()` has already created `rzhello/src/rzig/src/main.zig` with a working
+`hello_zig()` example and all required framework wiring. Open that file, keep
+its imports, `panic` declaration, and `comptime` registration block, and replace
+only the generated `hello_zig()` function with:
 
 ```zig
-const std = @import("std");
-const builtin = @import("builtin");
-const rzig = @import("rzig");
-
-pub const panic = if (builtin.is_test)
-    std.debug.FullPanic(std.debug.defaultPanic)
-else
-    rzig.Panic;
-
 /// Add two numeric vectors elementwise.
 /// @param a The first numeric vector.
 /// @param b The second numeric vector.
@@ -88,11 +88,11 @@ pub fn add_vectors(
     for (a, b, result) |left, right, *value| value.* = left + right;
     return result;
 }
-
-comptime {
-    rzig.registerModule(@This());
-}
 ```
+
+The `@param` and `@return` lines are optional. When they are absent,
+`document()` generates neutral placeholders from the Zig signature. Only
+`/// @export` is required to expose a public function to R.
 
 Generate the bindings and install the package:
 
@@ -123,7 +123,22 @@ add_vectors(c(4, 5), c(6, 7))
 
 The same workflow applies to an existing package: run `use_rzig()` once, edit
 `src/rzig/src/main.zig`, and run `document()` whenever exported Zig signatures
-or comments change.
+or comments change. The scaffolded `cleanup` and `cleanup.win` scripts remove
+generated Makevars and Zig build caches after package installation and checks.
+
+If roxygen2 manages the rest of the package documentation and `NAMESPACE`, use
+this order after changing a Zig export:
+
+```r
+rzig::document(pkg)       # generate wrappers for roxygen2 to read
+roxygen2::roxygenise(pkg) # regenerate Rd files and the ordinary NAMESPACE
+rzig::document(pkg)       # restore RZig's explicit native-registration block
+```
+
+The final call preserves non-RZig directives while replacing generated Zig
+exports, so both tools retain ownership of their respective blocks. If
+`roxygenise()` loaded the package in the current R session, unload it or restart
+R before calling newly installed native exports.
 
 ## What `document()` generates
 
@@ -134,12 +149,54 @@ Every public Zig function with a `/// @export` line produces:
 - an explicitly resolved native symbol in `NAMESPACE`; and
 - a roxygen block derived from the Zig doc comment.
 
-The first `*rzig.Ctx` parameter is supplied by RZig and is omitted from the R
-function. Other parameters are converted according to their Zig types. Current
-scalar inputs include `f64`, `i32`, `bool`, `usize`, and optional forms. Current
-borrowed inputs include numeric, integer, logical, string, and string-vector
-slices, plus `rzig.Matrix` for double matrices. Unsupported signatures fail at
-compile time with the function and parameter position in the error.
+The first `*rzig.Ctx` parameter is supplied by RZig and omitted from the R
+function. The complete input surface is:
+
+| Zig parameter | Accepted R value | Conversion |
+| --- | --- | --- |
+| `f64` | length-one double, integer, or logical | checked scalar |
+| `i32` | length-one double, integer, or logical | checked whole number |
+| `bool` | length-one logical | checked scalar |
+| `usize` | length-one double, integer, or logical | checked whole number from 0 to 2147483647 |
+| `?f64`, `?i32`, `?bool`, `?usize` | corresponding scalar, `NA`, or `NULL` | missing values become `null` |
+| `[]const f64` | double vector | borrowed, read-only |
+| `[]const i32` | integer vector | borrowed, read-only |
+| `[]const bool` | logical vector without `NA` | copied into the call arena |
+| `[]const u8` | one non-`NA` character value | copied as UTF-8 |
+| `[]const []const u8` | character vector without `NA` | copied as UTF-8 |
+| `rzig.Matrix` | double matrix | borrowed, read-only, column-major |
+| `rzig.Mut([]f64)` | double vector | duplicated before writable access |
+| `rzig.Sexp` | any R object | borrowed low-level handle |
+
+Supported return values are:
+
+| Zig return | R result |
+| --- | --- |
+| `void` | `NULL` |
+| `f64`, `i32`, `bool` | length-one double, integer, or logical |
+| `[]const f64` / `[]f64` | double vector |
+| `[]const i32` / `[]i32` | integer vector |
+| `[]const bool` / `[]bool` | logical vector |
+| `[]const u8` | length-one character vector |
+| `[]const []const u8` / `[][]const u8` | character vector |
+| `rzig.List` | named R list |
+| `rzig.Attributed(T)` | supported vector `T` with names, dimensions, or classes |
+| `rzig.Sexp` | the supplied R object |
+| `?T` | supported `T`, or `NULL` when `null` |
+
+Any supported return may be wrapped in `rzig.Error!T`. `usize` and
+`rzig.Matrix` are parameter-only. Unsupported signatures fail at compile time
+with the function and parameter position in the error.
+
+## Errors and warnings
+
+`rzig.raise()` records a message and returns `rzig.Error`, so it can be returned
+directly or propagated with `try`. `rzig.warn()` queues a warning for delivery
+after Zig cleanup and returns `void`, so call it without `try`:
+
+```zig
+if (values.len == 0) rzig.warn("received an empty vector", .{});
+```
 
 ## Returning named lists
 
@@ -158,9 +215,10 @@ pub fn summarize(ctx: *rzig.Ctx, values: []const f64) rzig.Error!rzig.List {
 }
 ```
 
-List entries may contain `f64`, `i32`, `bool`, numeric slices, UTF-8 strings,
-optional values, or `rzig.Sexp`. Names are copied into the call context, and no
-R object is allocated until boundary conversion begins.
+List entries may contain `f64`, `i32`, `bool`, double, integer, or logical
+slices, UTF-8 strings or string vectors, optional values, or `rzig.Sexp`. Names
+are copied into the call context, and no R object is allocated until boundary
+conversion begins.
 
 ## Mutable numeric inputs
 

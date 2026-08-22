@@ -26,6 +26,8 @@ use_rzig <- function(path = ".", overwrite = FALSE) {
   managed <- c(
     "configure",
     "configure.win",
+    "cleanup",
+    "cleanup.win",
     file.path("src", "entry.c"),
     file.path("src", "Makevars.in"),
     file.path("src", "Makevars.win.in"),
@@ -60,7 +62,7 @@ use_rzig <- function(path = ".", overwrite = FALSE) {
     overwrite = overwrite,
     copy.mode = TRUE
   )
-  for (script in c("configure", "configure.win")) {
+  for (script in c("configure", "configure.win", "cleanup", "cleanup.win")) {
     file.copy(
       file.path(templates, script),
       file.path(path, script),
@@ -111,16 +113,7 @@ document <- function(path = ".") {
   if (!nzchar(scanner) || !file.exists(scanner)) {
     stop("the installed rzig package is missing its export scanner", call. = FALSE)
   }
-  zig <- Sys.getenv("ZIG", unset = "")
-  if (!nzchar(zig)) {
-    zig <- unname(Sys.which("zig"))
-  }
-  if (!nzchar(zig)) {
-    stop(
-      "Zig was not found; install Zig 0.16.0 or set the ZIG environment variable",
-      call. = FALSE
-    )
-  }
+  zig <- .rzig_find_zig()
 
   generated <- tempfile("rzig-document-")
   dir.create(generated)
@@ -206,13 +199,87 @@ document <- function(path = ".") {
   list(path = path, package = package)
 }
 
+.rzig_find_zig <- function() {
+  minimum <- "0.16.0"
+  zig <- Sys.getenv("ZIG", unset = "")
+  if (nzchar(zig)) {
+    zig <- path.expand(zig)
+    if (file.access(zig, mode = 1L) != 0L) {
+      stop("ZIG does not name an executable: ", zig, call. = FALSE)
+    }
+  } else {
+    zig <- unname(Sys.which("zig"))
+  }
+
+  if (!nzchar(zig)) {
+    home <- Sys.getenv("HOME", unset = "")
+    if (nzchar(home)) {
+      executable <- if (.Platform$OS.type == "windows") "zig.exe" else "zig"
+      candidates <- c(
+        Sys.glob(file.path(home, ".local", "share", "zig", "*", executable)),
+        file.path(home, "zig", executable)
+      )
+      candidates <- candidates[file.access(candidates, mode = 1L) == 0L]
+      if (length(candidates)) {
+        zig <- candidates[[1L]]
+      }
+    }
+  }
+
+  if (!nzchar(zig)) {
+    stop(
+      "Zig ", minimum, " or newer is required.\n",
+      "Download it from https://ziglang.org/download/, add it to PATH, ",
+      "or set ZIG=/absolute/path/to/zig.",
+      call. = FALSE
+    )
+  }
+
+  version_output <- .rzig_system2(zig, "version", "query the Zig version")
+  if (!length(version_output)) {
+    stop("Zig at ", zig, " did not report a version", call. = FALSE)
+  }
+  version <- trimws(version_output[[1L]])
+  match <- regexec("^([0-9]+)\\.([0-9]+)\\.([0-9]+)", version)
+  fields <- regmatches(version, match)[[1L]]
+  if (length(fields) != 4L) {
+    stop(
+      "Zig at ", zig, " reported an unrecognized version: ", version,
+      call. = FALSE
+    )
+  }
+  found <- as.integer(fields[2:4])
+  required <- c(0L, 16L, 0L)
+  is_supported <- found[[1L]] > required[[1L]] ||
+    (found[[1L]] == required[[1L]] && found[[2L]] > required[[2L]]) ||
+    (found[[1L]] == required[[1L]] && found[[2L]] == required[[2L]] &&
+      found[[3L]] >= required[[3L]])
+  if (!is_supported) {
+    stop(
+      "Zig ", version, " found at ", zig, ", but ", minimum,
+      " or newer is required.\nDownload: https://ziglang.org/download/",
+      call. = FALSE
+    )
+  }
+
+  zig
+}
+
 .rzig_system2 <- function(command, arguments, action) {
-  output <- suppressWarnings(system2(
-    command,
-    arguments,
-    stdout = TRUE,
-    stderr = TRUE
-  ))
+  output <- tryCatch(
+    suppressWarnings(system2(
+      command,
+      arguments,
+      stdout = TRUE,
+      stderr = TRUE
+    )),
+    error = function(error) {
+      stop(
+        "failed to ", action, ": ", conditionMessage(error),
+        call. = FALSE
+      )
+    }
+  )
   status <- attr(output, "status", exact = TRUE)
   if (is.null(status)) {
     status <- 0L
