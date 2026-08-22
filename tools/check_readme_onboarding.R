@@ -20,16 +20,12 @@ writeLines(
 )
 rzig::use_rzig(package_root)
 
-main <- c(
-  "const std = @import(\"std\");",
-  "const builtin = @import(\"builtin\");",
-  "const rzig = @import(\"rzig\");",
-  "",
-  "pub const panic = if (builtin.is_test)",
-  "    std.debug.FullPanic(std.debug.defaultPanic)",
-  "else",
-  "    rzig.Panic;",
-  "",
+main_path <- file.path(package_root, "src", "rzig", "src", "main.zig")
+main <- readLines(main_path, warn = FALSE)
+function_start <- grep("^/// Return a friendly greeting\\.$", main)
+registration_start <- grep("^comptime \\{$", main)
+stopifnot(length(function_start) == 1L, length(registration_start) == 1L)
+replacement <- c(
   "/// Add two numeric vectors elementwise.",
   "/// @param a The first numeric vector.",
   "/// @param b The second numeric vector.",
@@ -46,15 +42,22 @@ main <- c(
   "    const result = try ctx.alloc(f64, a.len);",
   "    for (a, b, result) |left, right, *value| value.* = left + right;",
   "    return result;",
-  "}",
-  "",
-  "comptime {",
-  "    rzig.registerModule(@This());",
   "}"
+)
+main <- c(
+  main[seq_len(function_start - 1L)],
+  replacement,
+  "",
+  main[registration_start:length(main)]
+)
+stopifnot(
+  'const rzig = @import("rzig");' %in% main,
+  any(grepl("^pub const panic =", main)),
+  "    rzig.registerModule(@This());" %in% main
 )
 writeLines(
   main,
-  file.path(package_root, "src", "rzig", "src", "main.zig"),
+  main_path,
   useBytes = TRUE
 )
 rzig::document(package_root)
