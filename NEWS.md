@@ -1,3 +1,9 @@
+# rzig 0.2.2
+
+## CRAN submission
+
+- Updated the maintainer contact and added the author's ORCID identifier.
+
 # rzig 0.2.1
 
 ## Package authoring
