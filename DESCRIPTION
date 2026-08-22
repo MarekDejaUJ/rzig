@@ -1,9 +1,10 @@
 Package: rzig
 Type: Package
 Title: Safe Zig Bindings for R Packages
-Version: 0.2.1
-Authors@R: person("Marek", "Deja", email = "marekdejauj@gmail.com",
-    role = c("aut", "cre"))
+Version: 0.2.2
+Authors@R: person("Marek", "Deja", email = "marek.deja@uj.edu.pl",
+    role = c("aut", "cre"),
+    comment = c(ORCID = "0000-0003-0015-2322"))
 Description: Scaffolds Zig-backed R packages and generates a safe native
     boundary for plain Zig functions. The generated integration handles R
     object conversion, native routine registration, error propagation, and
