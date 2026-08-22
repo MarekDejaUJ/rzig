@@ -165,6 +165,12 @@ jobs:
           use-public-rspm: true
       - uses: r-lib/actions/setup-pandoc@v2
       - uses: r-lib/actions/setup-tinytex@v2
+      - name: Install reference-manual check dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tidy
+          tlmgr update --self
+          tlmgr install courier
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           packages: deps::.
