@@ -1,3 +1,15 @@
+# rzig 0.2.1
+
+## Package authoring
+
+- `use_rzig()` now scaffolds `cleanup` and `cleanup.win`, preventing generated
+  Makevars and Zig build caches from entering source-package checks.
+- `document()` uses the same Zig discovery order as package configuration and
+  rejects unsupported compiler versions before running the export scanner.
+- The onboarding guide now edits the generated example in place, documents the
+  complete parameter and return surface, and explains warning and roxygen2
+  workflows.
+
 # rzig 0.2.0
 
 ## Statistical interface breadth
