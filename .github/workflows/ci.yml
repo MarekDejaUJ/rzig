@@ -164,6 +164,13 @@ jobs:
           r-version: devel
           use-public-rspm: true
       - uses: r-lib/actions/setup-pandoc@v2
+      - uses: r-lib/actions/setup-tinytex@v2
+      - name: Install reference-manual check dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tidy
+          tlmgr update --self
+          tlmgr install courier makeindex
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           packages: deps::.
@@ -176,16 +183,17 @@ jobs:
           git archive HEAD | tar -x -C "$root_source"
           mv "$root_source/src" "$stage_root/rzig-framework-source"
           R CMD build "$root_source"
-          R CMD check --as-cran --no-manual rzig_*.tar.gz
+          R CMD check --as-cran rzig_*.tar.gz
           if grep -Eq 'Status:.*(ERROR|WARNING)' rzig.Rcheck/00check.log; then
             cat rzig.Rcheck/00check.log
             exit 1
           fi
         shell: bash
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: rzig-cran-candidate
           path: |
             rzig_*.tar.gz
-            rzig.Rcheck/00check.log
+            rzig.Rcheck/
           if-no-files-found: error
