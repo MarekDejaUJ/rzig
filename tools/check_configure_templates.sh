@@ -12,9 +12,19 @@ require_text() {
 
 configure=inst/templates/configure
 configure_win=inst/templates/configure.win
+cleanup=inst/templates/cleanup
+cleanup_win=inst/templates/cleanup.win
 
 test -f "$configure_win" || {
     printf '%s\n' 'missing inst/templates/configure.win' >&2
+    exit 1
+}
+test -f "$cleanup" || {
+    printf '%s\n' 'missing inst/templates/cleanup' >&2
+    exit 1
+}
+test -f "$cleanup_win" || {
+    printf '%s\n' 'missing inst/templates/cleanup.win' >&2
     exit 1
 }
 
@@ -36,11 +46,14 @@ trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 mkdir -p "$test_dir/src" "$test_dir/fake-r/bin" "$test_dir/fake tools"
 cp "$configure" "$test_dir/configure"
 cp "$configure_win" "$test_dir/configure.win"
+cp "$cleanup" "$test_dir/cleanup"
+cp "$cleanup_win" "$test_dir/cleanup.win"
 cp inst/templates/Makevars "$test_dir/src/Makevars.in"
 cp inst/templates/Makevars.win "$test_dir/src/Makevars.win.in"
 cp tests/configure/fake-zig.sh "$test_dir/fake tools/zig"
 cp tests/configure/fake-r.sh "$test_dir/fake-r/bin/R"
 chmod +x "$test_dir/configure" "$test_dir/configure.win" \
+    "$test_dir/cleanup" "$test_dir/cleanup.win" \
     "$test_dir/fake tools/zig" "$test_dir/fake-r/bin/R"
 
 (
@@ -83,3 +96,26 @@ fi
 )
 require_text "$test_dir/src/Makevars.win" 'ZIG_TARGET_ARG = -Dtarget=x86_64-windows-gnu'
 require_text "$test_dir/src/Makevars.win" 'STATLIB = $(ZIG_DIR)/zig-out/lib/zigpkg.lib'
+
+check_cleanup() {
+    script=$1
+    mkdir -p "$test_dir/src/rzig/.zig-cache" \
+        "$test_dir/src/rzig/.zig-global-cache" "$test_dir/src/rzig/zig-out"
+    : > "$test_dir/src/Makevars"
+    : > "$test_dir/src/Makevars.win"
+    : > "$test_dir/src/rzig/.zig-cache/probe"
+    : > "$test_dir/src/rzig/.zig-global-cache/probe"
+    : > "$test_dir/src/rzig/zig-out/probe"
+    (
+        cd "$test_dir"
+        sh "./$script"
+    )
+    test ! -e "$test_dir/src/Makevars"
+    test ! -e "$test_dir/src/Makevars.win"
+    test ! -e "$test_dir/src/rzig/.zig-cache"
+    test ! -e "$test_dir/src/rzig/.zig-global-cache"
+    test ! -e "$test_dir/src/rzig/zig-out"
+}
+
+check_cleanup cleanup
+check_cleanup cleanup.win

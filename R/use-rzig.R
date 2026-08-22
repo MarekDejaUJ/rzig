@@ -26,6 +26,8 @@ use_rzig <- function(path = ".", overwrite = FALSE) {
   managed <- c(
     "configure",
     "configure.win",
+    "cleanup",
+    "cleanup.win",
     file.path("src", "entry.c"),
     file.path("src", "Makevars.in"),
     file.path("src", "Makevars.win.in"),
@@ -60,7 +62,7 @@ use_rzig <- function(path = ".", overwrite = FALSE) {
     overwrite = overwrite,
     copy.mode = TRUE
   )
-  for (script in c("configure", "configure.win")) {
+  for (script in c("configure", "configure.win", "cleanup", "cleanup.win")) {
     file.copy(
       file.path(templates, script),
       file.path(path, script),

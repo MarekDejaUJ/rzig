@@ -22,6 +22,8 @@ rzig::use_rzig(package_dir)
 expected <- c(
   "configure",
   "configure.win",
+  "cleanup",
+  "cleanup.win",
   "src/entry.c",
   "src/Makevars.in",
   "src/Makevars.win.in",
@@ -35,6 +37,12 @@ expected <- c(
 missing <- expected[!file.exists(file.path(package_dir, expected))]
 if (length(missing)) {
   stop("use_rzig did not create: ", paste(missing, collapse = ", "))
+}
+if (.Platform$OS.type != "windows") {
+  stopifnot(
+    file.access(file.path(package_dir, "cleanup"), mode = 1L) == 0L,
+    file.access(file.path(package_dir, "cleanup.win"), mode = 1L) == 0L
+  )
 }
 
 namespace <- readLines(file.path(package_dir, "NAMESPACE"), warn = FALSE)
