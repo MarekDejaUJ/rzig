@@ -19,6 +19,36 @@ writeLines(character(), file.path(package_dir, "NAMESPACE"))
 
 rzig::use_rzig(package_dir)
 
+original_zig <- Sys.getenv("ZIG", unset = NA_character_)
+old_zig <- file.path(tempdir(), "old Zig compiler")
+writeLines(
+  c(
+    "#!/bin/sh",
+    "if test \"${1:-}\" = version; then",
+    "  printf '%s\\n' '0.15.2'",
+    "  exit 0",
+    "fi",
+    "exit 99"
+  ),
+  old_zig
+)
+Sys.chmod(old_zig, mode = "0755")
+Sys.setenv(ZIG = old_zig)
+version_error <- tryCatch(
+  rzig::document(package_dir),
+  error = identity
+)
+if (is.na(original_zig)) {
+  Sys.unsetenv("ZIG")
+} else {
+  Sys.setenv(ZIG = original_zig)
+}
+stopifnot(
+  inherits(version_error, "error"),
+  grepl("Zig 0.15.2 found", conditionMessage(version_error), fixed = TRUE),
+  grepl("0.16.0 or newer is required", conditionMessage(version_error), fixed = TRUE)
+)
+
 expected <- c(
   "configure",
   "configure.win",
