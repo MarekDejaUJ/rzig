@@ -184,9 +184,10 @@ jobs:
           fi
         shell: bash
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: rzig-cran-candidate
           path: |
             rzig_*.tar.gz
-            rzig.Rcheck/00check.log
+            rzig.Rcheck/
           if-no-files-found: error
