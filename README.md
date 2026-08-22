@@ -8,7 +8,8 @@ RZig is an early 0.x release. Its API may change before version 1.0.0.
 ## Requirements
 
 - R and the platform toolchain used to build R source packages
-- Zig 0.16.0 or newer
+- Zig 0.16.0 or newer. Release verification uses Zig 0.16.0; newer versions are
+  accepted but are not claimed as tested until they appear in the CI matrix.
 
 Confirm the Zig version before starting:
 
