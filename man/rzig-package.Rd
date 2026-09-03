@@ -2,9 +2,9 @@
 \alias{rzig}
 \alias{rzig-package}
 \docType{package}
-\title{Safe Zig Bindings for R Packages}
+\title{Safe Zig Bindings}
 \description{
-RZig scaffolds Zig-backed R packages and generates safe native bindings for
+RZig scaffolds packages backed by Zig and generates safe native bindings for
 plain Zig functions.
 }
 \author{

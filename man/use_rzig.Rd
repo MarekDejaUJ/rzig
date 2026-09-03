@@ -1,8 +1,8 @@
 \name{use_rzig}
 \alias{use_rzig}
-\title{Add RZig to an R Package}
+\title{Add RZig to a Package}
 \usage{
-use_rzig(path = ".", overwrite = FALSE)
+use_rzig(path, overwrite = FALSE)
 }
 \arguments{
 \item{path}{Path to the package root.}
@@ -13,18 +13,20 @@ The normalized package path, invisibly.
 }
 \description{
 Creates a Zig source tree, portable build files, a generated native entry
-stub, and a working \code{hello_zig()} example in an existing R package.
+stub, and a working \code{hello_zig()} example in an existing package.
 }
 \examples{
-\dontrun{
-package <- tempfile("rzig-example-")
-dir.create(package)
-writeLines(
+\donttest{
+local({
+  package_path <- tempfile("rzig-example-", tmpdir = tempdir())
+  dir.create(package_path)
+  on.exit(unlink(package_path, recursive = TRUE), add = TRUE)
+  writeLines(
     c("Package: examplepkg", "Version: 0.0.1"),
-    file.path(package, "DESCRIPTION")
-)
-use_rzig(package)
-file.exists(file.path(package, "src", "rzig", "src", "main.zig"))
-unlink(package, recursive = TRUE)
+    file.path(package_path, "DESCRIPTION")
+  )
+  use_rzig(package_path)
+  file.exists(file.path(package_path, "src", "rzig", "src", "main.zig"))
+})
 }
 }

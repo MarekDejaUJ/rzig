@@ -47,10 +47,27 @@ long computations remain interruptible.
 
 ## Scaffold the Zig-backed package
 
-Run `use_rzig()` once from the root of an existing R package:
+Set the package path explicitly, then run `use_rzig()` once. This disposable
+example stays inside R's session temporary directory; for a real project,
+replace `package_path` with its explicit package root:
 
 ```r
-rzig::use_rzig(".")
+package_path <- tempfile("yourpackage-", tmpdir = tempdir())
+dir.create(package_path)
+writeLines(
+  c(
+    "Package: yourpackage",
+    "Type: Package",
+    "Title: A Small RZig Example",
+    "Version: 0.0.1",
+    "Authors@R: person('Your', 'Name', email = 'you@example.org', role = c('aut', 'cre'))",
+    "Description: Demonstrates a native implementation written in Zig.",
+    "License: MIT",
+    "Encoding: UTF-8"
+  ),
+  file.path(package_path, "DESCRIPTION")
+)
+rzig::use_rzig(package_path)
 ```
 
 This creates the portable build files, the Zig source tree, and an initial
@@ -112,14 +129,23 @@ Regenerate the R wrapper whenever an exported Zig signature or its
 documentation changes:
 
 ```r
-rzig::document(".")
-system2(file.path(R.home("bin"), "R"), c("CMD", "INSTALL", "."))
+rzig::document(package_path)
+library_path <- file.path(tempdir(), "rzig-vignette-library")
+dir.create(library_path)
+system2(
+  file.path(R.home("bin"), "R"),
+  c(
+    "CMD", "INSTALL",
+    paste0("--library=", shQuote(library_path)),
+    shQuote(package_path)
+  )
+)
 ```
 
 The generated R function has the same three visible arguments:
 
 ```r
-library(yourpackage)
+library(yourpackage, lib.loc = library_path)
 
 x <- c(1, 2, 3)
 y <- c(10, 20, 30)
@@ -131,6 +157,13 @@ stopifnot(identical(result, c(6, 12, 18)))
 try(axpy(1:2, c(1, 2, 3), 1))
 # The native error is an R condition, and the session remains usable.
 sum(1:10)
+```
+
+Remove the disposable package and installation when finished:
+
+```r
+unloadNamespace("yourpackage")
+unlink(c(package_path, library_path), recursive = TRUE)
 ```
 
 Integer vectors are rejected for numeric slices and mutable numeric inputs.

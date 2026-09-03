@@ -1,14 +1,28 @@
-#' Add RZig to an R package
+#' Add RZig to a Package
 #'
 #' Creates a Zig source tree, portable build files, a generated native entry
-#' stub, and a working `hello_zig()` example in an existing R package.
+#' stub, and a working `hello_zig()` example in an existing package.
 #'
 #' @param path Path to the package root.
 #' @param overwrite Replace files previously managed by RZig.
 #'
 #' @return The normalized package path, invisibly.
+#' @examples
+#' \donttest{
+#' local({
+#'   package_path <- tempfile("rzig-example-", tmpdir = tempdir())
+#'   dir.create(package_path)
+#'   on.exit(unlink(package_path, recursive = TRUE), add = TRUE)
+#'   writeLines(
+#'     c("Package: examplepkg", "Version: 0.0.1"),
+#'     file.path(package_path, "DESCRIPTION")
+#'   )
+#'   use_rzig(package_path)
+#'   file.exists(file.path(package_path, "src", "rzig", "src", "main.zig"))
+#' })
+#' }
 #' @export
-use_rzig <- function(path = ".", overwrite = FALSE) {
+use_rzig <- function(path, overwrite = FALSE) {
   if (length(overwrite) != 1L || is.na(overwrite)) {
     stop("`overwrite` must be TRUE or FALSE", call. = FALSE)
   }
@@ -90,8 +104,23 @@ use_rzig <- function(path = ".", overwrite = FALSE) {
 #' @param path Path to a package previously initialized with [use_rzig()].
 #'
 #' @return The normalized package path, invisibly.
+#' @examples
+#' \donttest{
+#' local({
+#'   package_path <- tempfile("rzig-document-", tmpdir = tempdir())
+#'   dir.create(package_path)
+#'   on.exit(unlink(package_path, recursive = TRUE), add = TRUE)
+#'   writeLines(
+#'     c("Package: examplepkg", "Version: 0.0.1"),
+#'     file.path(package_path, "DESCRIPTION")
+#'   )
+#'   use_rzig(package_path)
+#'   document(package_path)
+#'   file.exists(file.path(package_path, "R", "rzig-wrappers.R"))
+#' })
+#' }
 #' @export
-document <- function(path = ".") {
+document <- function(path) {
   package_info <- .rzig_package_info(path)
   path <- package_info$path
   package <- package_info$package
@@ -118,6 +147,17 @@ document <- function(path = ".") {
   generated <- tempfile("rzig-document-")
   dir.create(generated)
   on.exit(unlink(generated, recursive = TRUE, force = TRUE), add = TRUE)
+  cache_directory <- file.path(generated, "zig-cache")
+  global_cache_directory <- file.path(generated, "zig-global-cache")
+  runtime_temp_directory <- file.path(generated, "tmp")
+  dir.create(runtime_temp_directory)
+  # On Windows, system2() supports env only for commands that accept
+  # environment assignments on their command line. Zig is not one of them.
+  temporary_environment <- if (.Platform$OS.type == "windows") {
+    character()
+  } else {
+    paste0("TMPDIR=", shQuote(runtime_temp_directory))
+  }
   manifest_generated <- file.path(generated, "manifest.zig")
   wrapper_generated <- file.path(generated, "rzig-wrappers.R")
   namespace_generated <- file.path(generated, "NAMESPACE")
@@ -125,17 +165,22 @@ document <- function(path = ".") {
   .rzig_system2(
     zig,
     c(
-      "run", "-O", "ReleaseSafe", shQuote(scanner), "--",
+      "run",
+      "--cache-dir", shQuote(cache_directory),
+      "--global-cache-dir", shQuote(global_cache_directory),
+      "-O", "ReleaseSafe", shQuote(scanner), "--",
       shQuote(source_path), shQuote(manifest_generated),
       shQuote(wrapper_generated), shQuote(namespace_generated),
       shQuote(package)
     ),
-    "scan Zig exports"
+    "scan Zig exports",
+    environment = temporary_environment
   )
   .rzig_system2(
     zig,
     c("fmt", shQuote(manifest_generated)),
-    "format the generated Zig manifest"
+    "format the generated Zig manifest",
+    environment = temporary_environment
   )
 
   tryCatch(
@@ -265,13 +310,19 @@ document <- function(path = ".") {
   zig
 }
 
-.rzig_system2 <- function(command, arguments, action) {
+.rzig_system2 <- function(
+  command,
+  arguments,
+  action,
+  environment = character()
+) {
   output <- tryCatch(
     suppressWarnings(system2(
       command,
       arguments,
       stdout = TRUE,
-      stderr = TRUE
+      stderr = TRUE,
+      env = environment
     )),
     error = function(error) {
       stop(
