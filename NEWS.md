@@ -7,8 +7,9 @@
   neither function writes to the working directory by default.
 - Added executable, temporary-directory examples for both exported functions;
   they use `\donttest{}` because they require the external Zig toolchain.
-- `document()` now confines Zig's local cache, global cache, and compiler
-  temporary files to an automatically cleaned R session temporary directory.
+- `document()` now confines Zig's local and global caches to an automatically
+  cleaned R session temporary directory. On Unix, its compiler subprocess also
+  receives a private temporary directory.
 
 # rzig 0.2.2
 

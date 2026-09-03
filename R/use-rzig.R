@@ -151,10 +151,13 @@ document <- function(path) {
   global_cache_directory <- file.path(generated, "zig-global-cache")
   runtime_temp_directory <- file.path(generated, "tmp")
   dir.create(runtime_temp_directory)
-  temporary_environment <- paste0(
-    c("TMPDIR=", "TMP=", "TEMP="),
-    shQuote(runtime_temp_directory)
-  )
+  # On Windows, system2() supports env only for commands that accept
+  # environment assignments on their command line. Zig is not one of them.
+  temporary_environment <- if (.Platform$OS.type == "windows") {
+    character()
+  } else {
+    paste0("TMPDIR=", shQuote(runtime_temp_directory))
+  }
   manifest_generated <- file.path(generated, "manifest.zig")
   wrapper_generated <- file.path(generated, "rzig-wrappers.R")
   namespace_generated <- file.path(generated, "NAMESPACE")
