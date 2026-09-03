@@ -1,6 +1,6 @@
 .{
     .name = .rzig,
-    .version = "0.2.2",
+    .version = "0.2.3",
     .fingerprint = 0xdefd7e98e1e2ac52,
     // Zig is pre-1.0 and breaks source compatibility every minor release; an
     // unpinned project will silently stop compiling.

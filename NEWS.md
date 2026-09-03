@@ -1,3 +1,15 @@
+# rzig 0.2.3
+
+## CRAN resubmission
+
+- Removed redundant wording from the package title and description.
+- `use_rzig()` and `document()` now require an explicit package path, so
+  neither function writes to the working directory by default.
+- Added executable, temporary-directory examples for both exported functions;
+  they use `\donttest{}` because they require the external Zig toolchain.
+- `document()` now confines Zig's local cache, global cache, and compiler
+  temporary files to an automatically cleaned R session temporary directory.
+
 # rzig 0.2.2
 
 ## CRAN submission

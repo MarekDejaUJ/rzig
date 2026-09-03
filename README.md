@@ -44,10 +44,12 @@ in that case, set `ZIG` with `Sys.setenv()` before running either command.
 
 ## Create a working package
 
-Start in R from the directory where the package should be created:
+For a copy-paste-safe example, create the package in R's session temporary
+directory. Replace `tempdir()` with an explicit project directory when keeping
+the result:
 
 ```r
-pkg <- "rzhello"
+pkg <- file.path(tempdir(), "rzhello")
 dir.create(pkg)
 writeLines(
   c(
@@ -65,10 +67,10 @@ writeLines(
 rzig::use_rzig(pkg)
 ```
 
-`use_rzig()` has already created `rzhello/src/rzig/src/main.zig` with a working
-`hello_zig()` example and all required framework wiring. Open that file, keep
-its imports, `panic` declaration, and `comptime` registration block, and replace
-only the generated `hello_zig()` function with:
+`use_rzig()` has already created `src/rzig/src/main.zig` below `pkg` with a
+working `hello_zig()` example and all required framework wiring. Open that
+file, keep its imports, `panic` declaration, and `comptime` registration block,
+and replace only the generated `hello_zig()` function with:
 
 ```zig
 /// Add two numeric vectors elementwise.
@@ -98,9 +100,15 @@ Generate the bindings and install the package:
 
 ```r
 rzig::document(pkg)
+library_dir <- file.path(tempdir(), "rzhello-library")
+dir.create(library_dir)
 status <- system2(
   file.path(R.home("bin"), "R"),
-  c("CMD", "INSTALL", shQuote(normalizePath(pkg)))
+  c(
+    "CMD", "INSTALL",
+    paste0("--library=", shQuote(library_dir)),
+    shQuote(normalizePath(pkg))
+  )
 )
 stopifnot(status == 0L)
 ```
@@ -108,7 +116,7 @@ stopifnot(status == 0L)
 The generated R function is ready to call:
 
 ```r
-library(rzhello)
+library(rzhello, lib.loc = library_dir)
 
 add_vectors(c(1, 2, 3), c(10, 20, 30))
 #> [1] 11 22 33
