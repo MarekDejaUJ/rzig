@@ -15,7 +15,7 @@ writeLines(
     "Version: 0.0.1",
     "Authors@R: person('Test', 'Author', email = 'test@example.org', role = c('aut', 'cre'))",
     "Description: Verifies that use_rzig creates an installable Zig-backed package.",
-    "License: MIT",
+    "License: GPL-3",
     "Encoding: UTF-8"
   ),
   file.path(package_dir, "DESCRIPTION")
