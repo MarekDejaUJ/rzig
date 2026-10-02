@@ -1,3 +1,12 @@
+# rzig (development version)
+
+## Licensing
+
+- RZig is distributed under GPL-3. Releases up to and including 0.2.3
+  remain available under the MIT license.
+- The example package `rzigcausal` and the test package `rzigtest` are
+  distributed under GPL-3.
+
 # rzig 0.2.3
 
 ## CRAN resubmission
