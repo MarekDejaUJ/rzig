@@ -1,3 +1,4 @@
+^COPYING$
 ^\.github$
 ^\.zig-cache$
 ^\.zig-global-cache$

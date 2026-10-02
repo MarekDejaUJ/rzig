@@ -59,7 +59,7 @@ writeLines(
     "Version: 0.0.1",
     "Authors@R: person('Your', 'Name', email = 'you@example.org', role = c('aut', 'cre'))",
     "Description: Demonstrates a Zig implementation called safely from R.",
-    "License: MIT",
+    "License: GPL-3",
     "Encoding: UTF-8"
   ),
   file.path(pkg, "DESCRIPTION")
@@ -332,4 +332,5 @@ and Windows, and runs GC-stress and memory-analysis profiles where available.
 
 ## License
 
-MIT
+GPL-3. See [COPYING](COPYING) for the full license text. RZig 0.2.3 and
+earlier releases on CRAN were published under the MIT license.

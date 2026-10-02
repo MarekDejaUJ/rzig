@@ -13,7 +13,7 @@ writeLines(
     "Version: 0.0.1",
     "Authors@R: person('Test', 'Author', email = 'test@example.org', role = c('aut', 'cre'))",
     "Description: Demonstrates a Zig implementation called safely from R.",
-    "License: MIT",
+    "License: GPL-3",
     "Encoding: UTF-8"
   ),
   file.path(package_root, "DESCRIPTION")
