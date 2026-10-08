@@ -49,7 +49,7 @@ scan_exports <- function(path) {
     class = "rzig_exports",
     package = info$package,
     path = info$path,
-    source = source_path
+    source = file.path("src", "rzig", "src", "main.zig")
   )
 }
 
@@ -371,12 +371,12 @@ print.rzig_exports <- function(x, ...) {
       type <- item$parameter_types[[position]]
       if (grepl("Mut\\(", type, useBytes = TRUE)) mutable <- TRUE
       cat(sprintf(
-        "  %-14s %-26s %s\n", item$parameters[[position]], type,
+        "  %-10s %-22s %s\n", item$parameters[[position]], type,
         .rzig_describe_parameter(type)
       ))
     }
     cat(sprintf(
-      "  %-14s %-26s %s\n", "returns", item$return_type,
+      "  %-10s %-22s %s\n", "returns", item$return_type,
       .rzig_describe_return(item$return_type, mutable)
     ))
   }
@@ -398,14 +398,14 @@ print.rzig_exports <- function(x, ...) {
   }
   switch(
     key,
-    "[]constf64" = "double vector (borrowed, read-only)",
-    "[]consti32" = "integer vector (borrowed, read-only)",
-    "[]constbool" = "logical vector without NA (copied)",
-    "[]constu8" = "character, length 1 (copied)",
-    "[]const[]constu8" = "character vector without NA (copied)",
-    "Matrix" = "double matrix (borrowed, read-only)",
-    "Mut([]f64)" = "double vector (duplicated, writable)",
-    "Sexp" = "any R object (borrowed)",
+    "[]constf64" = "double vector, borrowed",
+    "[]consti32" = "integer vector, borrowed",
+    "[]constbool" = "logical vector, copied",
+    "[]constu8" = "character, length 1, copied",
+    "[]const[]constu8" = "character vector, copied",
+    "Matrix" = "double matrix, borrowed",
+    "Mut([]f64)" = "double vector, writable duplicate",
+    "Sexp" = "R object, borrowed",
     "not supported; the Zig compiler rejects the signature"
   )
 }
@@ -417,7 +417,7 @@ print.rzig_exports <- function(x, ...) {
   optional <- grepl("^\\?", key, useBytes = TRUE)
   if (optional) key <- substring(key, 2L)
   if (mutable && key == "void") {
-    return("the writable duplicate of the mutable input (double vector)")
+    return("the writable duplicate, a double vector")
   }
   attributed <- regmatches(key, regexec("^Attributed\\((.*)\\)$", key))[[1L]]
   if (length(attributed) == 2L) {

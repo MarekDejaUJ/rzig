@@ -10,7 +10,8 @@
 #' @param path Path to the package root.
 #'
 #' @return An object of class `rzig_status`: a data frame with the columns
-#'   `step`, `ok` and `detail`, one row per check, with the attribute `path`.
+#'   `step`, `ok` and `detail`, one row per check, with the attributes `path`
+#'   and `package`.
 #' @examples
 #' package_path <- tempfile("rzig-status-", tmpdir = tempdir())
 #' dir.create(package_path)
@@ -35,12 +36,13 @@ rzig_status <- function(path) {
   } else {
     add("DESCRIPTION", TRUE, paste("package", info$package))
   }
+  label <- if (is.null(info)) basename(path) else info$package
 
   managed <- .rzig_managed_files
   present <- file.exists(file.path(path, managed))
   framework <- file.path(path, "src", "rzig", "framework", "rzig.zig")
   if (all(present) && file.exists(framework)) {
-    add("Scaffold", TRUE, "build files, entry stub and framework sources present")
+    add("Scaffold", TRUE, "build files and framework sources present")
   } else {
     missing <- c(managed[!present], if (!file.exists(framework)) file.path("src", "rzig", "framework"))
     add("Scaffold", FALSE, paste("missing:", paste(missing, collapse = ", "), "; run use_rzig()"))
@@ -62,8 +64,8 @@ rzig_status <- function(path) {
     } else if (!length(exports)) {
       add("Exports", FALSE, "no public function marked with /// @export")
     } else {
-      add("Exports", TRUE, paste(
-        length(exports), "function(s):",
+      add("Exports", TRUE, paste0(
+        length(exports), " function", if (length(exports) == 1L) "" else "s", ": ",
         paste(vapply(exports, function(item) item$name, character(1L)), collapse = ", ")
       ))
     }
@@ -83,7 +85,7 @@ rzig_status <- function(path) {
     if (length(stale)) {
       add("Bindings", FALSE, paste("out of date:", paste(stale, collapse = ", "), "; run document()"))
     } else {
-      add("Bindings", TRUE, "manifest, R wrappers and NAMESPACE block match the exports")
+      add("Bindings", TRUE, "generated files match the exports")
     }
   } else {
     add("Bindings", FALSE, "cannot be checked without exports")
@@ -105,12 +107,12 @@ rzig_status <- function(path) {
 
   result <- do.call(rbind, rows)
   rownames(result) <- NULL
-  structure(result, class = c("rzig_status", "data.frame"), path = path)
+  structure(result, class = c("rzig_status", "data.frame"), path = path, package = label)
 }
 
 #' @export
 print.rzig_status <- function(x, ...) {
-  cat("RZig status of", attr(x, "path", exact = TRUE), "\n")
+  cat(sprintf("RZig status of package %s\n", attr(x, "package", exact = TRUE)))
   for (index in seq_len(nrow(x))) {
     cat(sprintf(
       "  [%s] %-13s %s\n", if (x$ok[[index]]) "ok" else "--", x$step[[index]], x$detail[[index]]

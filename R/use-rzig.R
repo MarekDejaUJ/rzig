@@ -106,7 +106,7 @@ use_rzig <- function(path, overwrite = FALSE) {
     file.path("R", "rzig-wrappers.R"),
     "NAMESPACE"
   )
-  message("Created RZig scaffold in ", path)
+  message("Created RZig scaffold for package ", package)
   invisible(structure(
     list(
       path = path,
@@ -120,11 +120,11 @@ use_rzig <- function(path, overwrite = FALSE) {
 
 #' @export
 print.rzig_scaffold <- function(x, ...) {
-  cat(sprintf("RZig scaffold of package %s in %s\n", x$package, x$path))
-  cat(sprintf("%d files written; the package author's Zig code lives in %s\n",
-    length(x$files), file.path("src", "rzig", "src", "main.zig")))
-  cat(sprintf("Exported Zig functions: %s\n",
+  cat(sprintf("RZig scaffold of package %s: %d files written\n", x$package, length(x$files)))
+  cat(sprintf("Zig source: %s\n", file.path("src", "rzig", "src", "main.zig")))
+  cat(sprintf("Exported functions: %s\n",
     if (length(x$exports)) paste(vapply(x$exports, function(item) item$name, character(1L)), collapse = ", ") else "none"))
-  cat("Next steps: edit main.zig, run document(), then install the package with a Zig compiler (see find_zig()).\n")
+  cat("Next steps: edit main.zig, run document(), then install the package",
+    "with a Zig compiler (see find_zig()).\n")
   invisible(x)
 }

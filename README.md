@@ -79,7 +79,7 @@ writeLines(
 )
 rzig::use_rzig(pkg)
 #> Generated RZig bindings for rzhello: 1 exported function
-#> Created RZig scaffold in /tmp/.../rzhello
+#> Created RZig scaffold for package rzhello
 ```
 
 **2. Write Zig.** Open `src/rzig/src/main.zig`, keep its imports, `panic`
@@ -117,12 +117,12 @@ parameter and of the return value:
 
 ```r
 rzig::scan_exports(pkg)
-#> Zig exports of package rzhello (.../src/rzig/src/main.zig): 1 function
+#> Zig exports of package rzhello (src/rzig/src/main.zig): 1 function
 #>
 #> add_vectors(a, b)
-#>   a              []const f64                double vector (borrowed, read-only)
-#>   b              []const f64                double vector (borrowed, read-only)
-#>   returns        rzig.Error![]f64           double vector
+#>   a          []const f64            double vector, borrowed
+#>   b          []const f64            double vector, borrowed
+#>   returns    rzig.Error![]f64       double vector
 ```
 
 **4. Generate.** `document()` writes the Zig manifest, the R wrappers and the
@@ -133,12 +133,12 @@ them, and `rzig_status()` reports whether every step is complete:
 rzig::document(pkg)
 #> Generated RZig bindings for rzhello: 1 exported function
 rzig::rzig_status(pkg)
-#> RZig status of /tmp/.../rzhello
+#> RZig status of package rzhello
 #>   [ok] DESCRIPTION   package rzhello
-#>   [ok] Scaffold      build files, entry stub and framework sources present
+#>   [ok] Scaffold      build files and framework sources present
 #>   [ok] Zig source    src/rzig/src/main.zig
-#>   [ok] Exports       1 function(s): add_vectors
-#>   [ok] Bindings      manifest, R wrappers and NAMESPACE block match the exports
+#>   [ok] Exports       1 function: add_vectors
+#>   [ok] Bindings      generated files match the exports
 #>   [ok] Zig compiler  /usr/local/bin/zig (version 0.16.0)
 ```
 

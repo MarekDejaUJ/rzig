@@ -11,7 +11,8 @@ rzig_status(path)
 }
 \value{
 An object of class `rzig_status`: a data frame with the columns
-  `step`, `ok` and `detail`, one row per check, with the attribute `path`.
+  `step`, `ok` and `detail`, one row per check, with the attributes `path`
+  and `package`.
 }
 \description{
 Checks each step of the RZig workflow in a package and reports what is
