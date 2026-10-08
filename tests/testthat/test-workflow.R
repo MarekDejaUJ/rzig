@@ -124,3 +124,27 @@ test_that("scan_exports and document need the scaffold", {
   expect_error(scan_exports(path), "use_rzig")
   expect_error(document(path), "use_rzig")
 })
+
+test_that("generated files use LF and CRLF sources are scanned", {
+  path <- local_package("crlfpkg")
+  use_rzig(path)
+  main <- file.path(path, "src", "rzig", "src", "main.zig")
+  text <- gsub("\n", "\r\n", read_bytes(main), fixed = TRUE, useBytes = TRUE)
+  connection <- file(main, open = "wb")
+  writeBin(charToRaw(text), connection)
+  close(connection)
+  namespace_path <- file.path(path, "NAMESPACE")
+  namespace <- gsub("\n", "\r\n", read_bytes(namespace_path), fixed = TRUE, useBytes = TRUE)
+  connection <- file(namespace_path, open = "wb")
+  writeBin(charToRaw(namespace), connection)
+  close(connection)
+  expect_true(rzig_status(path)$ok[5L])
+  exports <- scan_exports(path)
+  expect_identical(exports[[1L]]$name, "hello_zig")
+  expect_false(grepl("\r", exports[[1L]]$doc, fixed = TRUE))
+  document(path)
+  for (file in c(file.path("R", "rzig-wrappers.R"), "NAMESPACE",
+                 file.path("src", "rzig", "framework", "generated", "manifest.zig"))) {
+    expect_false(grepl("\r", read_bytes(file.path(path, file)), fixed = TRUE), info = file)
+  }
+})

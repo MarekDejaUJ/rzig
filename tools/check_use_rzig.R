@@ -39,10 +39,12 @@ writeLines(
 )
 Sys.chmod(old_zig, mode = "0755")
 Sys.setenv(ZIG = old_zig)
-version_error <- tryCatch(
-  rzig::document(package_dir),
-  error = identity
-)
+# document() is pure R and succeeds whatever ZIG names; find_zig() reports
+# the unsupported compiler, and rzig_status() shows the problem in its last row.
+rzig::document(package_dir)
+version_error <- tryCatch(rzig::find_zig(), error = identity)
+unsupported <- rzig::find_zig(required = FALSE)
+status_rows <- rzig::rzig_status(package_dir)
 if (is.na(original_zig)) {
   Sys.unsetenv("ZIG")
 } else {
@@ -51,7 +53,11 @@ if (is.na(original_zig)) {
 stopifnot(
   inherits(version_error, "error"),
   grepl("Zig 0.15.2 found", conditionMessage(version_error), fixed = TRUE),
-  grepl("0.16.0 or newer is required", conditionMessage(version_error), fixed = TRUE)
+  grepl("rzig supports Zig 0.16.x", conditionMessage(version_error), fixed = TRUE),
+  identical(unsupported$version, "0.15.2"),
+  isFALSE(unsupported$supported),
+  !status_rows$ok[status_rows$step == "Zig compiler"],
+  all(status_rows$ok[status_rows$step != "Zig compiler"])
 )
 
 expected <- c(

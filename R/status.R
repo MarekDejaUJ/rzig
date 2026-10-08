@@ -71,9 +71,9 @@ rzig_status <- function(path) {
 
   if (!is.null(exports) && !is.null(info)) {
     bindings <- render_bindings(exports, info$package)
-    manifest <- .rzig_read_text(.rzig_manifest_path(path))
-    wrappers <- .rzig_read_text(.rzig_wrapper_path(path))
-    namespace <- .rzig_read_text(file.path(path, "NAMESPACE"))
+    manifest <- .rzig_normalize_newlines(.rzig_read_text(.rzig_manifest_path(path)))
+    wrappers <- .rzig_normalize_newlines(.rzig_read_text(.rzig_wrapper_path(path)))
+    namespace <- .rzig_normalize_newlines(.rzig_read_text(file.path(path, "NAMESPACE")))
     stale <- character()
     if (!identical(manifest, bindings$manifest)) stale <- c(stale, "manifest.zig")
     if (!identical(wrappers, bindings$wrappers)) stale <- c(stale, "R/rzig-wrappers.R")

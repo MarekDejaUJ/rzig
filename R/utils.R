@@ -137,8 +137,17 @@
 .rzig_write_text <- function(text, destination) {
   generated <- tempfile("rzig-generated-")
   on.exit(unlink(generated), add = TRUE)
-  writeLines(text, generated, sep = "", useBytes = TRUE)
+  connection <- file(generated, open = "wb")
+  writeBin(charToRaw(text), connection)
+  close(connection)
   .rzig_replace_file(generated, destination)
+}
+
+.rzig_normalize_newlines <- function(text) {
+  if (is.null(text)) return(NULL)
+  out <- gsub("\r\n", "\n", text, fixed = TRUE, useBytes = TRUE)
+  Encoding(out) <- "unknown"
+  out
 }
 
 .rzig_read_text <- function(path) {

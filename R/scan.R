@@ -54,6 +54,7 @@ scan_exports <- function(path) {
 }
 
 .rzig_scan_text <- function(text, source_path = "main.zig") {
+  text <- .rzig_normalize_newlines(text)
   lines <- strsplit(text, "\n", fixed = TRUE)[[1L]]
   if (length(lines) && grepl("\n$", text)) {
     lines <- c(lines, "")
