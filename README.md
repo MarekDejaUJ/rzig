@@ -3,28 +3,32 @@
 RZig lets R package authors write plain Zig functions and generate safe `.Call`
 bindings without C++ or hand-written `SEXP` conversion code.
 
-RZig is an early 0.x release. Its API may change before version 1.0.0.
-
 ## Requirements
 
-- R and the platform toolchain used to build R source packages
-- Zig 0.16.0 or newer. Release verification uses Zig 0.16.0; newer versions are
-  accepted but are not claimed as tested until they appear in the CI matrix.
+- R and the platform toolchain used to build R source packages: Xcode
+  command-line tools on macOS, Rtools on Windows, a C compiler and the R
+  development headers on Linux.
+- Zig of the 0.16 release series (`0.16.x`), needed only to install a package
+  created with RZig. RZig itself, its examples and its tests run without Zig.
+  Zig changes its language and standard library between release series, so
+  other versions are rejected with a message naming the version found.
 
-Confirm the Zig version before starting:
+Download Zig from <https://ziglang.org/download/> and confirm the version:
 
 ```sh
 zig version
 # 0.16.0
 ```
 
-On Windows, install the Rtools version appropriate for your R installation. On
-macOS, install the Xcode command-line tools. Linux needs a C compiler and the R
-development headers.
-
 ## Install RZig
 
-Until the first CRAN release, install from GitHub:
+From CRAN:
+
+```r
+install.packages("rzig")
+```
+
+The development version from GitHub:
 
 ```r
 install.packages("remotes")
@@ -37,16 +41,25 @@ If Zig is not on `PATH`, tell RZig where it is:
 Sys.setenv(ZIG = "/absolute/path/to/zig")
 ```
 
-Both `use_rzig()`/`document()` and the generated package configuration search
-in this order: `ZIG`, `PATH`, `~/.local/share/zig/*/zig`, then `~/zig/zig`.
-An R session launched from an IDE may not inherit variables exported by a shell;
-in that case, set `ZIG` with `Sys.setenv()` before running either command.
+`find_zig()` and the generated package configuration search in this order:
+`ZIG`, `PATH`, `~/.local/share/zig/*/zig`, then `~/zig/zig`. An R session
+launched from an IDE may not inherit variables exported by a shell; in that
+case, set `ZIG` with `Sys.setenv()` first.
+
+```r
+rzig::find_zig(required = FALSE)
+#> Zig compiler: /usr/local/bin/zig (version 0.16.0, supported)
+#> rzig supports the Zig 0.16.x release series.
+```
 
 ## Create a working package
 
-For a copy-paste-safe example, create the package in R's session temporary
-directory. Replace `tempdir()` with an explicit project directory when keeping
-the result:
+The workflow has five steps, each an R function. For a copy-paste-safe
+example, create the package in R's session temporary directory. Replace
+`tempdir()` with an explicit project directory when keeping the result.
+
+**1. Scaffold.** `use_rzig()` adds the build files, the framework sources and
+a starter `src/rzig/src/main.zig` with a working `hello_zig()` function:
 
 ```r
 pkg <- file.path(tempdir(), "rzhello")
@@ -65,12 +78,13 @@ writeLines(
   file.path(pkg, "DESCRIPTION")
 )
 rzig::use_rzig(pkg)
+#> Generated RZig bindings for rzhello: 1 exported function
+#> Created RZig scaffold in /tmp/.../rzhello
 ```
 
-`use_rzig()` has already created `src/rzig/src/main.zig` below `pkg` with a
-working `hello_zig()` example and all required framework wiring. Open that
-file, keep its imports, `panic` declaration, and `comptime` registration block,
-and replace only the generated `hello_zig()` function with:
+**2. Write Zig.** Open `src/rzig/src/main.zig`, keep its imports, `panic`
+declaration and `comptime` registration block, and replace the generated
+`hello_zig()` function with:
 
 ```zig
 /// Add two numeric vectors elementwise.
@@ -94,28 +108,47 @@ pub fn add_vectors(
 
 The `@param` and `@return` lines are optional. When they are absent,
 `document()` generates neutral placeholders from the Zig signature. Only
-`/// @export` is required to expose a public function to R.
+`/// @export` is required to expose a public function to R. Exported functions
+are top-level `pub fn` declarations starting at the beginning of a line, as
+`zig fmt` writes them.
 
-Generate the bindings and install the package:
+**3. Scan.** `scan_exports()` lists what R will see, with the R value of every
+parameter and of the return value:
+
+```r
+rzig::scan_exports(pkg)
+#> Zig exports of package rzhello (.../src/rzig/src/main.zig): 1 function
+#>
+#> add_vectors(a, b)
+#>   a              []const f64                double vector (borrowed, read-only)
+#>   b              []const f64                double vector (borrowed, read-only)
+#>   returns        rzig.Error![]f64           double vector
+```
+
+**4. Generate.** `document()` writes the Zig manifest, the R wrappers and the
+`NAMESPACE` block; `render_bindings()` shows the same texts without writing
+them, and `rzig_status()` reports whether every step is complete:
 
 ```r
 rzig::document(pkg)
-library_dir <- file.path(tempdir(), "rzhello-library")
-dir.create(library_dir)
-status <- system2(
-  file.path(R.home("bin"), "R"),
-  c(
-    "CMD", "INSTALL",
-    paste0("--library=", shQuote(library_dir)),
-    shQuote(normalizePath(pkg))
-  )
-)
-stopifnot(status == 0L)
+#> Generated RZig bindings for rzhello: 1 exported function
+rzig::rzig_status(pkg)
+#> RZig status of /tmp/.../rzhello
+#>   [ok] DESCRIPTION   package rzhello
+#>   [ok] Scaffold      build files, entry stub and framework sources present
+#>   [ok] Zig source    src/rzig/src/main.zig
+#>   [ok] Exports       1 function(s): add_vectors
+#>   [ok] Bindings      manifest, R wrappers and NAMESPACE block match the exports
+#>   [ok] Zig compiler  /usr/local/bin/zig (version 0.16.0)
 ```
 
-The generated R function is ready to call:
+**5. Install and call.** The package installs like any source package; the
+Zig code is compiled during installation.
 
 ```r
+library_dir <- file.path(tempdir(), "rzhello-library")
+dir.create(library_dir)
+install.packages(pkg, lib = library_dir, repos = NULL, type = "source")
 library(rzhello, lib.loc = library_dir)
 
 add_vectors(c(1, 2, 3), c(10, 20, 30))
@@ -318,7 +351,8 @@ must not call R from worker threads.
 
 ## Development checks
 
-The repository test suite uses Zig 0.16.0:
+The package tests run with `R CMD check` and need no Zig. The repository
+test suite uses Zig 0.16.0:
 
 ```sh
 zig build test

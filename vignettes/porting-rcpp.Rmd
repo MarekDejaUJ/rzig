@@ -8,13 +8,18 @@ vignette: >
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(rzig)
+compiler <- find_zig(required = FALSE)
+has_zig <- isTRUE(compiler$supported)
 ```
 
 RZig is most useful when an R package has a small, computationally expensive
 loop that needs native performance but does not otherwise need C++. This
 vignette ports an `axpy`-style operation: return `x + scale * y` without
-modifying either R input.
+modifying either R input. Every step up to the installation runs in R without
+a Zig compiler; the installation and the calls run when a supported compiler is
+found.
 
 ## Start from the behavior, not the wrapper
 
@@ -51,7 +56,7 @@ Set the package path explicitly, then run `use_rzig()` once. This disposable
 example stays inside R's session temporary directory; for a real project,
 replace `package_path` with its explicit package root:
 
-```r
+```{r scaffold}
 package_path <- tempfile("yourpackage-", tmpdir = tempdir())
 dir.create(package_path)
 writeLines(
@@ -67,50 +72,21 @@ writeLines(
   ),
   file.path(package_path, "DESCRIPTION")
 )
-rzig::use_rzig(package_path)
+scaffold <- use_rzig(package_path)
+scaffold
 ```
 
-This creates the portable build files, the Zig source tree, and an initial
-generated wrapper. Put the native implementation in
-`src/rzig/src/main.zig`:
+`use_rzig()` creates the portable build files, the Zig source tree with the
+framework, a starter `src/rzig/src/main.zig`, and the generated R wrapper for
+the starter function. The Zig implementation of the port is shipped with RZig
+as `inst/examples/axpy.zig`; copying it over the starter file is the only
+edit the port needs:
 
-```zig
-const std = @import("std");
-const builtin = @import("builtin");
-const rzig = @import("rzig");
-
-pub const panic = if (builtin.is_test)
-    std.debug.FullPanic(std.debug.defaultPanic)
-else
-    rzig.Panic;
-
-/// Compute x + scale * y without changing either R input.
-/// @param x The numeric vector to duplicate and update.
-/// @param y A borrowed, read-only numeric vector.
-/// @param scale The multiplier applied to y.
-/// @return A new numeric vector containing the result.
-/// @export
-pub fn axpy(
-    x: rzig.Mut([]f64),
-    y: []const f64,
-    scale: f64,
-) rzig.Error!void {
-    if (x.data.len != y.len) {
-        return rzig.raise(
-            "x and y must have equal lengths; got {d} and {d}",
-            .{ x.data.len, y.len },
-        );
-    }
-
-    for (x.data, y, 0..) |*result, value, index| {
-        if (index % 100_000 == 0) try rzig.checkInterrupt();
-        result.* += scale * value;
-    }
-}
-
-comptime {
-    rzig.registerModule(@This());
-}
+```{r write-zig, comment = ""}
+main_path <- file.path(package_path, "src", "rzig", "src", "main.zig")
+file.copy(system.file("examples", "axpy.zig", package = "rzig"), main_path,
+  overwrite = TRUE)
+cat(readLines(main_path), sep = "\n")
 ```
 
 `rzig.Mut([]f64)` is the direct expression of copy-on-modify semantics. RZig
@@ -123,52 +99,73 @@ The function contains no `SEXP`, `PROTECT`, C++ exception, or registration
 table. The types and `@export` marker supply enough information for RZig to
 generate those parts.
 
-## Generate, install, and test
+## Inspect what R will see
 
-Regenerate the R wrapper whenever an exported Zig signature or its
-documentation changes:
+`scan_exports()` reads the Zig source and lists every exported function with
+its R arguments and the R value of each parameter and of the result:
 
-```r
-rzig::document(package_path)
+```{r scan}
+scan_exports(package_path)
+```
+
+## Generate the bindings
+
+`document()` writes the Zig manifest, the R wrapper and the `NAMESPACE`
+block. Run it whenever an exported Zig signature or its documentation
+changes. The returned object holds the generated texts:
+
+```{r document}
+bindings <- document(package_path)
+cat(bindings$wrappers)
+cat(bindings$namespace)
+```
+
+`rzig_status()` checks every step and tells whether the generated bindings
+match the current Zig source and whether a supported Zig compiler is
+available for the installation:
+
+```{r status}
+rzig_status(package_path)
+```
+
+## Install and call
+
+The installation compiles the Zig code and needs a Zig compiler of the
+supported release series. The chunks below run when `find_zig()` finds one;
+this rendered copy of the vignette `r if (has_zig) "ran" else "skipped"` them.
+
+```{r install, eval = has_zig}
 library_path <- file.path(tempdir(), "rzig-vignette-library")
 dir.create(library_path)
-system2(
-  file.path(R.home("bin"), "R"),
-  c(
-    "CMD", "INSTALL",
-    paste0("--library=", shQuote(library_path)),
-    shQuote(package_path)
-  )
-)
+install.packages(package_path, lib = library_path, repos = NULL,
+  type = "source", quiet = TRUE)
+package_name <- "yourpackage"
+loadNamespace(package_name, lib.loc = library_path)
+axpy <- getExportedValue(package_name, "axpy")
 ```
 
 The generated R function has the same three visible arguments:
 
-```r
-library(yourpackage, lib.loc = library_path)
-
+```{r call, eval = has_zig}
 x <- c(1, 2, 3)
 y <- c(10, 20, 30)
 result <- axpy(x, y, 0.5)
-
-stopifnot(identical(x, c(1, 2, 3)))
-stopifnot(identical(result, c(6, 12, 18)))
-
+x
+result
 try(axpy(1:2, c(1, 2, 3), 1))
-# The native error is an R condition, and the session remains usable.
 sum(1:10)
 ```
 
-Remove the disposable package and installation when finished:
+The native error is an R condition, and the session remains usable. Integer
+vectors are rejected for numeric slices and mutable numeric inputs. Convert
+deliberately with `as.numeric()` in R rather than relying on an implicit
+native allocation.
 
-```r
-unloadNamespace("yourpackage")
-unlink(c(package_path, library_path), recursive = TRUE)
+```{r cleanup, include = FALSE}
+if (has_zig) unloadNamespace(package_name)
+unlink(package_path, recursive = TRUE)
+if (has_zig) unlink(library_path, recursive = TRUE)
 ```
-
-Integer vectors are rejected for numeric slices and mutable numeric inputs.
-Convert deliberately with `as.numeric()` in R rather than relying on an
-implicit native allocation.
 
 ## What changes in the port
 

@@ -45,7 +45,7 @@ jobs:
         run: sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
       - uses: r-lib/actions/setup-r@v2
         with:
-          r-version: "4.5.2"
+          r-version: "release"
           use-public-rspm: true
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
@@ -77,6 +77,13 @@ jobs:
             cat rzig.Rcheck/00check.log
             exit 1
           fi
+        shell: bash
+      - name: Run the package tests from the repository with the Zig scanner oracle
+        run: |
+          parity_library="$RUNNER_TEMP/rzig-parity-library"
+          mkdir -p "$parity_library"
+          R CMD INSTALL --library="$parity_library" rzig_*.tar.gz
+          ZIG="$(command -v zig)" R_LIBS="$parity_library" Rscript -e 'library(testthat); library(rzig); test_dir("tests/testthat", stop_on_failure = TRUE)'
         shell: bash
       - name: Check integration fixture
         run: |

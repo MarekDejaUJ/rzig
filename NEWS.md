@@ -1,8 +1,43 @@
-# rzig (development version)
+# rzig 0.3.0
+
+## Step-wise workflow
+
+- New functions expose each step of the workflow: `find_zig()` locates a
+  supported Zig compiler, `scan_exports()` lists the exported Zig functions
+  with their R arguments and the R values of every parameter and return type,
+  `render_bindings()` shows the generated manifest, R wrappers and `NAMESPACE`
+  block, and `rzig_status()` reports which steps of a package are complete
+  and whether the generated bindings match the Zig source.
+- `use_rzig()` and `document()` return printable objects describing the files
+  written and the exports found.
+- The export scan runs in R. `use_rzig()`, `scan_exports()`,
+  `render_bindings()` and `document()` need no Zig compiler; Zig is required
+  only to install a package created with the scaffold. The package examples
+  run on CRAN, and the vignette executes the generation steps.
+- The Zig scanner is no longer copied into client packages.
+
+## Zig version policy
+
+- rzig supports the Zig 0.16 release series. `find_zig()` and the generated
+  `configure` scripts accept versions `0.16.x` and reject other series with a
+  message naming the found version, because Zig changes its language and
+  standard library between minor releases.
+
+## Portability
+
+- The generated `src/entry.c` includes no R header. R installations whose
+  headers lack `R_ext/Visibility.h`, such as the Debian and Ubuntu `r-base`
+  packages, can install client packages.
+
+## Tests
+
+- `tests/testthat` runs on CRAN: scanner fixtures, rendering, the scaffold
+  and documentation workflow without Zig, and `find_zig()`. A parity test
+  compares the R scan with the Zig scanner where a supported Zig is present.
 
 ## Licensing
 
-- RZig is distributed under GPL-3. Releases up to and including 0.2.3
+- rzig is distributed under GPL-3. Releases up to and including 0.2.3
   remain available under the MIT license.
 - The example package `rzigcausal` and the test package `rzigtest` are
   distributed under GPL-3.

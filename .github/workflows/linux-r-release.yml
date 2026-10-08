@@ -1,0 +1,212 @@
+name: Linux R release
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  ubuntu-r-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: mlugg/setup-zig@v2
+        with: { version: "0.16.0" }
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "release"
+          use-public-rspm: true
+      - name: Report versions
+        run: |
+          R --version | head -1
+          zig version
+          gcc --version | head -1
+          ldd --version | head -1
+      - name: README onboarding path (use_rzig, document, R CMD INSTALL, call)
+        run: ZIG="$(command -v zig)" sh tools/check_readme_onboarding.sh
+      - name: Mirror the replication script (install.packages from R)
+        run: |
+          cat > mirror.R <<'REOF'
+          lib <- file.path(tempdir(), "lib"); dir.create(lib)
+          install.packages(".", lib = lib, repos = NULL, type = "source", quiet = TRUE)
+          library("rzig", lib.loc = lib)
+          pkg <- file.path(tempdir(), "rzhello"); dir.create(pkg)
+          writeLines(c("Package: rzhello", "Version: 0.0.1", "Title: Adding Vectors in Zig",
+            "License: GPL-3", "Description: Adds two numeric vectors in Zig.",
+            "Authors@R: person('A', 'Author', email = 'a@example.org', role = c('aut', 'cre'))"),
+            file.path(pkg, "DESCRIPTION"))
+          use_rzig(pkg)
+          document(pkg)
+          res <- install.packages(pkg, lib = lib, repos = NULL, type = "source", quiet = TRUE)
+          cat("installed packages in lib:", paste(list.files(lib), collapse = " "), "\n")
+          library("rzhello", lib.loc = lib)
+          print(hello_zig("Linux"))
+          REOF
+          Rscript mirror.R
+      - name: Build and install the fixture package with full output
+        run: |
+          chmod +x tests/fixtures/rzigtest/configure tests/fixtures/rzigtest/configure.win
+          R CMD build tests/fixtures/rzigtest
+          R CMD INSTALL rzigtest_*.tar.gz
+          Rscript -e 'library(rzigtest); print(add_one(c(1, 2, 3)))'
+
+  rocker-r-ver:
+    runs-on: ubuntu-latest
+    container: rocker/r-ver:4.6.1
+    steps:
+      - name: Install git, curl and xz
+        run: apt-get update && apt-get install -y git curl xz-utils
+      - uses: actions/checkout@v7
+      - name: Install Zig 0.16.0
+        run: |
+          curl -sL https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz | tar -xJ -C /opt
+          ln -s /opt/zig-x86_64-linux-0.16.0/zig /usr/local/bin/zig
+      - name: Report versions
+        run: |
+          R --version | head -1
+          zig version
+          gcc --version | head -1
+          ldd --version | head -1
+      - name: README onboarding path (use_rzig, document, R CMD INSTALL, call)
+        run: ZIG=/usr/local/bin/zig sh tools/check_readme_onboarding.sh
+      - name: Mirror the replication script (install.packages from R)
+        run: |
+          cat > mirror.R <<'REOF'
+          lib <- file.path(tempdir(), "lib"); dir.create(lib)
+          install.packages(".", lib = lib, repos = NULL, type = "source", quiet = TRUE)
+          library("rzig", lib.loc = lib)
+          pkg <- file.path(tempdir(), "rzhello"); dir.create(pkg)
+          writeLines(c("Package: rzhello", "Version: 0.0.1", "Title: Adding Vectors in Zig",
+            "License: GPL-3", "Description: Adds two numeric vectors in Zig.",
+            "Authors@R: person('A', 'Author', email = 'a@example.org', role = c('aut', 'cre'))"),
+            file.path(pkg, "DESCRIPTION"))
+          use_rzig(pkg)
+          document(pkg)
+          res <- install.packages(pkg, lib = lib, repos = NULL, type = "source", quiet = TRUE)
+          cat("installed packages in lib:", paste(list.files(lib), collapse = " "), "\n")
+          library("rzhello", lib.loc = lib)
+          print(hello_zig("Linux"))
+          REOF
+          Rscript mirror.R
+      - name: Build and install the fixture package with full output
+        run: |
+          chmod +x tests/fixtures/rzigtest/configure tests/fixtures/rzigtest/configure.win
+          R CMD build tests/fixtures/rzigtest
+          R CMD INSTALL rzigtest_*.tar.gz
+          Rscript -e 'library(rzigtest); print(add_one(c(1, 2, 3)))'
+
+  fedora:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install R, git and build tools
+        run: dnf install -y R-core-devel git tar xz curl findutils diffutils gcc make
+      - uses: actions/checkout@v7
+      - name: Install Zig 0.16.0
+        run: |
+          curl -sL https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz | tar -xJ -C /opt
+          ln -s /opt/zig-x86_64-linux-0.16.0/zig /usr/local/bin/zig
+      - name: Report versions
+        run: |
+          R --version | head -1
+          zig version
+          gcc --version | head -1
+          ldd --version | head -1
+      - name: README onboarding path (use_rzig, document, R CMD INSTALL, call)
+        run: ZIG=/usr/local/bin/zig sh tools/check_readme_onboarding.sh
+      - name: Mirror the replication script (install.packages from R)
+        run: |
+          cat > mirror.R <<'REOF'
+          lib <- file.path(tempdir(), "lib"); dir.create(lib)
+          install.packages(".", lib = lib, repos = NULL, type = "source", quiet = TRUE)
+          library("rzig", lib.loc = lib)
+          pkg <- file.path(tempdir(), "rzhello"); dir.create(pkg)
+          writeLines(c("Package: rzhello", "Version: 0.0.1", "Title: Adding Vectors in Zig",
+            "License: GPL-3", "Description: Adds two numeric vectors in Zig.",
+            "Authors@R: person('A', 'Author', email = 'a@example.org', role = c('aut', 'cre'))"),
+            file.path(pkg, "DESCRIPTION"))
+          use_rzig(pkg)
+          document(pkg)
+          res <- install.packages(pkg, lib = lib, repos = NULL, type = "source", quiet = TRUE)
+          cat("installed packages in lib:", paste(list.files(lib), collapse = " "), "\n")
+          library("rzhello", lib.loc = lib)
+          print(hello_zig("Linux"))
+          REOF
+          Rscript mirror.R
+      - name: Build and install the fixture package with full output
+        run: |
+          chmod +x tests/fixtures/rzigtest/configure tests/fixtures/rzigtest/configure.win
+          R CMD build tests/fixtures/rzigtest
+          R CMD INSTALL rzigtest_*.tar.gz
+          Rscript -e 'library(rzigtest); print(add_one(c(1, 2, 3)))'
+
+  ubuntu-apt-r:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: mlugg/setup-zig@v2
+        with: { version: "0.16.0" }
+      - name: Install R from the CRAN apt repository
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends software-properties-common dirmngr
+          wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | sudo tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
+          sudo add-apt-repository -y "deb https://cloud.r-project.org/bin/linux/ubuntu $(lsb_release -cs)-cran40/"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends r-base r-base-dev
+      - name: Report versions
+        run: |
+          R --version | head -1
+          R CMD config CC
+          R CMD config CFLAGS
+          zig version
+      - name: README onboarding path (use_rzig, document, R CMD INSTALL, call)
+        run: ZIG="$(command -v zig)" sh tools/check_readme_onboarding.sh
+      - name: Mirror the replication script (install.packages from R)
+        run: |
+          cat > mirror.R <<'REOF'
+          lib <- file.path(tempdir(), "lib"); dir.create(lib)
+          install.packages(".", lib = lib, repos = NULL, type = "source", quiet = TRUE)
+          library("rzig", lib.loc = lib)
+          pkg <- file.path(tempdir(), "rzhello"); dir.create(pkg)
+          writeLines(c("Package: rzhello", "Version: 0.0.1", "Title: Adding Vectors in Zig",
+            "License: GPL-3", "Description: Adds two numeric vectors in Zig.",
+            "Authors@R: person('A', 'Author', email = 'a@example.org', role = c('aut', 'cre'))"),
+            file.path(pkg, "DESCRIPTION"))
+          use_rzig(pkg)
+          document(pkg)
+          res <- install.packages(pkg, lib = lib, repos = NULL, type = "source", quiet = TRUE)
+          cat("installed packages in lib:", paste(list.files(lib), collapse = " "), "\n")
+          library("rzhello", lib.loc = lib)
+          print(hello_zig("Linux"))
+          REOF
+          Rscript mirror.R
+
+  debian-testing:
+    runs-on: ubuntu-latest
+    container: debian:testing
+    steps:
+      - name: Install R, git and build tools from Debian
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends r-base-core r-base-dev git curl xz-utils ca-certificates
+      - uses: actions/checkout@v7
+      - name: Install Zig 0.16.0
+        run: |
+          curl -sL https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz | tar -xJ -C /opt
+          ln -s /opt/zig-x86_64-linux-0.16.0/zig /usr/local/bin/zig
+      - name: Report versions
+        run: |
+          R --version | head -1
+          R CMD config CC
+          R CMD config CFLAGS
+          zig version
+          ldd --version | head -1
+      - name: README onboarding path (use_rzig, document, R CMD INSTALL, call)
+        run: ZIG=/usr/local/bin/zig sh tools/check_readme_onboarding.sh
