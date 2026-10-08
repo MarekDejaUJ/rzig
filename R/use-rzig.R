@@ -1,26 +1,35 @@
-#' Add RZig to a Package
+#' Add RZig to a package
 #'
-#' Creates a Zig source tree, portable build files, a generated native entry
-#' stub, and a working `hello_zig()` example in an existing package.
+#' Creates the Zig source tree, the portable build files, the native entry
+#' stub and a working `hello_zig()` example in an existing package, then
+#' generates the bindings with [document()]. The function is pure R; a Zig
+#' compiler of the supported release series (see [find_zig()]) is needed
+#' only when the package is installed.
 #'
-#' @param path Path to the package root.
+#' The files written below the package root are: `configure`,
+#' `configure.win`, `cleanup`, `cleanup.win`, `src/entry.c`,
+#' `src/Makevars.in`, `src/Makevars.win.in`, the framework sources under
+#' `src/rzig/framework`, the package author's Zig source
+#' `src/rzig/src/main.zig`, the generated `R/rzig-wrappers.R`, and a managed
+#' block in `NAMESPACE`.
+#'
+#' @param path Path to the package root; the directory must contain a
+#'   `DESCRIPTION` file.
 #' @param overwrite Replace files previously managed by RZig.
 #'
-#' @return The normalized package path, invisibly.
+#' @return An object of class `rzig_scaffold`: a list with `path` (the
+#'   normalized package root), `package`, `files` (the paths written,
+#'   relative to the root) and `exports` (the [rzig_exports][scan_exports()]
+#'   found in `main.zig`), invisibly.
 #' @examples
-#' \donttest{
-#' local({
-#'   package_path <- tempfile("rzig-example-", tmpdir = tempdir())
-#'   dir.create(package_path)
-#'   on.exit(unlink(package_path, recursive = TRUE), add = TRUE)
-#'   writeLines(
-#'     c("Package: examplepkg", "Version: 0.0.1"),
-#'     file.path(package_path, "DESCRIPTION")
-#'   )
-#'   use_rzig(package_path)
-#'   file.exists(file.path(package_path, "src", "rzig", "src", "main.zig"))
-#' })
-#' }
+#' package_path <- tempfile("rzig-example-", tmpdir = tempdir())
+#' dir.create(package_path)
+#' writeLines(c("Package: examplepkg", "Version: 0.0.1"),
+#'   file.path(package_path, "DESCRIPTION"))
+#' scaffold <- use_rzig(package_path)
+#' scaffold
+#' file.exists(file.path(package_path, "src", "rzig", "src", "main.zig"))
+#' unlink(package_path, recursive = TRUE)
 #' @export
 use_rzig <- function(path, overwrite = FALSE) {
   if (length(overwrite) != 1L || is.na(overwrite)) {
@@ -37,17 +46,7 @@ use_rzig <- function(path, overwrite = FALSE) {
     stop("the installed rzig package is missing its scaffold assets", call. = FALSE)
   }
 
-  managed <- c(
-    "configure",
-    "configure.win",
-    "cleanup",
-    "cleanup.win",
-    file.path("src", "entry.c"),
-    file.path("src", "Makevars.in"),
-    file.path("src", "Makevars.win.in"),
-    file.path("src", "rzig"),
-    file.path("R", "rzig-wrappers.R")
-  )
+  managed <- .rzig_managed_files
   conflicts <- managed[file.exists(file.path(path, managed))]
   if (length(conflicts) && !overwrite) {
     stop(
@@ -90,335 +89,42 @@ use_rzig <- function(path, overwrite = FALSE) {
   entry <- gsub("@PKG@", gsub("[^A-Za-z0-9_]", "_", package), entry, fixed = TRUE)
   writeLines(entry, file.path(path, "src", "entry.c"), useBytes = TRUE)
 
-  document(path)
+  bindings <- document(path)
 
-  message("Created RZig scaffold in ", path)
-  invisible(path)
-}
-
-#' Generate R Bindings from Zig Exports
-#'
-#' Scans public Zig functions marked with `/// @export`, regenerates the Zig
-#' manifest and R wrappers, and updates a managed block in `NAMESPACE`.
-#'
-#' @param path Path to a package previously initialized with [use_rzig()].
-#'
-#' @return The normalized package path, invisibly.
-#' @examples
-#' \donttest{
-#' local({
-#'   package_path <- tempfile("rzig-document-", tmpdir = tempdir())
-#'   dir.create(package_path)
-#'   on.exit(unlink(package_path, recursive = TRUE), add = TRUE)
-#'   writeLines(
-#'     c("Package: examplepkg", "Version: 0.0.1"),
-#'     file.path(package_path, "DESCRIPTION")
-#'   )
-#'   use_rzig(package_path)
-#'   document(package_path)
-#'   file.exists(file.path(package_path, "R", "rzig-wrappers.R"))
-#' })
-#' }
-#' @export
-document <- function(path) {
-  package_info <- .rzig_package_info(path)
-  path <- package_info$path
-  package <- package_info$package
-
-  source_path <- file.path(path, "src", "rzig", "src", "main.zig")
-  manifest_path <- file.path(
-    path, "src", "rzig", "framework", "generated", "manifest.zig"
-  )
-  wrapper_path <- file.path(path, "R", "rzig-wrappers.R")
-  namespace_path <- file.path(path, "NAMESPACE")
-  if (!file.exists(source_path) || !dir.exists(dirname(manifest_path))) {
-    stop(
-      "RZig scaffold not found; run `rzig::use_rzig()` first",
-      call. = FALSE
-    )
-  }
-
-  scanner <- system.file("zig", "tools", "scan.zig", package = "rzig")
-  if (!nzchar(scanner) || !file.exists(scanner)) {
-    stop("the installed rzig package is missing its export scanner", call. = FALSE)
-  }
-  zig <- .rzig_find_zig()
-
-  generated <- tempfile("rzig-document-")
-  dir.create(generated)
-  on.exit(unlink(generated, recursive = TRUE, force = TRUE), add = TRUE)
-  cache_directory <- file.path(generated, "zig-cache")
-  global_cache_directory <- file.path(generated, "zig-global-cache")
-  runtime_temp_directory <- file.path(generated, "tmp")
-  dir.create(runtime_temp_directory)
-  # On Windows, system2() supports env only for commands that accept
-  # environment assignments on their command line. Zig is not one of them.
-  temporary_environment <- if (.Platform$OS.type == "windows") {
-    character()
-  } else {
-    paste0("TMPDIR=", shQuote(runtime_temp_directory))
-  }
-  manifest_generated <- file.path(generated, "manifest.zig")
-  wrapper_generated <- file.path(generated, "rzig-wrappers.R")
-  namespace_generated <- file.path(generated, "NAMESPACE")
-
-  .rzig_system2(
-    zig,
-    c(
-      "run",
-      "--cache-dir", shQuote(cache_directory),
-      "--global-cache-dir", shQuote(global_cache_directory),
-      "-O", "ReleaseSafe", shQuote(scanner), "--",
-      shQuote(source_path), shQuote(manifest_generated),
-      shQuote(wrapper_generated), shQuote(namespace_generated),
-      shQuote(package)
-    ),
-    "scan Zig exports",
-    environment = temporary_environment
-  )
-  .rzig_system2(
-    zig,
-    c("fmt", shQuote(manifest_generated)),
-    "format the generated Zig manifest",
-    environment = temporary_environment
-  )
-
-  tryCatch(
-    parse(file = wrapper_generated, keep.source = FALSE),
-    error = function(error) {
-      stop("generated invalid R wrappers: ", conditionMessage(error), call. = FALSE)
-    }
-  )
-  generated_namespace <- readLines(namespace_generated, warn = FALSE)
-  tryCatch(
-    parse(text = generated_namespace, keep.source = FALSE),
-    error = function(error) {
-      stop("generated an invalid NAMESPACE block: ", conditionMessage(error), call. = FALSE)
-    }
-  )
-
-  old_wrapper <- if (file.exists(wrapper_path)) {
-    readLines(wrapper_path, warn = FALSE)
-  } else {
-    character()
-  }
-  existing_namespace <- if (file.exists(namespace_path)) {
-    readLines(namespace_path, warn = FALSE)
-  } else {
-    character()
-  }
-  merged_namespace <- .rzig_merge_namespace(
-    existing_namespace,
-    generated_namespace,
-    package,
-    old_wrapper
-  )
-  namespace_merged <- file.path(generated, "NAMESPACE-merged")
-  writeLines(merged_namespace, namespace_merged, useBytes = TRUE)
-
-  .rzig_replace_file(manifest_generated, manifest_path)
-  .rzig_replace_file(wrapper_generated, wrapper_path)
-  .rzig_replace_file(namespace_merged, namespace_path)
-
-  message("Generated RZig bindings for ", package)
-  invisible(path)
-}
-
-.rzig_package_info <- function(path) {
-  if (length(path) != 1L || is.na(path) || !nzchar(path)) {
-    stop("`path` must be one non-empty path", call. = FALSE)
-  }
-  path <- normalizePath(path, winslash = "/", mustWork = TRUE)
-  description_path <- file.path(path, "DESCRIPTION")
-  if (!file.exists(description_path)) {
-    stop("`path` must contain an R package DESCRIPTION file", call. = FALSE)
-  }
-  description <- read.dcf(description_path)
-  if (!"Package" %in% colnames(description)) {
-    stop("DESCRIPTION must declare a Package field", call. = FALSE)
-  }
-  package <- unname(description[1L, "Package"])
-  if (!grepl("^[A-Za-z][A-Za-z0-9.]*$", package)) {
-    stop("unsupported R package name: ", package, call. = FALSE)
-  }
-  list(path = path, package = package)
-}
-
-.rzig_find_zig <- function() {
-  minimum <- "0.16.0"
-  zig <- Sys.getenv("ZIG", unset = "")
-  if (nzchar(zig)) {
-    zig <- path.expand(zig)
-    if (file.access(zig, mode = 1L) != 0L) {
-      stop("ZIG does not name an executable: ", zig, call. = FALSE)
-    }
-  } else {
-    zig <- unname(Sys.which("zig"))
-  }
-
-  if (!nzchar(zig)) {
-    home <- Sys.getenv("HOME", unset = "")
-    if (nzchar(home)) {
-      executable <- if (.Platform$OS.type == "windows") "zig.exe" else "zig"
-      candidates <- c(
-        Sys.glob(file.path(home, ".local", "share", "zig", "*", executable)),
-        file.path(home, "zig", executable)
-      )
-      candidates <- candidates[file.access(candidates, mode = 1L) == 0L]
-      if (length(candidates)) {
-        zig <- candidates[[1L]]
-      }
-    }
-  }
-
-  if (!nzchar(zig)) {
-    stop(
-      "Zig ", minimum, " or newer is required.\n",
-      "Download it from https://ziglang.org/download/, add it to PATH, ",
-      "or set ZIG=/absolute/path/to/zig.",
-      call. = FALSE
-    )
-  }
-
-  version_output <- .rzig_system2(zig, "version", "query the Zig version")
-  if (!length(version_output)) {
-    stop("Zig at ", zig, " did not report a version", call. = FALSE)
-  }
-  version <- trimws(version_output[[1L]])
-  match <- regexec("^([0-9]+)\\.([0-9]+)\\.([0-9]+)", version)
-  fields <- regmatches(version, match)[[1L]]
-  if (length(fields) != 4L) {
-    stop(
-      "Zig at ", zig, " reported an unrecognized version: ", version,
-      call. = FALSE
-    )
-  }
-  found <- as.integer(fields[2:4])
-  required <- c(0L, 16L, 0L)
-  is_supported <- found[[1L]] > required[[1L]] ||
-    (found[[1L]] == required[[1L]] && found[[2L]] > required[[2L]]) ||
-    (found[[1L]] == required[[1L]] && found[[2L]] == required[[2L]] &&
-      found[[3L]] >= required[[3L]])
-  if (!is_supported) {
-    stop(
-      "Zig ", version, " found at ", zig, ", but ", minimum,
-      " or newer is required.\nDownload: https://ziglang.org/download/",
-      call. = FALSE
-    )
-  }
-
-  zig
-}
-
-.rzig_system2 <- function(
-  command,
-  arguments,
-  action,
-  environment = character()
-) {
-  output <- tryCatch(
-    suppressWarnings(system2(
-      command,
-      arguments,
-      stdout = TRUE,
-      stderr = TRUE,
-      env = environment
-    )),
-    error = function(error) {
-      stop(
-        "failed to ", action, ": ", conditionMessage(error),
-        call. = FALSE
-      )
-    }
-  )
-  status <- attr(output, "status", exact = TRUE)
-  if (is.null(status)) {
-    status <- 0L
-  }
-  if (!identical(as.integer(status), 0L)) {
-    details <- paste(output, collapse = "\n")
-    if (nzchar(details)) {
-      details <- paste0(":\n", details)
-    }
-    stop("failed to ", action, details, call. = FALSE)
-  }
-  invisible(output)
-}
-
-.rzig_merge_namespace <- function(existing, generated, package, old_wrapper) {
-  begin <- "# Generated by rzig::document(): begin"
-  end <- "# Generated by rzig::document(): end"
-  starts <- which(trimws(existing) == begin)
-  ends <- which(trimws(existing) == end)
-  if (length(starts) != length(ends) || length(starts) > 1L ||
-      (length(starts) == 1L && ends < starts)) {
-    stop("NAMESPACE contains an incomplete RZig-generated block", call. = FALSE)
-  }
-
-  if (length(starts) == 1L) {
-    existing <- existing[-seq.int(starts, ends)]
-  } else {
-    legacy <- sprintf(
-      "useDynLib(%s, .registration = TRUE, .fixes = \"C_\")",
-      package
-    )
-    existing <- existing[trimws(existing) != legacy]
-
-    wrapper_matches <- regexec(
-      "^([A-Za-z.][A-Za-z0-9._]*)[[:space:]]*<-[[:space:]]*function\\(",
-      old_wrapper
-    )
-    captures <- regmatches(old_wrapper, wrapper_matches)
-    old_exports <- vapply(
-      captures[lengths(captures) > 1L],
-      function(match) match[2L],
-      character(1L)
-    )
-    legacy_exports <- c(
-      sprintf("export(%s)", old_exports),
-      sprintf("export(\"%s\")", old_exports)
-    )
-    generated_exports <- generated[grepl("^export\\(", generated)]
-    existing <- existing[
-      !trimws(existing) %in% unique(c(legacy_exports, generated_exports))
-    ]
-  }
-
-  while (length(existing) && !nzchar(existing[[length(existing)]])) {
-    existing <- existing[-length(existing)]
-  }
-  if (length(existing)) {
-    c(existing, "", generated)
-  } else {
-    generated
-  }
-}
-
-.rzig_replace_file <- function(source, destination) {
-  dir.create(dirname(destination), recursive = TRUE, showWarnings = FALSE)
-  if (!file.copy(source, destination, overwrite = TRUE, copy.mode = TRUE)) {
-    stop("failed to update generated file: ", destination, call. = FALSE)
-  }
-  invisible(destination)
-}
-
-.rzig_copy_tree <- function(source, destination) {
-  files <- list.files(
-    source,
-    all.files = TRUE,
-    full.names = TRUE,
+  written <- list.files(
+    file.path(path, "src", "rzig"),
     recursive = TRUE,
-    include.dirs = FALSE,
+    all.files = TRUE,
     no.. = TRUE
   )
-  prefix_length <- nchar(source) + 2L
-  relative <- substring(files, prefix_length)
-  for (index in seq_along(files)) {
-    target <- file.path(destination, relative[index])
-    dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
-    if (!file.copy(files[index], target, overwrite = TRUE, copy.mode = TRUE)) {
-      stop("failed to copy RZig asset: ", relative[index], call. = FALSE)
-    }
-  }
-  invisible(destination)
+  files <- c(
+    "configure", "configure.win", "cleanup", "cleanup.win",
+    file.path("src", "entry.c"),
+    file.path("src", "Makevars.in"),
+    file.path("src", "Makevars.win.in"),
+    file.path("src", "rzig", written),
+    file.path("R", "rzig-wrappers.R"),
+    "NAMESPACE"
+  )
+  message("Created RZig scaffold for package ", package)
+  invisible(structure(
+    list(
+      path = path,
+      package = package,
+      files = unique(files),
+      exports = bindings$exports
+    ),
+    class = "rzig_scaffold"
+  ))
+}
+
+#' @export
+print.rzig_scaffold <- function(x, ...) {
+  cat(sprintf("RZig scaffold of package %s: %d files written\n", x$package, length(x$files)))
+  cat(sprintf("Zig source: %s\n", file.path("src", "rzig", "src", "main.zig")))
+  cat(sprintf("Exported functions: %s\n",
+    if (length(x$exports)) paste(vapply(x$exports, function(item) item$name, character(1L)), collapse = ", ") else "none"))
+  cat("Next steps: edit main.zig, run document(), then install the package",
+    "with a Zig compiler (see find_zig()).\n")
+  invisible(x)
 }

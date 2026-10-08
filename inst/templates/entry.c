@@ -8,18 +8,28 @@
  *      no registered routines and every .Call fails.
  *
  * R_init_@PKG@ must match the package name EXACTLY.
+ *
+ * The file includes no R header: some R distributions install the headers
+ * without R_ext/Visibility.h, and the two entry points need only the default
+ * symbol visibility, which the macro below requests from GCC and Clang.
  */
-#include <R_ext/Visibility.h>
+#if defined(_WIN32) || defined(__CYGWIN__)
+#  define RZIG_VISIBLE
+#elif defined(__GNUC__) || defined(__clang__)
+#  define RZIG_VISIBLE __attribute__((visibility("default")))
+#else
+#  define RZIG_VISIBLE
+#endif
 
 /* DllInfo is opaque. All actual R API declarations are imported by Zig. */
 typedef struct _DllInfo DllInfo;
 
 void rzig_init(DllInfo *dll);   /* defined in Zig, see src/register.zig */
 
-void attribute_visible R_init_@PKG@(DllInfo *dll) {
+void RZIG_VISIBLE R_init_@PKG@(DllInfo *dll) {
     rzig_init(dll);
 }
 
-void attribute_visible R_unload_@PKG@(DllInfo *dll) {
+void RZIG_VISIBLE R_unload_@PKG@(DllInfo *dll) {
     (void) dll;
 }

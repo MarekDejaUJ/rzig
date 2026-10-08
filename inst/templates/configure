@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-ZIG_MIN=0.16.0
+ZIG_SERIES=0.16
 
 zig_path=${ZIG:-}
 if test -n "$zig_path" && test ! -x "$zig_path"; then
@@ -21,7 +21,7 @@ if test -z "$zig_path" && test -n "${HOME:-}"; then
 fi
 if test -z "$zig_path"; then
     printf '%s\n' \
-        "Zig $ZIG_MIN or newer is required." \
+        "Zig $ZIG_SERIES.x is required to install this package." \
         "Download it from https://ziglang.org/download/, add it to PATH," \
         "or reinstall with ZIG=/absolute/path/to/zig." >&2
     exit 1
@@ -31,17 +31,14 @@ zig_version=$("$zig_path" version) || {
     printf 'could not run Zig at %s\n' "$zig_path" >&2
     exit 1
 }
-if ! awk -v got="$zig_version" -v minimum="$ZIG_MIN" 'BEGIN {
-    if (split(got, g, ".") < 3 || split(minimum, m, ".") < 3) exit 1
-    for (i = 1; i <= 3; i++) {
-        if (g[i] !~ /^[0-9]+/ || m[i] !~ /^[0-9]+/) exit 1
-        if ((g[i] + 0) > (m[i] + 0)) exit 0
-        if ((g[i] + 0) < (m[i] + 0)) exit 1
-    }
+if ! awk -v got="$zig_version" -v series="$ZIG_SERIES" 'BEGIN {
+    if (split(got, g, ".") < 3 || split(series, s, ".") < 2) exit 1
+    if (g[1] !~ /^[0-9]+$/ || g[2] !~ /^[0-9]+$/) exit 1
+    if ((g[1] + 0) != (s[1] + 0) || (g[2] + 0) != (s[2] + 0)) exit 1
     exit 0
 }'; then
-    printf 'Zig %s found, but %s or newer is required.\n' "$zig_version" "$ZIG_MIN" >&2
-    printf '%s\n' 'Download: https://ziglang.org/download/' >&2
+    printf 'Zig %s found at %s, but this package requires Zig %s.x.\n' "$zig_version" "$zig_path" "$ZIG_SERIES" >&2
+    printf '%s\n' 'Download a supported release from https://ziglang.org/download/ and set ZIG=/absolute/path/to/zig.' >&2
     exit 1
 fi
 
