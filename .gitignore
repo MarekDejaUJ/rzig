@@ -11,3 +11,5 @@ zig-out/
 src/Makevars
 tests/fixtures/*/src/Makevars
 .Rproj.user
+tests/testthat/_problems/
+tests/testthat/testthat-problems.rds

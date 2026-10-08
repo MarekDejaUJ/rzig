@@ -29,3 +29,5 @@
 ^v40i08\.pdf$
 ^\.Rproj\.user$
 ^rzigcausal.*$
+^tests/testthat/_problems$
+^tests/testthat/testthat-problems\.rds$
