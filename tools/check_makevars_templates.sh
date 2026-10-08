@@ -17,7 +17,7 @@ for file in inst/templates/Makevars inst/templates/Makevars.win; do
     require_line "$file" 'PKG_LIBS = $(STATLIB)'
     require_line "$file" '--release=safe'
     require_line "$file" '--cache-dir "$(CURDIR)/$(ZIG_DIR)/.zig-cache"'
-    require_line "$file" '--global-cache-dir "$(CURDIR)/$(ZIG_DIR)/.zig-global-cache"'
+    require_line "$file" 'ZIG_GLOBAL_CACHE_DIR="$(CURDIR)/$(ZIG_DIR)/.zig-global-cache"'
     require_line "$file" '$(SHLIB): $(STATLIB)'
     require_line "$file" 'entry.o: entry.c'
     require_line "$file" '$(CC) $(ALL_CPPFLAGS) $(CPICFLAGS) -O2 -Wall -pedantic'

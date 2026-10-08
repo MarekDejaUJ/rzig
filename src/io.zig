@@ -2,12 +2,13 @@
 //! breaks Rgui, RStudio and sink().
 
 const std = @import("std");
+const compat = @import("compat.zig");
 const c = @import("c/abi.zig");
 
 var scratch: [4096]u8 = undefined;
 
 pub fn printf(comptime fmt: []const u8, args: anytype) void {
-    const s = std.fmt.bufPrintZ(&scratch, fmt, args) catch {
+    const s = compat.bufPrintZ(&scratch, fmt, args) catch {
         c.Rprintf("%s", "<rzig: message too long>");
         return;
     };
@@ -17,7 +18,7 @@ pub fn printf(comptime fmt: []const u8, args: anytype) void {
 }
 
 pub fn eprintf(comptime fmt: []const u8, args: anytype) void {
-    const s = std.fmt.bufPrintZ(&scratch, fmt, args) catch {
+    const s = compat.bufPrintZ(&scratch, fmt, args) catch {
         c.REprintf("%s", "<rzig: message too long>");
         return;
     };

@@ -18,6 +18,7 @@
 //! allocate, and the return value must remain reachable until the final R call.
 
 const std = @import("std");
+const compat = @import("compat.zig");
 const c = @import("c/abi.zig");
 const protect = @import("protect.zig");
 const convert = @import("convert.zig");
@@ -88,9 +89,9 @@ pub fn validateSignature(comptime func: anytype, comptime name: []const u8) void
     const has_ctx = comptime takesContext(Func);
     comptime var mutable_count: usize = 0;
 
-    inline for (@intFromBool(has_ctx)..info.params.len) |parameter_index| {
+    inline for (@intFromBool(has_ctx)..compat.paramCount(info)) |parameter_index| {
         const position = parameter_index - @intFromBool(has_ctx) + 1;
-        const Parameter = info.params[parameter_index].type orelse @compileError(
+        const Parameter = compat.paramType(info, parameter_index) orelse @compileError(
             "rzig: function `" ++ name ++ "`, parameter " ++
                 std.fmt.comptimePrint("{d}", .{position}) ++
                 " uses anytype and cannot be exported.\n" ++
@@ -182,7 +183,7 @@ fn callUser(
     const info = functionInfo(Func);
     const has_ctx = comptime takesContext(Func);
     const supplied = comptime tupleLength(@TypeOf(sexps));
-    const expected = info.params.len - @intFromBool(has_ctx);
+    const expected = comptime compat.paramCount(info) - @intFromBool(has_ctx);
     if (supplied != expected) {
         @compileError(std.fmt.comptimePrint(
             "rzig: function `{s}` expects {d} R arguments, but its wrapper supplies {d}",
@@ -195,7 +196,7 @@ fn callUser(
 
     inline for (0..supplied) |visible_index| {
         const parameter_index = visible_index + @intFromBool(has_ctx);
-        const Parameter = info.params[parameter_index].type orelse @compileError(
+        const Parameter = compat.paramType(info, parameter_index) orelse @compileError(
             "rzig: function `" ++ name ++ "` has a generic parameter that cannot be exported",
         );
         const parameter_name = std.fmt.comptimePrint(
@@ -222,7 +223,7 @@ fn callUser(
     return @call(.auto, func, args);
 }
 
-fn functionInfo(comptime Func: type) std.builtin.Type.Fn {
+fn functionInfo(comptime Func: type) compat.Type.Fn {
     return switch (@typeInfo(Func)) {
         .@"fn" => |info| info,
         else => @compileError("rzig: only functions can be exported, found " ++ @typeName(Func)),
@@ -230,8 +231,9 @@ fn functionInfo(comptime Func: type) std.builtin.Type.Fn {
 }
 
 fn takesContext(comptime Func: type) bool {
-    const params = functionInfo(Func).params;
-    return params.len > 0 and params[0].type != null and params[0].type.? == *Ctx;
+    const info = functionInfo(Func);
+    return compat.paramCount(info) > 0 and compat.paramType(info, 0) != null and
+        compat.paramType(info, 0).? == *Ctx;
 }
 
 fn ReturnPayload(comptime Func: type) type {
@@ -246,7 +248,7 @@ fn ReturnPayload(comptime Func: type) type {
 fn tupleLength(comptime Tuple: type) usize {
     return switch (@typeInfo(Tuple)) {
         .@"struct" => |info| if (info.is_tuple)
-            info.fields.len
+            compat.fieldCount(info)
         else
             @compileError("rzig: generated wrappers must pass arguments as a tuple"),
         else => @compileError("rzig: generated wrappers must pass arguments as a tuple"),

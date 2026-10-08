@@ -6,6 +6,7 @@
 //! minimal because program state may already be compromised.
 
 const std = @import("std");
+const compat = @import("compat.zig");
 const c = @import("c/abi.zig");
 
 const MESSAGE_CAPACITY = 1024;
@@ -18,13 +19,13 @@ fn report(message: []const u8, first_trace_addr: ?usize) noreturn {
 
     var storage: [MESSAGE_CAPACITY]u8 = undefined;
     const rendered: [:0]const u8 = if (first_trace_addr) |address|
-        std.fmt.bufPrintZ(
+        compat.bufPrintZ(
             &storage,
             "rzig: internal Zig safety failure: {s}\ntrace origin: 0x{x}",
             .{ message, address },
         ) catch "rzig: internal Zig safety failure"
     else
-        std.fmt.bufPrintZ(
+        compat.bufPrintZ(
             &storage,
             "rzig: internal Zig safety failure: {s}",
             .{message},

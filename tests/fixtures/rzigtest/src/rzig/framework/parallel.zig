@@ -4,6 +4,7 @@
 //! and an index. It never runs on the thread that entered R.
 
 const std = @import("std");
+const compat = @import("compat.zig");
 const Ctx = @import("alloc.zig").Ctx;
 const attributes = @import("attributes.zig");
 const convert = @import("convert.zig");
@@ -94,9 +95,9 @@ pub fn validateWorker(comptime StatePointer: type, comptime worker: anytype) voi
                 @typeName(StatePointer) ++ ", usize) void",
         ),
     };
-    if (function.params.len != 2 or
-        function.params[0].type == null or function.params[0].type.? != StatePointer or
-        function.params[1].type == null or function.params[1].type.? != usize or
+    if (compat.paramCount(function) != 2 or
+        compat.paramType(function, 0) == null or compat.paramType(function, 0).? != StatePointer or
+        compat.paramType(function, 1) == null or compat.paramType(function, 1).? != usize or
         function.return_type == null or function.return_type.? != void)
     {
         @compileError(
@@ -133,11 +134,11 @@ fn validatePlainType(comptime T: type, comptime depth: usize) void {
             }
             validatePlainType(info.child, depth + 1);
         },
-        .@"struct" => |info| inline for (info.fields) |field| {
-            validatePlainType(field.type, depth + 1);
+        .@"struct" => |info| inline for (compat.fieldTypes(info)) |Field| {
+            validatePlainType(Field, depth + 1);
         },
-        .@"union" => |info| inline for (info.fields) |field| {
-            validatePlainType(field.type, depth + 1);
+        .@"union" => |info| inline for (compat.fieldTypes(info)) |Field| {
+            validatePlainType(Field, depth + 1);
         },
         else => @compileError(
             "rzig.parallelFor: worker state contains unsupported type '" ++ @typeName(T) ++ "'",

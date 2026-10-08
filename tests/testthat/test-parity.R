@@ -10,11 +10,16 @@ oracle_path <- function() {
 run_oracle <- function(zig, scanner, source, package) {
   out <- tempfile("rzig-oracle-")
   dir.create(out)
+  old_cache <- Sys.getenv("ZIG_GLOBAL_CACHE_DIR", unset = NA)
+  Sys.setenv(ZIG_GLOBAL_CACHE_DIR = file.path(out, "global"))
+  on.exit(
+    if (is.na(old_cache)) Sys.unsetenv("ZIG_GLOBAL_CACHE_DIR") else Sys.setenv(ZIG_GLOBAL_CACHE_DIR = old_cache),
+    add = TRUE
+  )
   status <- system2(
     zig,
     c(
       "run", "--cache-dir", shQuote(file.path(out, "cache")),
-      "--global-cache-dir", shQuote(file.path(out, "global")),
       "-O", "ReleaseSafe", shQuote(scanner), "--",
       shQuote(source), shQuote(file.path(out, "manifest.zig")),
       shQuote(file.path(out, "wrappers.R")), shQuote(file.path(out, "NAMESPACE")), package
@@ -33,6 +38,10 @@ run_oracle <- function(zig, scanner, source, package) {
 test_that("the R scan agrees with the Zig scanner on every available source", {
   compiler <- find_zig(required = FALSE)
   skip_if_not(isTRUE(compiler$supported), "no supported Zig compiler")
+  skip_if_not(
+    grepl("^0\\.16\\.", compiler$version),
+    "the Zig scanner used as the oracle formats strings as Zig 0.16 does"
+  )
   scanner <- oracle_path()
   skip_if(is.null(scanner), "the Zig scanner is only available in the repository")
   sources <- list(

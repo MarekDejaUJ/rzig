@@ -16,17 +16,17 @@ const MESSAGE_CAPACITY = 1024;
 const MAX_WARNINGS = 8;
 const ELLIPSIS = "...";
 
-var error_buffer: [MESSAGE_CAPACITY]u8 = [_]u8{0} ** MESSAGE_CAPACITY;
+var error_buffer: [MESSAGE_CAPACITY]u8 = @splat(0);
 var error_length: usize = 0;
 var interrupt_pending: bool = false;
 
 var warning_buffers: [MAX_WARNINGS][MESSAGE_CAPACITY]u8 =
-    [_][MESSAGE_CAPACITY]u8{[_]u8{0} ** MESSAGE_CAPACITY} ** MAX_WARNINGS;
-var warning_lengths: [MAX_WARNINGS]usize = [_]usize{0} ** MAX_WARNINGS;
+    @splat(@splat(0));
+var warning_lengths: [MAX_WARNINGS]usize = @splat(0);
 var warning_count: usize = 0;
 var warning_read: usize = 0;
 var warning_dropped: usize = 0;
-var overflow_buffer: [MESSAGE_CAPACITY]u8 = [_]u8{0} ** MESSAGE_CAPACITY;
+var overflow_buffer: [MESSAGE_CAPACITY]u8 = @splat(0);
 
 /// Clear state at the beginning of an outer R call.
 pub fn reset() void {
@@ -133,7 +133,7 @@ fn clearWarnings() void {
 
 test "a four KiB error truncates with an ellipsis without allocation" {
     reset();
-    const long = "x" ** 4096;
+    const long: [4096]u8 = @splat('x');
     try std.testing.expectEqual(error.RZigError, raise("{s}", .{long}));
     const message = take();
     try std.testing.expectEqual(@as(usize, MESSAGE_CAPACITY - 1), message.len);

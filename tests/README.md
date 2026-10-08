@@ -31,7 +31,7 @@ wrong type, ALTREP variant where one exists.
 Linux CI runs the fixture through valgrind on every change. The scheduled
 `rchk` workflow checks the package's C registration and ABI bridge. Current
 `rchk` uses LLVM 14 bitcode, which cannot consume the newer LLVM bitcode emitted
-by Zig 0.16, so Zig-side protection paths are instead exercised by the full
+by Zig 0.16 and 0.17, so Zig-side protection paths are instead exercised by the full
 gctorture and valgrind suites. This limitation should be revisited when the two
 tools share a compatible LLVM bitcode version.
 

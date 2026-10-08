@@ -4,6 +4,7 @@
 //! fixed-arity wrappers are generated in src/generated/arity.zig.
 
 const std = @import("std");
+const compat = @import("compat.zig");
 const builtin = @import("builtin");
 const c = @import("c/abi.zig");
 const arity = @import("generated/arity.zig");
@@ -33,6 +34,7 @@ pub fn registerModule(comptime M: type) void {
     const Registration = RegistrationFor(exports);
 
     if (!builtin.is_test) {
+        @setEvalBranchQuota(100_000);
         inline for (exports) |entry| {
             const Wrapper = wrapperForArity(visibleArity(entry.func), entry.func, entry.name);
             @export(&Wrapper.call, .{ .name = entry.name, .linkage = .strong });
@@ -57,6 +59,7 @@ fn RegistrationFor(comptime exports: anytype) type {
 }
 
 fn buildCallMethods(comptime exports: anytype) [exports.len + 1]c.R_CallMethodDef {
+    @setEvalBranchQuota(100_000);
     var definitions: [exports.len + 1]c.R_CallMethodDef = undefined;
     inline for (exports, 0..) |entry, index| {
         comptime boundary.validateSignature(entry.func, entry.name);
@@ -76,10 +79,10 @@ fn buildCallMethods(comptime exports: anytype) [exports.len + 1]c.R_CallMethodDe
 
 fn visibleArity(comptime func: anytype) usize {
     return switch (@typeInfo(@TypeOf(func))) {
-        .@"fn" => |info| info.params.len - @intFromBool(
-            info.params.len > 0 and
-                info.params[0].type != null and
-                info.params[0].type.? == *Ctx,
+        .@"fn" => |info| compat.paramCount(info) - @intFromBool(
+            compat.paramCount(info) > 0 and
+                compat.paramType(info, 0) != null and
+                compat.paramType(info, 0).? == *Ctx,
         ),
         else => @compileError("rzig: only functions can be exported, found " ++ @typeName(@TypeOf(func))),
     };
