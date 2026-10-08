@@ -65,7 +65,7 @@ pub fn main(init: std.process.Init) !void {
 }
 
 fn scanExports(allocator: std.mem.Allocator, source: [:0]const u8) ![]Export {
-    var tree = try std.zig.Ast.parse(allocator, source, .zig);
+    var tree = try std.zig.Ast.parse(allocator, source, if (@hasDecl(std.zig.Ast, "ParseOptions")) .{} else .zig);
     defer tree.deinit(allocator);
     if (tree.errors.len != 0) return error.InvalidZigSource;
 

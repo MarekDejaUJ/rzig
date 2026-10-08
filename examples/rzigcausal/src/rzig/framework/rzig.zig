@@ -38,6 +38,7 @@ pub const Panic = @import("panic.zig").Panic;
 /// Internal surface. Not covered by semver. Use at your own risk.
 pub const internal = struct {
     pub const boundary = @import("boundary.zig");
+    pub const compat = @import("compat.zig");
     pub const convert = @import("convert.zig");
     pub const interrupt = @import("interrupt.zig");
     pub const parallel = @import("parallel.zig");

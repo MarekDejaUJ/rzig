@@ -53,7 +53,7 @@ if (is.na(original_zig)) {
 stopifnot(
   inherits(version_error, "error"),
   grepl("Zig 0.15.2 found", conditionMessage(version_error), fixed = TRUE),
-  grepl("rzig supports Zig 0.16.x", conditionMessage(version_error), fixed = TRUE),
+  grepl("rzig supports Zig 0.16.x or 0.17.x", conditionMessage(version_error), fixed = TRUE),
   identical(unsupported$version, "0.15.2"),
   isFALSE(unsupported$supported),
   !status_rows$ok[status_rows$step == "Zig compiler"],

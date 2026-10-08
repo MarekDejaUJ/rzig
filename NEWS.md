@@ -18,10 +18,13 @@
 
 ## Zig version policy
 
-- rzig supports the Zig 0.16 release series. `find_zig()` and the generated
-  `configure` scripts accept versions `0.16.x` and reject other series with a
-  message naming the found version, because Zig changes its language and
-  standard library between minor releases.
+- rzig supports the Zig 0.16 and 0.17 release series. `find_zig()` and the
+  generated `configure` scripts accept versions `0.16.x` and `0.17.x` and
+  reject other series with a message naming the found version, because Zig
+  changes its language and standard library between release series. The
+  framework reads the type descriptions of both compilers and sets the Zig
+  cache directories through environment variables, which both compilers
+  accept.
 
 ## Portability
 

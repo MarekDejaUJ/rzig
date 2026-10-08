@@ -28,7 +28,7 @@ test -f "$cleanup_win" || {
     exit 1
 }
 
-require_text "$configure" 'ZIG_SERIES=0.16'
+require_text "$configure" 'ZIG_SERIES="0.16 0.17"'
 require_text "$configure" 'command -v zig'
 require_text "$configure" '$HOME/.local/share/zig/'
 require_text "$configure" 'CMD config CC'
@@ -73,7 +73,7 @@ if grep -E -q -- '@[A-Z_]+@' "$test_dir/src/Makevars"; then
     exit 1
 fi
 
-for unsupported in 0.15.2 0.17.0-dev.1234+abcdef 1.0.0; do
+for unsupported in 0.15.2 0.18.0-dev.1234+abcdef 1.0.0; do
     if (
         cd "$test_dir"
         FAKE_ZIG_VERSION=$unsupported \
@@ -88,15 +88,17 @@ for unsupported in 0.15.2 0.17.0-dev.1234+abcdef 1.0.0; do
     fi
 done
 
-(
-    cd "$test_dir"
-    FAKE_ZIG_VERSION=0.16.7 \
-    FAKE_R_HOME="$test_dir/fake-r" \
-    R_HOME="$test_dir/fake-r" \
-    ZIG="$test_dir/fake tools/zig" \
-    RZIG_CONFIGURE_PLATFORM=Linux \
-        sh ./configure >/dev/null
-)
+for supported in 0.16.7 0.17.0 0.17.3; do
+    (
+        cd "$test_dir"
+        FAKE_ZIG_VERSION=$supported \
+        FAKE_R_HOME="$test_dir/fake-r" \
+        R_HOME="$test_dir/fake-r" \
+        ZIG="$test_dir/fake tools/zig" \
+        RZIG_CONFIGURE_PLATFORM=Linux \
+            sh ./configure >/dev/null
+    )
+done
 
 (
     cd "$test_dir"

@@ -19,8 +19,8 @@ test "parallelFor covers each index on worker threads" {
     var ctx = Ctx.init();
     defer ctx.deinit();
     const input = [_]f64{ 1, 2, 3, 4, 5, 6, 7, 8 };
-    var output = [_]f64{0} ** input.len;
-    var thread_ids = [_]std.Thread.Id{0} ** input.len;
+    var output: [input.len]f64 = @splat(0);
+    var thread_ids: [input.len]std.Thread.Id = @splat(0);
     var work = Work{ .input = &input, .output = &output, .thread_ids = &thread_ids };
     const caller_id = std.Thread.getCurrentId();
 

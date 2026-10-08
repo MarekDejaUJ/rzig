@@ -1,7 +1,7 @@
-.rzig_zig_series <- c(major = 0L, minor = 16L)
+.rzig_zig_series <- list(major = 0L, minor = c(16L, 17L))
 
 .rzig_zig_series_label <- function() {
-  sprintf("%d.%d.x", .rzig_zig_series[["major"]], .rzig_zig_series[["minor"]])
+  paste(sprintf("%d.%d.x", .rzig_zig_series$major, .rzig_zig_series$minor), collapse = " or ")
 }
 
 .rzig_zig_supported <- function(version) {
@@ -10,8 +10,8 @@
     return(FALSE)
   }
   found <- as.integer(match[2:3])
-  found[[1L]] == .rzig_zig_series[["major"]] &&
-    found[[2L]] == .rzig_zig_series[["minor"]]
+  found[[1L]] == .rzig_zig_series$major &&
+    found[[2L]] %in% .rzig_zig_series$minor
 }
 
 .rzig_zig_candidates <- function() {
@@ -45,16 +45,17 @@
 #' [document()] are pure R. A Zig compiler of the supported release series is
 #' needed to install a package created with [use_rzig()].
 #'
-#' rzig 0.3.0 supports the Zig 0.16 release series (versions `0.16.x`). Zig
-#' changes its language and standard library between release series, so a
-#' newer or older compiler is reported as unsupported.
+#' rzig 0.3.0 supports the Zig 0.16 and 0.17 release series (versions
+#' `0.16.x` and `0.17.x`). Zig changes its language and standard library
+#' between release series, so a newer or older compiler is reported as
+#' unsupported.
 #'
 #' @param required If `TRUE`, a missing or unsupported compiler is an error.
 #'   If `FALSE`, the returned object records the problem instead.
 #'
 #' @return An object of class `rzig_compiler`: a list with `path` (character
 #'   or `NULL`), `version` (character or `NULL`), `supported` (logical) and
-#'   `series` (the supported release series, `"0.16.x"`).
+#'   `series` (the supported release series, `"0.16.x or 0.17.x"`).
 #' @examples
 #' find_zig(required = FALSE)
 #' @export
@@ -130,7 +131,7 @@ print.rzig_compiler <- function(x, ...) {
       "Zig compiler: %s (version %s, unsupported)\n", x$path, x$version
     ))
   }
-  cat(sprintf("rzig supports the Zig %s release series.\n", x$series))
+  cat(sprintf("rzig supports Zig %s.\n", x$series))
   if (!isTRUE(x$supported) && !is.null(x$problem)) {
     cat(strwrap(x$problem, exdent = 2), sep = "\n")
   }

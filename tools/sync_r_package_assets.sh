@@ -9,6 +9,7 @@ failed=0
 framework_files='alloc.zig
 attributes.zig
 boundary.zig
+compat.zig
 convert.zig
 error_state.zig
 interrupt.zig

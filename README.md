@@ -8,8 +8,8 @@ bindings without C++ or hand-written `SEXP` conversion code.
 - R and the platform toolchain used to build R source packages: Xcode
   command-line tools on macOS, Rtools on Windows, a C compiler and the R
   development headers on Linux.
-- Zig of the 0.16 release series (`0.16.x`), needed only to install a package
-  created with RZig. RZig itself, its examples and its tests run without Zig.
+- Zig of the 0.16 or 0.17 release series (`0.16.x` or `0.17.x`), needed only
+  to install a package created with RZig. RZig itself, its examples and its tests run without Zig.
   Zig changes its language and standard library between release series, so
   other versions are rejected with a message naming the version found.
 
@@ -49,7 +49,7 @@ case, set `ZIG` with `Sys.setenv()` first.
 ```r
 rzig::find_zig(required = FALSE)
 #> Zig compiler: /usr/local/bin/zig (version 0.16.0, supported)
-#> rzig supports the Zig 0.16.x release series.
+#> rzig supports Zig 0.16.x or 0.17.x.
 ```
 
 ## Create a working package
@@ -352,7 +352,7 @@ must not call R from worker threads.
 ## Development checks
 
 The package tests run with `R CMD check` and need no Zig. The repository
-test suite uses Zig 0.16.0:
+test suite runs with Zig 0.16.0 and 0.17.0:
 
 ```sh
 zig build test

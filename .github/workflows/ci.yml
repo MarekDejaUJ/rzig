@@ -14,11 +14,15 @@ concurrency:
 
 jobs:
   zig-unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        zig: ["0.16.0", "0.17.0"]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: mlugg/setup-zig@v2
-        with: { version: "0.16.0" }   # keep in sync with build.zig.zon
+        with: { version: "${{ matrix.zig }}" }
       - run: zig version
       - run: zig build gen-abi-check
       - run: git diff --exit-code -- tools/abi_check.c tests/fixtures/rzigtest/src/abi_check.c
@@ -35,11 +39,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        zig: ["0.16.0", "0.17.0"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: mlugg/setup-zig@v2
-        with: { version: "0.16.0" }
+        with: { version: "${{ matrix.zig }}" }
       - name: Select the Ubuntu archive mirror
         if: runner.os == 'Linux'
         run: sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt

@@ -18,7 +18,7 @@ License: GPL-3
 URL: https://github.com/MarekDejaUJ/rzig
 BugReports: https://github.com/MarekDejaUJ/rzig/issues
 Encoding: UTF-8
-SystemRequirements: Zig 0.16.x (https://ziglang.org/download/), needed to
+SystemRequirements: Zig 0.16.x or 0.17.x (https://ziglang.org/download/), needed to
     install packages created with rzig
 NeedsCompilation: no
 Suggests:
@@ -27,4 +27,4 @@ Suggests:
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
-RoxygenNote: 7.3.3
+Config/roxygen2/version: 8.1.0
