@@ -10,7 +10,7 @@ GPL-3.
 
 ## Test environments
 
-* local: macOS 26 (arm64), R 4.6.1
+* local: macOS 26 (arm64), R 4.5.2, with and without Zig on the PATH
 * GitHub Actions: Ubuntu (R release and R-devel), macOS (R release),
   Windows (R release); Debian testing and Ubuntu with the distribution R
   packages; Fedora; rocker/r-ver:4.6.1
@@ -18,7 +18,8 @@ GPL-3.
 
 ## R CMD check results
 
-0 errors | 0 warnings | 0 notes
+0 errors | 0 warnings | 0 notes (the local check adds a NOTE about future
+file timestamps caused by the cloud-synced working copy)
 
 ## Notes
 
