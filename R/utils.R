@@ -163,7 +163,7 @@
   text
 }
 
-.rzig_copy_tree <- function(source, destination) {
+.rzig_copy_tree <- function(source, destination, skip = NULL) {
   files <- list.files(
     source,
     all.files = TRUE,
@@ -174,6 +174,11 @@
   )
   prefix_length <- nchar(source) + 2L
   relative <- substring(files, prefix_length)
+  if (!is.null(skip)) {
+    keep <- !grepl(skip, relative)
+    files <- files[keep]
+    relative <- relative[keep]
+  }
   for (index in seq_along(files)) {
     target <- file.path(destination, relative[index])
     dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
@@ -182,4 +187,18 @@
     }
   }
   invisible(destination)
+}
+
+.rzig_buildignore_entries <- c(
+  "^src/rzig/\\.zig-cache$",
+  "^src/rzig/\\.zig-global-cache$",
+  "^src/rzig/zig-out$"
+)
+
+.rzig_add_buildignore <- function(path) {
+  file <- file.path(path, ".Rbuildignore")
+  existing <- if (file.exists(file)) readLines(file, warn = FALSE) else character()
+  missing <- setdiff(.rzig_buildignore_entries, existing)
+  if (length(missing)) writeLines(c(existing, missing), file)
+  invisible(file)
 }

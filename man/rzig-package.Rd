@@ -11,7 +11,9 @@ plain Zig functions. Each step of the workflow is a function:
 package, \code{\link{scan_exports}} lists the exported Zig functions with
 their R arguments, \code{\link{render_bindings}} shows the generated manifest,
 R wrappers and \code{NAMESPACE} block, \code{\link{document}} writes them,
-and \code{\link{rzig_status}} reports which steps are complete. The scan and
+\code{\link{rzig_status}} reports which steps are complete and which
+signatures the boundary rejects, and \code{\link{build_zig}} compiles and
+installs the package, reporting compiler errors by file and line. The scan and
 the generated bindings are pure R; a Zig compiler of the 0.16 or 0.17
 release series is needed only to install a package created with the scaffold.
 }

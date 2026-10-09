@@ -1,0 +1,17 @@
+* installing *source* package ‘badc’ ...
+** this is package ‘badc’ version ‘0.0.1’
+** using staged installation
+using Zig 0.16.0 at /home/user/.local/bin/zig
+using R compiler clang -arch arm64 for -Dtarget=aarch64-macos.13.0
+** libs
+using C compiler: ‘Apple clang version 21.0.0 (clang-2100.3.34.2)’
+using SDK: ‘MacOSX27.0.sdk’
+clang -arch arm64 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I/opt/R/arm64/include   -fPIC -O2 -Wall -pedantic \
+	  -c entry.c -o entry.o
+entry.c:1:10: fatal error: 'R_ext/NoSuchHeader.h' file not found
+    1 | #include <R_ext/NoSuchHeader.h>
+      |          ^~~~~~~~~~~~~~~~~~~~~~
+1 error generated.
+make: *** [entry.o] Error 1
+ERROR: compilation failed for package ‘badc’
+* removing ‘/tmp/rzig-library/badc’

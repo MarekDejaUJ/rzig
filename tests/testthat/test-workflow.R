@@ -98,7 +98,7 @@ test_that("rzig_status reports each step and detects stale bindings", {
   use_rzig(path)
   status <- rzig_status(path)
   expect_s3_class(status, "rzig_status")
-  expect_identical(status$step, c("DESCRIPTION", "Scaffold", "Zig source", "Exports", "Bindings", "Zig compiler"))
+  expect_identical(status$step, c("DESCRIPTION", "Scaffold", "Zig source", "Exports", "Bindings", "Zig compiler", "C toolchain"))
   expect_true(all(status$ok[1:5]))
   main <- file.path(path, "src", "rzig", "src", "main.zig")
   text <- readLines(main)

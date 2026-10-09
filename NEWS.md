@@ -8,6 +8,20 @@
   `render_bindings()` shows the generated manifest, R wrappers and `NAMESPACE`
   block, and `rzig_status()` reports which steps of a package are complete
   and whether the generated bindings match the Zig source.
+- `build_zig()` compiles and installs a package from a temporary copy, keeps
+  the complete installation log, and reports the errors of the Zig compiler,
+  the C compiler, the linker and the load test with their files and lines,
+  and the exported function concerned.
+- `rzig_status()` checks, before compilation, argument and return types the
+  boundary rejects, more than 32 arguments, misuse of `rzig.Mut([]f64)`,
+  error sets other than `rzig.Error`, the registration block and panic
+  handler in `main.zig`, R functions with the name of an export, framework
+  sources from another rzig version, non-executable `configure` and
+  `cleanup` scripts, and the C toolchain of R. `rzig_status(build = TRUE)`
+  adds the result of `build_zig()`.
+- `use_rzig(overwrite = TRUE)` updates the framework sources and build files
+  and keeps the package author's Zig sources in `src/rzig/src`. It adds the
+  Zig build caches to `.Rbuildignore`.
 - `use_rzig()` and `document()` return printable objects describing the files
   written and the exports found.
 - The export scan runs in R. `use_rzig()`, `scan_exports()`,

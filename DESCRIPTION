@@ -11,9 +11,11 @@ Description: Scaffolds packages backed by Zig and generates a safe native
     errors, and compiles across platforms without requiring C++. Each step
     of the workflow is a function: locating a supported Zig compiler,
     scaffolding the package, scanning the Zig source for exported functions,
-    rendering and writing the bindings, and reporting the state of a
-    package. The scan and the generated bindings are pure R; a Zig compiler
-    is needed only to install a package created with the scaffold.
+    rendering and writing the bindings, checking the package before
+    compilation, and building it with the compiler errors reported by file
+    and line. The scan, the checks and the generated bindings are pure R; a
+    Zig compiler is needed only to build a package created with the
+    scaffold.
 License: GPL-3
 URL: https://github.com/MarekDejaUJ/rzig
 BugReports: https://github.com/MarekDejaUJ/rzig/issues

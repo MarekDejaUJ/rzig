@@ -140,16 +140,38 @@ rzig::rzig_status(pkg)
 #>   [ok] Exports       1 function: add_vectors
 #>   [ok] Bindings      generated files match the exports
 #>   [ok] Zig compiler  /usr/local/bin/zig (version 0.16.0)
+#>   [ok] C toolchain   C compiler clang
 ```
 
-**5. Install and call.** The package installs like any source package; the
-Zig code is compiled during installation.
+`rzig_status()` also reports, before anything is compiled, argument and return
+types the boundary rejects, more than 32 arguments, misuse of
+`rzig.Mut([]f64)`, a missing registration block or panic handler in
+`main.zig`, R functions of the same name elsewhere in `R/`, framework sources
+from another rzig version, non-executable `configure` scripts and a missing C
+toolchain. A failed build names its cause:
 
 ```r
-library_dir <- file.path(tempdir(), "rzhello-library")
-dir.create(library_dir)
-install.packages(pkg, lib = library_dir, repos = NULL, type = "source")
-library(rzhello, lib.loc = library_dir)
+rzig::build_zig(pkg, preflight = FALSE)
+#> Build of package rzhello: failed at the compile step
+#>   src/rzig/framework/convert.zig:138:9 (function total)
+#>     rzig: function `total`, parameter 1 has unsupported type '[]const f32'.
+#>     nearest supported alternative: []const f64 for an R numeric vector
+#> The complete installation log (61 lines) is in $log.
+```
+
+**5. Build and call.** `build_zig()` runs the checks of `rzig_status()`,
+compiles and installs the package from a temporary copy, and reports the
+first compiler, linker or load error with its file and line when the build
+fails. The package also installs like any source package, with
+`install.packages(pkg, repos = NULL, type = "source")` or `R CMD INSTALL`.
+
+```r
+build <- rzig::build_zig(pkg)
+build
+#> Build of package rzhello: succeeded in 8.1 seconds
+#> Zig compiler: /usr/local/bin/zig (version 0.16.0)
+#> Installed into a library in the session temporary directory
+library(rzhello, lib.loc = build$library)
 
 add_vectors(c(1, 2, 3), c(10, 20, 30))
 #> [1] 11 22 33

@@ -1,0 +1,35 @@
+* installing *source* package ‘noregister’ ...
+** this is package ‘noregister’ version ‘0.0.1’
+** using staged installation
+using Zig 0.16.0 at /home/user/.local/bin/zig
+using R compiler clang -arch arm64 for -Dtarget=aarch64-macos.13.0
+** libs
+using C compiler: ‘Apple clang version 21.0.0 (clang-2100.3.34.2)’
+using SDK: ‘MacOSX27.0.sdk’
+clang -arch arm64 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I/opt/R/arm64/include   -fPIC -O2 -Wall -pedantic \
+	  -c entry.c -o entry.o
+cd rzig && \
+	ZIG_GLOBAL_CACHE_DIR="/tmp/rzig-build/noregister/src/rzig/.zig-global-cache" \
+	"/home/user/.local/bin/zig" build \
+	  --release=safe \
+	  -Dtarget=aarch64-macos.13.0 \
+	  -Dpkg=noregister \
+	  -Dr-include="/Library/Frameworks/R.framework/Resources/include" \
+	  --cache-dir "/tmp/rzig-build/noregister/src/rzig/.zig-cache"
+libtool: warning: 'libzigpkg_zcu.o' has no symbols
+clang -arch arm64 -dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -L/Library/Frameworks/R.framework/Resources/lib -L/opt/R/arm64/lib -o noregister.so entry.o rzig/zig-out/lib/libzigpkg.a -F/Library/Frameworks/R.framework/.. -framework R
+installing to /tmp/rzig-library/00LOCK-noregister/00new/noregister/libs
+** R
+** byte-compile and prepare package for lazy loading
+** help
+No man pages found in package  ‘noregister’ 
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+Error: package or namespace load failed for ‘noregister’ in dyn.load(file, DLLpath = DLLpath, ...):
+ unable to load shared object '/tmp/rzig-library/00LOCK-noregister/00new/noregister/libs/noregister.so':
+  dlopen(/tmp/rzig-library/00LOCK-noregister/00new/noregister/libs/noregister.so, 0x0006): symbol not found in flat namespace '_rzig_init'
+Error: loading failed
+Execution halted
+ERROR: loading failed
+* removing ‘/tmp/rzig-library/noregister’
