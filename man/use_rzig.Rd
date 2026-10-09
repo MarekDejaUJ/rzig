@@ -10,7 +10,10 @@ use_rzig(path, overwrite = FALSE)
 \item{path}{Path to the package root; the directory must contain a
 `DESCRIPTION` file.}
 
-\item{overwrite}{Replace files previously managed by RZig.}
+\item{overwrite}{Replace files previously managed by RZig. The package
+author's Zig sources in `src/rzig/src` are kept, so
+`use_rzig(path, overwrite = TRUE)` updates the framework sources and build
+files of a package to the installed version of rzig.}
 }
 \value{
 An object of class `rzig_scaffold`: a list with `path` (the
@@ -31,7 +34,8 @@ The files written below the package root are: `configure`,
 `src/Makevars.in`, `src/Makevars.win.in`, the framework sources under
 `src/rzig/framework`, the package author's Zig source
 `src/rzig/src/main.zig`, the generated `R/rzig-wrappers.R`, and a managed
-block in `NAMESPACE`.
+block in `NAMESPACE`. Entries for the Zig build caches are added to
+`.Rbuildignore`.
 }
 \examples{
 package_path <- tempfile("rzig-example-", tmpdir = tempdir())

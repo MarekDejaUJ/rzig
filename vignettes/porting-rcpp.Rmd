@@ -128,19 +128,38 @@ available for the installation:
 rzig_status(package_path)
 ```
 
-## Install and call
+## Check the signature before compiling
 
-The installation compiles the Zig code and needs a Zig compiler of the
-supported release series. The chunks below run when `find_zig()` finds one;
-this rendered copy of the vignette `r if (has_zig) "ran" else "skipped"` them.
+`rzig_status()` also rejects, before any compilation, the signatures the
+boundary cannot convert. A single-precision argument is one such case:
+
+```{r unsupported}
+broken_path <- tempfile("brokenpackage-", tmpdir = tempdir())
+dir.create(broken_path)
+writeLines(c("Package: brokenpackage", "Version: 0.0.1"),
+  file.path(broken_path, "DESCRIPTION"))
+invisible(use_rzig(broken_path))
+broken_main <- file.path(broken_path, "src", "rzig", "src", "main.zig")
+cat("/// @export\npub fn half(x: f32) f32 {\n    return x / 2;\n}\n",
+  file = broken_main, append = TRUE)
+rzig_status(broken_path)
+```
+
+## Build and call
+
+`build_zig()` compiles and installs the package from a copy in the session
+temporary directory. It runs the checks of `rzig_status()` first, keeps the
+complete installation log, and on failure reports the first errors of the Zig
+compiler, the C compiler, the linker or the load test with their files and
+lines. The build needs a Zig compiler of a supported release series. The
+chunks below run when `find_zig()` finds one; this rendered copy of the
+vignette `r if (has_zig) "ran" else "skipped"` them.
 
 ```{r install, eval = has_zig}
-library_path <- file.path(tempdir(), "rzig-vignette-library")
-dir.create(library_path)
-install.packages(package_path, lib = library_path, repos = NULL,
-  type = "source", quiet = TRUE)
+build <- build_zig(package_path)
+build
 package_name <- "yourpackage"
-loadNamespace(package_name, lib.loc = library_path)
+loadNamespace(package_name, lib.loc = build$library)
 axpy <- getExportedValue(package_name, "axpy")
 ```
 
@@ -163,8 +182,8 @@ native allocation.
 
 ```{r cleanup, include = FALSE}
 if (has_zig) unloadNamespace(package_name)
-unlink(package_path, recursive = TRUE)
-if (has_zig) unlink(library_path, recursive = TRUE)
+unlink(c(package_path, broken_path), recursive = TRUE)
+if (has_zig) unlink(build$library, recursive = TRUE)
 ```
 
 ## What changes in the port

@@ -4,23 +4,43 @@
 \alias{rzig_status}
 \title{Report the state of a Zig-backed package}
 \usage{
-rzig_status(path)
+rzig_status(path, build = FALSE)
 }
 \arguments{
 \item{path}{Path to the package root.}
+
+\item{build}{If `TRUE`, also compile and install the package with
+[build_zig()] when every other check passes.}
 }
 \value{
 An object of class `rzig_status`: a data frame with the columns
-  `step`, `ok` and `detail`, one row per check, with the attributes `path`
-  and `package`.
+  `step`, `ok` and `detail`, one row per check, with the attributes
+  `path`, `package` and, with `build = TRUE`, `build` (the
+  [rzig_build][build_zig()] object).
 }
 \description{
 Checks each step of the RZig workflow in a package and reports what is
-present, what is missing and what is out of date: the `DESCRIPTION`
-file, the scaffold written by [use_rzig()], the package author's Zig
-source, the exported functions found by [scan_exports()], whether the
-generated bindings match the current exports, and whether a supported Zig
-compiler is available for installing the package.
+present, what is missing and what would make the installation fail:
+}
+\details{
+* **DESCRIPTION**: the package name and a valid version.
+* **Scaffold**: the files written by [use_rzig()], framework sources that
+  match the installed rzig, and executable `configure` and `cleanup`
+  scripts.
+* **Zig source**: `src/rzig/src/main.zig` with the registration block and
+  the panic handler of rzig.
+* **Exports**: the exported functions found by [scan_exports()], with
+  every argument and return type that the boundary rejects, more than 32
+  arguments, misuse of `rzig.Mut([]f64)`, error sets other than
+  `rzig.Error`, and R functions of the same name elsewhere in `R/`.
+* **Bindings**: whether the files written by [document()] match the
+  exports.
+* **Zig compiler**: a compiler of a supported release series
+  ([find_zig()]).
+* **C toolchain**: the C compiler of R, `make` and the R headers.
+* **Build** (only with `build = TRUE`): the result of [build_zig()].
+
+Every check except the build runs in R without compiling anything.
 }
 \examples{
 package_path <- tempfile("rzig-status-", tmpdir = tempdir())
@@ -28,6 +48,10 @@ dir.create(package_path)
 writeLines(c("Package: examplepkg", "Version: 0.0.1"),
   file.path(package_path, "DESCRIPTION"))
 use_rzig(package_path)
+rzig_status(package_path)
+main <- file.path(package_path, "src", "rzig", "src", "main.zig")
+cat("/// @export\npub fn half(x: f32) f32 {\n    return x / 2;\n}\n",
+  file = main, append = TRUE)
 rzig_status(package_path)
 unlink(package_path, recursive = TRUE)
 }

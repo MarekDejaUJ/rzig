@@ -90,7 +90,7 @@ find_zig <- function(required = TRUE) {
 
   zig <- candidates[[1L]]
   version_output <- tryCatch(
-    suppressWarnings(system2(zig, "version", stdout = TRUE, stderr = TRUE)),
+    suppressWarnings(system2(zig, "version", stdout = TRUE, stderr = TRUE, timeout = 30)),
     error = function(error) character()
   )
   version <- if (length(version_output)) trimws(version_output[[1L]]) else ""

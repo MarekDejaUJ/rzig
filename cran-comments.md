@@ -1,7 +1,7 @@
 ## rzig 0.3.0
 
 Changes since 0.2.3: the workflow is exposed step by step (`find_zig()`,
-`scan_exports()`, `render_bindings()`, `rzig_status()`); the export scan and
+`scan_exports()`, `render_bindings()`, `rzig_status()`, `build_zig()`); the export scan and
 the generated bindings are pure R, so the examples and the tests run without a
 Zig compiler and the vignette executes its generation steps; Zig support is
 limited to the 0.16 and 0.17 release series; the generated `entry.c` no longer includes

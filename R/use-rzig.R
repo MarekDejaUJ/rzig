@@ -11,11 +11,15 @@
 #' `src/Makevars.in`, `src/Makevars.win.in`, the framework sources under
 #' `src/rzig/framework`, the package author's Zig source
 #' `src/rzig/src/main.zig`, the generated `R/rzig-wrappers.R`, and a managed
-#' block in `NAMESPACE`.
+#' block in `NAMESPACE`. Entries for the Zig build caches are added to
+#' `.Rbuildignore`.
 #'
 #' @param path Path to the package root; the directory must contain a
 #'   `DESCRIPTION` file.
-#' @param overwrite Replace files previously managed by RZig.
+#' @param overwrite Replace files previously managed by RZig. The package
+#'   author's Zig sources in `src/rzig/src` are kept, so
+#'   `use_rzig(path, overwrite = TRUE)` updates the framework sources and build
+#'   files of a package to the installed version of rzig.
 #'
 #' @return An object of class `rzig_scaffold`: a list with `path` (the
 #'   normalized package root), `package`, `files` (the paths written,
@@ -56,12 +60,20 @@ use_rzig <- function(path, overwrite = FALSE) {
     )
   }
 
+  author_source <- file.path(path, "src", "rzig", "src")
+  keep_source <- file.exists(file.path(author_source, "main.zig"))
   if (overwrite) {
-    unlink(file.path(path, "src", "rzig"), recursive = TRUE, force = TRUE)
+    managed_zig <- list.files(file.path(path, "src", "rzig"), all.files = TRUE, no.. = TRUE)
+    managed_zig <- managed_zig[managed_zig != "src"]
+    unlink(file.path(path, "src", "rzig", managed_zig), recursive = TRUE, force = TRUE)
   }
   dir.create(file.path(path, "src"), recursive = TRUE, showWarnings = FALSE)
   dir.create(file.path(path, "R"), recursive = TRUE, showWarnings = FALSE)
-  .rzig_copy_tree(zig_assets, file.path(path, "src", "rzig"))
+  .rzig_copy_tree(
+    zig_assets, file.path(path, "src", "rzig"),
+    skip = if (keep_source) "^src/" else NULL
+  )
+  .rzig_add_buildignore(path)
 
   file.copy(
     file.path(templates, "Makevars"),
@@ -104,7 +116,8 @@ use_rzig <- function(path, overwrite = FALSE) {
     file.path("src", "Makevars.win.in"),
     file.path("src", "rzig", written),
     file.path("R", "rzig-wrappers.R"),
-    "NAMESPACE"
+    "NAMESPACE",
+    ".Rbuildignore"
   )
   message("Created RZig scaffold for package ", package)
   invisible(structure(

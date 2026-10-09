@@ -1,0 +1,7 @@
+* installing *source* package ‘badversion’ ...
+** this is package ‘badversion’ version ‘0.0.1’
+** using staged installation
+Zig 0.15.2 found at /tmp/rzig-build/fakezig.sh, but this package requires Zig 0.16.x or 0.17.x.
+Download a supported release from https://ziglang.org/download/ and set ZIG=/absolute/path/to/zig.
+ERROR: configuration failed for package ‘badversion’
+* removing ‘/tmp/rzig-library/badversion’

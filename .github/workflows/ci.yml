@@ -88,7 +88,7 @@ jobs:
           parity_library="$RUNNER_TEMP/rzig-parity-library"
           mkdir -p "$parity_library"
           R CMD INSTALL --library="$parity_library" rzig_*.tar.gz
-          ZIG="$(command -v zig)" R_LIBS="$parity_library" Rscript -e 'library(testthat); library(rzig); test_dir("tests/testthat", stop_on_failure = TRUE)'
+          NOT_CRAN=true ZIG="$(command -v zig)" R_LIBS="$parity_library" Rscript -e 'library(testthat); library(rzig); test_dir("tests/testthat", stop_on_failure = TRUE)'
         shell: bash
       - name: Check integration fixture
         run: |

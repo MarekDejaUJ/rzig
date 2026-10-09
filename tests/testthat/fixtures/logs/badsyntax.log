@@ -1,0 +1,37 @@
+* installing *source* package ‘badsyntax’ ...
+** this is package ‘badsyntax’ version ‘0.0.1’
+** using staged installation
+using Zig 0.16.0 at /home/user/.local/bin/zig
+using R compiler clang -arch arm64 for -Dtarget=aarch64-macos.13.0
+** libs
+using C compiler: ‘Apple clang version 21.0.0 (clang-2100.3.34.2)’
+using SDK: ‘MacOSX27.0.sdk’
+clang -arch arm64 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I/opt/R/arm64/include   -fPIC -O2 -Wall -pedantic \
+	  -c entry.c -o entry.o
+cd rzig && \
+	ZIG_GLOBAL_CACHE_DIR="/tmp/rzig-build/badsyntax/src/rzig/.zig-global-cache" \
+	"/home/user/.local/bin/zig" build \
+	  --release=safe \
+	  -Dtarget=aarch64-macos.13.0 \
+	  -Dpkg=badsyntax \
+	  -Dr-include="/Library/Frameworks/R.framework/Resources/include" \
+	  --cache-dir "/tmp/rzig-build/badsyntax/src/rzig/.zig-cache"
+install
++- install zigpkg
+   +- compile lib zigpkg ReleaseSafe aarch64-macos.13.0 1 errors
+src/main.zig:18:16: error: expected type expression, found '{'
+pub fn broken( {
+               ^
+error: 1 compilation errors
+failed command: /opt/zig-0.16.0/zig build-lib -fPIC -OReleaseSafe -target aarch64-macos.13.0 -mcpu baseline --dep rzig -Mroot=/tmp/rzig-build/badsyntax/src/rzig/src/main.zig -OReleaseSafe -target aarch64-macos.13.0 -mcpu baseline -I /Library/Frameworks/R.framework/Resources/include -Mrzig=/tmp/rzig-build/badsyntax/src/rzig/framework/rzig.zig -lc --cache-dir .zig-cache --global-cache-dir .zig-global-cache --name zigpkg -static -fno-compiler-rt --zig-lib-dir /opt/zig-0.16.0/lib/ --listen=-
+
+Build Summary: 0/3 steps succeeded (1 failed)
+install transitive failure
++- install zigpkg transitive failure
+   +- compile lib zigpkg ReleaseSafe aarch64-macos.13.0 1 errors
+
+error: the following build command failed with exit code 1:
+.zig-cache/o/e999a95cc8133bf322e3407acc846917/build /opt/zig-0.16.0/zig /opt/zig-0.16.0/lib /tmp/rzig-build/badsyntax/src/rzig .zig-cache .zig-global-cache --seed 0xe036479b -Zd96803a664830946 --release=safe -Dtarget=aarch64-macos.13.0 -Dpkg=badsyntax -Dr-include=/Library/Frameworks/R.framework/Resources/include
+make: *** [rzig/zig-out/lib/libzigpkg.a] Error 1
+ERROR: compilation failed for package ‘badsyntax’
+* removing ‘/tmp/rzig-library/badsyntax’
