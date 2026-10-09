@@ -9,7 +9,9 @@
 #'
 #' The package is built from a copy in the session temporary directory, so
 #' the package source receives no object files or compiler caches. The
-#' installation needs a supported Zig compiler and the C toolchain of R.
+#' installation needs a supported Zig compiler and the C toolchain of R. A
+#' package that is already loaded in the R session keeps its old native
+#' code until R restarts; the printed result says so.
 #'
 #' @param path Path to the package root.
 #' @param lib The library to install into. By default a new library in the
@@ -280,6 +282,12 @@ print.rzig_build <- function(x, ...) {
     temporary <- startsWith(x$library, normalizePath(tempdir(), winslash = "/"))
     cat(if (temporary) "Installed into a library in the session temporary directory\n" else
       sprintf("Installed into %s\n", x$library))
+    if (x$package %in% loadedNamespaces()) {
+      cat(sprintf(
+        "Package %s is already loaded in this session; restart R to use the new build.\n",
+        x$package
+      ))
+    }
     return(invisible(x))
   }
   if (identical(x$step, "preflight")) {

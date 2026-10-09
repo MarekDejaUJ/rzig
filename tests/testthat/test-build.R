@@ -95,3 +95,11 @@ test_that("build_zig reports the compiler error of an unsupported type", {
   expect_identical(result$errors$function_name[[1L]], "total")
   expect_output(print(result), "unsupported type")
 })
+
+test_that("printing a build warns about a package loaded in the session", {
+  result <- structure(list(
+    ok = TRUE, package = "stats", seconds = 1, library = tempdir(),
+    zig = list(path = "zig", version = "0.16.0")
+  ), class = "rzig_build")
+  expect_output(print(result), "already loaded in this session")
+})

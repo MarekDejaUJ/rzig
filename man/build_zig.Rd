@@ -37,7 +37,9 @@ instead of the bare "non-zero exit status" of [utils::install.packages()].
 \details{
 The package is built from a copy in the session temporary directory, so
 the package source receives no object files or compiler caches. The
-installation needs a supported Zig compiler and the C toolchain of R.
+installation needs a supported Zig compiler and the C toolchain of R. A
+package that is already loaded in the R session keeps its old native
+code until R restarts; the printed result says so.
 }
 \examples{
 package_path <- tempfile("rzig-build-", tmpdir = tempdir())
