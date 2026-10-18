@@ -4,6 +4,7 @@ ZIG = @ZIG@
 ZIG_TARGET_ARG = @ZIG_TARGET_ARG@
 R_INCLUDE_DIR = @R_INCLUDE_DIR@
 ZIG_DIR = rzig
+ZIG_IMPORTS = @RZIG_IMPORTS@
 STATLIB = $(ZIG_DIR)/zig-out/lib/zigpkg.lib
 @RZIG_OBJECTS@
 # Zig's Windows thread runtime calls native NT entry points.
@@ -34,6 +35,7 @@ $(STATLIB): FORCE
 	  $(ZIG_TARGET_ARG) \
 	  -Dpkg=$(R_PACKAGE_NAME) \
 	  -Dr-include="$(R_INCLUDE_DIR)" \
+	  -Drzig-imports="$(ZIG_IMPORTS)" \
 	  --cache-dir "$(CURDIR)/$(ZIG_DIR)/.zig-cache"
 
 # make cannot see the Zig sources under $(ZIG_DIR), so `zig build` runs on

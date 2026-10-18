@@ -1,3 +1,25 @@
+# rzig 0.37.0
+
+## New features
+
+- Zig modules shared between packages: `use_rzig_module()` creates
+  `inst/zig/<module>/root.zig` in the providing package, and
+  `use_rzig_import()` adds `<package>/<module>` to `Config/rzig/imports` and
+  the package to `LinkingTo`. `configure` resolves the module in the
+  installed package with the new `src/rzig/tools/imports.R` and passes it to
+  `zig build`; the importing package compiles it, so the packages share no
+  code at run time. `use_rzig_module()` also writes
+  `inst/include/<package>_rzig.h`, because R CMD check expects a package in
+  `LinkingTo` to provide an `include` folder. The checks before compilation
+  report imports that do not resolve, packages that `LinkingTo` does not
+  list, and providers without an `include` folder.
+
+## Bug fixes
+
+- `test_zig()` failed with Zig 0.17, whose `zig build` has no
+  `--global-cache-dir`; the global cache is now set with
+  `ZIG_GLOBAL_CACHE_DIR`.
+
 # rzig 0.36.0
 
 ## New features

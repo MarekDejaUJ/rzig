@@ -98,6 +98,10 @@ jobs:
         run: |
           R_LIBS="$RUNNER_TEMP/rzig-parity-library" ZIG="$(command -v zig)" Rscript tools/check_client_package.R
         shell: bash
+      - name: Check a package that imports a Zig module of another package
+        run: |
+          R_LIBS="$RUNNER_TEMP/rzig-parity-library" ZIG="$(command -v zig)" Rscript tools/check_module_import.R
+        shell: bash
       - name: Check integration fixture
         run: |
           zig version

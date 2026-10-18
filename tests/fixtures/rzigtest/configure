@@ -205,12 +205,30 @@ if grep -Eiq '^Config/rzig/mixed:[[:space:]]*(true|yes)[[:space:]]*$' DESCRIPTIO
     entry_cppflags='-DRZIG_MIXED'
 fi
 
+# Config/rzig/imports in DESCRIPTION (rzig::use_rzig_import()) names Zig
+# modules of installed R packages (listed in LinkingTo) or of this package's
+# inst/zig; src/rzig/tools/imports.R resolves them to their root files.
+rzig_imports=
+if grep -Eq '^Config/rzig/imports:' DESCRIPTION 2>/dev/null; then
+    if test ! -f src/rzig/tools/imports.R; then
+        printf '%s\n' 'DESCRIPTION has Config/rzig/imports, but src/rzig/tools/imports.R is missing; update the package with rzig::update_rzig().' >&2
+        exit 1
+    fi
+    rzig_imports=$("$r_bin" --no-echo --no-restore --no-save --no-init-file -f src/rzig/tools/imports.R) || {
+        printf '%s\n' 'could not resolve the Zig modules of Config/rzig/imports; see the message above.' >&2
+        exit 1
+    }
+    rzig_imports=$(printf '%s\n' "$rzig_imports" | sed -n '$p')
+    printf 'importing Zig modules: %s\n' "$rzig_imports"
+fi
+
 zig_sub=$(escape_sed_replacement "$zig_path")
 target_sub=$(escape_sed_replacement "$zig_target_arg")
 include_sub=$(escape_sed_replacement "$r_include_dir")
 statlib_sub=$(escape_sed_replacement "$statlib")
 lapack_sub=$(escape_sed_replacement "$lapack_libs")
 objects_sub=$(escape_sed_replacement "$objects_line")
+imports_sub=$(escape_sed_replacement "$rzig_imports")
 entry_sub=$(escape_sed_replacement "$entry_cppflags")
 sed -e "s|@ZIG@|$zig_sub|g" \
     -e "s|@ZIG_TARGET_ARG@|$target_sub|g" \
@@ -218,6 +236,7 @@ sed -e "s|@ZIG@|$zig_sub|g" \
     -e "s|@STATLIB@|$statlib_sub|g" \
     -e "s|@RZIG_LAPACK_LIBS@|$lapack_sub|g" \
     -e "s|@RZIG_OBJECTS@|$objects_sub|g" \
+    -e "s|@RZIG_IMPORTS@|$imports_sub|g" \
     -e "s|@RZIG_ENTRY_CPPFLAGS@|$entry_sub|g" \
     "$makevars_template" > "$makevars_output"
 

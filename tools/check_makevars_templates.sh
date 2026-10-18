@@ -14,6 +14,8 @@ for file in inst/templates/Makevars inst/templates/Makevars.win; do
     require_line "$file" 'ZIG = @ZIG@'
     require_line "$file" 'ZIG_DIR = rzig'
     require_line "$file" '@RZIG_OBJECTS@'
+    require_line "$file" 'ZIG_IMPORTS = @RZIG_IMPORTS@'
+    require_line "$file" '-Drzig-imports="$(ZIG_IMPORTS)"'
     require_line "$file" 'PKG_LIBS = $(STATLIB)'
     require_line "$file" 'ReleaseSafe) release=--release=safe ;;'
     require_line "$file" 'Debug) release= ;;'

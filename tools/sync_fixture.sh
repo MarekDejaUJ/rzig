@@ -48,6 +48,16 @@ for repack_fixture in "$repo_dir/tests/fixtures/rzigtest/src/rzig/tools/repack_m
     fi
 done
 
+for imports_copy in "$repo_dir/tests/fixtures/rzigtest/src/rzig/tools/imports.R" \
+                    "$repo_dir/examples/rzigcausal/src/rzig/tools/imports.R"; do
+    if test "$mode" = "--write"; then
+        cp "$repo_dir/inst/zig/tools/imports.R" "$imports_copy"
+    elif ! cmp -s "$repo_dir/inst/zig/tools/imports.R" "$imports_copy"; then
+        printf 'copy is stale: %s\n' "$imports_copy" >&2
+        failed=1
+    fi
+done
+
 fetch_source="$repo_dir/inst/zig/tools/fetch_zig.R"
 for fetch_copy in "$repo_dir/tests/fixtures/rzigtest/src/rzig/tools/fetch_zig.R" \
                   "$repo_dir/examples/rzigcausal/src/rzig/tools/fetch_zig.R"; do

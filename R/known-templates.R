@@ -12,6 +12,7 @@
     "6f6f0cbe1089d0b1c6640870b0b6b21c",
     "874f258679bacff2e52e468909f080a4",
     "8d565b3b557cd326b253157300377c16",
+    "b63144aa991b1ef371c602a41d870f5a",
     "db67db78223377b96500af69d91d2a49",
     "ee0c83ada298c48e541c2c11bd3b5856",
     "f8f96661584967ca6642d417457045ac"
@@ -35,6 +36,7 @@
     "c34e83ac4b525335d473658b9f8e7f5e",
     "c614a0eece58fb051159740f31d01cd7",
     "c907c5f7c4d8c4935d6e49d0112b09ab",
+    "ee3533a5525e8615287a8490dfbcf21c",
     "eec889761bf0bff52987b0e309f6ee6a"
   ),
   "Makevars.win" = c(
@@ -45,6 +47,7 @@
     "796fc47f7d771c4062fe702e8be7004e",
     "7a5d014fb5ac248c2f73d878ea13cf3d",
     "a68a0fdbcdfdfcf80d98087e7039ed89",
+    "a9bc079eabeeac3938a42f1e21fe6e81",
     "b3c746800d0beb48c7a582431c44f1db",
     "b5729bf548d0253838d1a48f35ee82ae",
     "d1aafbf0a524c1a02917fdd58742c491",
@@ -62,6 +65,7 @@
     "11100719a5fe46882bdc02ec9dd277ac",
     "144440b7e979076994ea42e3a75a89d9",
     "68d2d7c6a8e0105d9124cd852610a43e",
+    "77079b640d7588a5d660db88945af61d",
     "90956157a8c24c96db89c9d20637eb00",
     "c2853adb32f292207cf613648c419593"
   ),
@@ -75,6 +79,9 @@
   "tools/fetch_zig.R" = c(
     "939a9380815b852aa9bf2bfc2517dfee",
     "e60f71f68c1e5e3c7bff5eab54edcdc4"
+  ),
+  "tools/imports.R" = c(
+    "9b7cd8b9ece29ebbb324e547bc99e14c"
   ),
   "tools/scan.zig" = c(
     "7be5d2d84f225378e14a4486e6c17534",

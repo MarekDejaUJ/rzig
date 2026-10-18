@@ -248,6 +248,30 @@ The Zig sources then call the library through `const answer =
 `update_rzig()` never replaces the file. The license and copyright of the
 vendored code belong in the package's `DESCRIPTION` and `inst/COPYRIGHTS`.
 
+## Zig modules shared between packages
+
+A package shares Zig code as a module: `use_rzig_module(path, "kernels")`
+creates `inst/zig/kernels/root.zig`, which R installs with the package. Another
+package uses it with `use_rzig_import(path, "kernelpkg", "kernels")`, which
+adds `kernelpkg/kernels` to `Config/rzig/imports` and `kernelpkg` to
+`LinkingTo`, so that R installs `kernelpkg` first. Its Zig code then imports
+the module:
+
+```zig
+const kernels = @import("kernels");
+
+/// Twice the sum of the values.
+/// @export
+pub fn total(x: []const f64) f64 {
+    return 2 * kernels.sum(x);
+}
+```
+
+`configure` finds the module in the installed package, and the module is
+compiled into the importing package, so nothing is linked between packages
+at run time. A module can import `rzig` and the other imported modules;
+`test_zig()` passes the imports to the Zig tests as well.
+
 ## Compiling Zig from the R prompt
 
 `zig_function()` compiles Zig code into a small package in the session's

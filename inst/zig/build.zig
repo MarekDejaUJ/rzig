@@ -24,6 +24,7 @@ pub fn build(b: *std.Build) void {
     });
     _ = b.option([]const u8, "pkg", "R package name");
     const r_include = b.option([]const u8, "r-include", "R include directory") orelse "";
+    const imports = b.option([]const u8, "rzig-imports", "Zig modules of R packages: name=root.zig;...") orelse "";
 
     const framework = b.createModule(.{
         .root_source_file = b.path("framework/rzig.zig"),
@@ -42,6 +43,7 @@ pub fn build(b: *std.Build) void {
     });
     module.addImport("rzig", framework);
     addCLibraries(b, module);
+    addPackageImports(b, module, framework, imports);
 
     const library = b.addLibrary(.{
         .name = "zigpkg",
@@ -62,6 +64,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = c_libraries.len > 0,
     });
     addCLibraries(b, kernel_module);
+    addPackageImports(b, kernel_module, framework, imports);
     const kernel_tests = b.addTest(.{ .root_module = kernel_module });
     const run_tests = b.addRunArtifact(kernel_tests);
     b.step("test", "Run the Zig tests of src/tests.zig without R").dependOn(&run_tests.step);
@@ -84,6 +87,40 @@ fn addCLibraries(b: *std.Build, module: *std.Build.Module) void {
             });
             for (c_library.include) |directory| translated.addIncludePath(b.path(directory));
             module.addImport(c_library.name, translated.createModule());
+        }
+    }
+}
+
+/// A Zig module of an R package, named in Config/rzig/imports.
+const PackageImport = struct {
+    name: []const u8,
+    module: *std.Build.Module,
+};
+
+/// Add the Zig modules of R packages that configure resolved
+/// (`-Drzig-imports=name=root.zig;...`) to `module`. Each of them can import
+/// rzig and the others.
+fn addPackageImports(b: *std.Build, module: *std.Build.Module, framework: *std.Build.Module, imports: []const u8) void {
+    var list: std.ArrayList(PackageImport) = .empty;
+    var entries = std.mem.splitScalar(u8, imports, ';');
+    while (entries.next()) |entry| {
+        if (entry.len == 0) continue;
+        const separator = std.mem.indexOfScalar(u8, entry, '=') orelse entry.len;
+        if (separator == 0 or separator + 1 >= entry.len) {
+            std.debug.panic("rzig: malformed entry of -Drzig-imports: '{s}'", .{entry});
+        }
+        const imported = b.createModule(.{
+            .root_source_file = .{ .cwd_relative = entry[separator + 1 ..] },
+            .target = module.resolved_target,
+            .optimize = module.optimize,
+        });
+        imported.addImport("rzig", framework);
+        list.append(b.allocator, .{ .name = entry[0..separator], .module = imported }) catch @panic("out of memory");
+    }
+    for (list.items) |item| {
+        module.addImport(item.name, item.module);
+        for (list.items) |other| {
+            if (other.module != item.module) item.module.addImport(other.name, other.module);
         }
     }
 }

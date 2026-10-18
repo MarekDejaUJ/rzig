@@ -4,6 +4,7 @@ ZIG = @ZIG@
 ZIG_TARGET_ARG = @ZIG_TARGET_ARG@
 R_INCLUDE_DIR = @R_INCLUDE_DIR@
 ZIG_DIR = rzig
+ZIG_IMPORTS = @RZIG_IMPORTS@
 STATLIB = @STATLIB@
 @RZIG_OBJECTS@
 PKG_LIBS = $(STATLIB) @RZIG_LAPACK_LIBS@
@@ -33,6 +34,7 @@ $(STATLIB): FORCE
 	  $(ZIG_TARGET_ARG) \
 	  -Dpkg=$(R_PACKAGE_NAME) \
 	  -Dr-include="$(R_INCLUDE_DIR)" \
+	  -Drzig-imports="$(ZIG_IMPORTS)" \
 	  --cache-dir "$(CURDIR)/$(ZIG_DIR)/.zig-cache"
 	@if test "$$(uname -s)" = Darwin && \
 	    test -f "$(ZIG_DIR)/tools/repack_macos_archive.sh"; then \

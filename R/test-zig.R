@@ -44,19 +44,25 @@ test_zig <- function(path) {
     stop("src/rzig/build.zig defines no `test` step; update_rzig(path) installs one", call. = FALSE)
   }
   compiler <- find_zig()
+  imports <- .rzig_imports_tool()$rzig_imports_option(info$path)
   work <- tempfile("rzig-zig-tests-")
   dir.create(work)
   on.exit(unlink(work, recursive = TRUE, force = TRUE), add = TRUE)
   # The global cache is kept for the session (RZIG_ZIG_CACHE overrides it), so
   # later calls reuse the compiled build runner and standard library.
   global_cache <- Sys.getenv("RZIG_ZIG_CACHE", unset = file.path(tempdir(), "rzig-zig-cache"))
+  # `zig build` of Zig 0.17 has no --global-cache-dir; the variable reaches
+  # the compiler on every platform when it is set in this process.
+  previous <- Sys.getenv("ZIG_GLOBAL_CACHE_DIR", unset = NA_character_)
+  Sys.setenv(ZIG_GLOBAL_CACHE_DIR = global_cache)
+  on.exit(if (is.na(previous)) Sys.unsetenv("ZIG_GLOBAL_CACHE_DIR") else Sys.setenv(ZIG_GLOBAL_CACHE_DIR = previous), add = TRUE)
   started <- Sys.time()
   old <- setwd(zig_dir)
   on.exit(setwd(old), add = TRUE)
   log <- suppressWarnings(system2(
     compiler$path,
-    c("build", "test", "--cache-dir", shQuote(file.path(work, "local")),
-      "--global-cache-dir", shQuote(global_cache), "--summary", "all"),
+    c("build", "test", "--cache-dir", shQuote(file.path(work, "local")), "--summary", "all",
+      if (nzchar(imports)) shQuote(paste0("-Drzig-imports=", imports))),
     stdout = TRUE, stderr = TRUE
   ))
   status <- attr(log, "status", exact = TRUE)

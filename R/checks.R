@@ -329,12 +329,18 @@
   }, logical(1L))]
   missing_templates <- zig_templates[!file.exists(file.path(path, "src", "rzig", zig_templates))]
   # The Zig downloader runs only when RZIG_DOWNLOAD_ZIG asks for it.
-  missing_optional <- intersect(missing_templates, "tools/fetch_zig.R")
+  missing_optional <- intersect(missing_templates, c("tools/fetch_zig.R", "tools/imports.R"))
   missing_templates <- setdiff(missing_templates, missing_optional)
-  if (length(missing_optional)) {
+  if ("tools/fetch_zig.R" %in% missing_optional) {
     notes <- c(notes, paste0(
-      "missing: ", paste(file.path("src", "rzig", missing_optional), collapse = ", "),
+      "missing: ", file.path("src", "rzig", "tools", "fetch_zig.R"),
       " (used only to download Zig during installation); run update_rzig(path)"
+    ))
+  }
+  if ("tools/imports.R" %in% missing_optional) {
+    notes <- c(notes, paste0(
+      "missing: ", file.path("src", "rzig", "tools", "imports.R"),
+      " (used only for Config/rzig/imports); run update_rzig(path)"
     ))
   }
   if (length(missing_framework) || length(missing_templates)) {
@@ -465,6 +471,7 @@
       "misses changes to them; use_rzig() adds ", paste(.rzig_extra_sources, collapse = ", ")
     ))
   }
+  problems <- c(problems, .rzig_check_imports(path))
   sources <- list.files(file.path(path, "src", "rzig", "src"), pattern = "\\.zig$", recursive = TRUE, full.names = TRUE)
   uses_lapack <- any(vapply(sources, function(source) {
     grepl("rzig\\.(Blas|Lapack)\\.", .rzig_read_text(source) %||% "")
