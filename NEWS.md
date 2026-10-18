@@ -1,3 +1,18 @@
+# rzig 0.11.0
+
+## New features
+
+- `zig_function()` compiles Zig code from the R prompt into a package in the
+  session's temporary directory and defines its exported functions, the
+  counterpart of `Rcpp::cppFunction()`; `zig_source()` does the same for a
+  file and `zig_eval()` evaluates one expression of a given type. The
+  header (`std`, `builtin`, `rzig`, the panic handler) and the registration
+  block are added when the code lacks them, every `pub fn` is exported when
+  the code marks none with `/// @export`, builds are cached for the session,
+  and a compiler error is reported with the line of the code.
+- A knitr engine `zig` (`eng_zig()`, registered when knitr loads) compiles a
+  chunk with `zig_function()`, so later R chunks call its functions.
+
 # rzig 0.10.1
 
 ## Continuous integration

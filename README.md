@@ -192,6 +192,25 @@ generated Makevars and Zig build caches after package installation and checks.
 hand-written `src/Makevars`, because the generated build compiles only the Zig
 sources and `src/entry.c`.
 
+## Compiling Zig from the R prompt
+
+`zig_function()` compiles Zig code into a small package in the session's
+temporary directory and defines its functions, like `Rcpp::cppFunction()`:
+
+```r
+twice <- rzig::zig_function("pub fn twice(x: f64) f64 { return 2 * x; }")
+twice(21)
+#> [1] 42
+rzig::zig_eval("@sqrt(2.0)", type = "f64")
+#> [1] 1.414214
+```
+
+`zig_source(file)` does the same for a file. Every top-level `pub fn` is
+exported unless the code marks functions with `/// @export`. Builds are cached
+for the session, and a compiler error is reported with the line of the code.
+In R Markdown and Quarto documents, a `zig` chunk compiles its code with
+`zig_function()` and later R chunks can call the functions.
+
 ## Exports in several files
 
 `main.zig` can collect exports from other files of `src/rzig/src`:
