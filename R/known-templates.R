@@ -49,6 +49,7 @@
   "build.zig" = c(
     "11100719a5fe46882bdc02ec9dd277ac",
     "144440b7e979076994ea42e3a75a89d9",
+    "90956157a8c24c96db89c9d20637eb00",
     "c2853adb32f292207cf613648c419593"
   ),
   "build.zig.zon" = c(

@@ -211,6 +211,23 @@ for the session, and a compiler error is reported with the line of the code.
 In R Markdown and Quarto documents, a `zig` chunk compiles its code with
 `zig_function()` and later R chunks can call the functions.
 
+## Zig tests without R
+
+`test_zig(path)` runs `zig build test` for a package: the `test` blocks of the
+files that `src/rzig/src/tests.zig` imports are compiled for the host and run
+without R, which suits numerical kernels written in plain Zig:
+
+```zig
+// src/rzig/src/tests.zig
+test {
+    _ = @import("kernels.zig");
+}
+```
+
+Files that use the `rzig` module call into R and are tested from R
+(`testthat`). Packages scaffolded by an older rzig get the `test` step of
+`build.zig` from `update_rzig(path)`.
+
 ## Export options
 
 The marker line and `@default` lines shape the R wrapper:

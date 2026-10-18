@@ -1,3 +1,15 @@
+# rzig 0.14.0
+
+## New features
+
+- `test_zig()` runs the Zig tests of a package (`zig build test`) on the host
+  without R: the `test` blocks of the files imported by
+  `src/rzig/src/tests.zig`. The package folder receives no build output, the
+  Zig cache is kept for the session, and failed tests are listed by name.
+- The `build.zig` template has a `test` step for `test_zig()`;
+  `update_rzig()` installs it in packages with an unmodified older
+  `build.zig`.
+
 # rzig 0.13.0
 
 ## Behavior changes
