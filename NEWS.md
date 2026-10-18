@@ -1,3 +1,22 @@
+# rzig 0.9.0
+
+## New features
+
+- Exports in several files: the scan follows `pub const name =
+  @import("file.zig");` declarations of `main.zig` (recursively) and finds
+  the `/// @export` functions of those files, registered as `name.function`.
+  `/// @export` above `pub const twice = other.twice;` re-exports a function
+  of an imported file. Before, markers outside `main.zig` were ignored
+  without a message.
+- A marker in a file imported with a plain `const`, which the generated
+  registration cannot reach, is an error that says how to import the file;
+  a marked file that is not imported is noted by `rzig_status()`, and an R
+  name exported twice is an error naming both places.
+- `scan_exports()` records the `file` of each export and the `files`
+  scanned; `print()` shows the file of exports outside `main.zig`, and
+  `build_zig()` attributes compiler errors in any of these files to their
+  exported function.
+
 # rzig 0.8.0
 
 ## New features

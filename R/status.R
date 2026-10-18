@@ -98,6 +98,13 @@ rzig_status <- function(path, build = FALSE, lib = NULL) {
       types <- .rzig_check_exports(exports)
       conflicts <- .rzig_check_r_conflicts(path, exports)
       masking <- .rzig_check_masking(exports)
+      unreachable <- attr(exports, "unreachable", exact = TRUE)
+      if (length(unreachable)) {
+        masking$notes <- c(masking$notes, sprintf(
+          "src/rzig/src/%s contains `/// @export`, but main.zig does not import it with `pub const`; its markers are ignored",
+          unreachable
+        ))
+      }
       names <- vapply(exports, function(item) {
         if (.rzig_is_internal(item)) paste(item$name, "(internal)") else item$name
       }, character(1L))

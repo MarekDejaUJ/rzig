@@ -1,7 +1,15 @@
 #' Scan the Zig source of a package for exported functions
 #'
-#' Reads `src/rzig/src/main.zig` and lists every public top-level Zig function
-#' whose documentation comment contains a line `/// @export`. A line
+#' Reads `src/rzig/src/main.zig`, and every Zig file that it imports with
+#' `pub const name = @import("file.zig");` (recursively), and lists every
+#' public top-level Zig function whose documentation comment contains a line
+#' `/// @export`. A function of an imported file is registered as
+#' `name.function`; its R name is the function name. `/// @export` above
+#' `pub const twice = other.twice;` re-exports a function of a file imported as
+#' `other` under the name `twice`. A file imported with a plain `const` cannot
+#' be reached by the generated registration, so a marker in it is an error; a
+#' marked file that is not imported at all is ignored, and [rzig_status()]
+#' notes it. R names must be unique across all files. A line
 #' `/// @export internal` registers the function and generates its R wrapper
 #' without exporting the wrapper from the package, for native routines that the
 #' package's own R code calls. The scan is pure
@@ -22,9 +30,11 @@
 #'   argument names), `parameter_types` (the Zig types of the R arguments),
 #'   `return_type` (the Zig return type as written), `doc` (the documentation
 #'   comment without the `@export` line), `line` (the line of the
-#'   declaration) and `internal` (`TRUE` for `/// @export internal`). The
-#'   attributes `package`, `path` and `source` record the package name, its
-#'   root and the scanned file. [as.data.frame()] turns the object into a
+#'   declaration), `internal` (`TRUE` for `/// @export internal`) and `file`
+#'   (the file below `src/rzig/src`). The attributes `package`, `path`,
+#'   `source` (the entry file), `files` (every file scanned) and `unreachable`
+#'   (marked files that `main.zig` does not import) record where the exports
+#'   come from. [as.data.frame()] turns the object into a
 #'   table with one row per function.
 #' @examples
 #' package_path <- tempfile("rzig-scan-", tmpdir = tempdir())
@@ -46,15 +56,183 @@ scan_exports <- function(path) {
       call. = FALSE
     )
   }
-  text <- .rzig_read_text(source_path)
-  exports <- .rzig_scan_text(text, source_path)
+  scanned <- .rzig_scan_package(info$path)
   structure(
-    exports,
+    scanned$exports,
     class = "rzig_exports",
     package = info$package,
     path = info$path,
-    source = file.path("src", "rzig", "src", "main.zig")
+    source = file.path("src", "rzig", "src", "main.zig"),
+    files = scanned$files,
+    unreachable = scanned$unreachable
   )
+}
+
+# ---------------------------------------------------------------------------
+# Several files: main.zig and the files it imports publicly
+
+.rzig_import_pattern <- paste0(
+  "^(pub[[:space:]]+)?const[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*",
+  "@import\\(\"([^\"]+\\.zig)\"\\)[[:space:]]*;"
+)
+
+.rzig_alias_pattern <- paste0(
+  "^pub[[:space:]]+const[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*",
+  "([A-Za-z_][A-Za-z0-9_]*)\\.([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*;"
+)
+
+.rzig_lines <- function(text) {
+  text <- .rzig_normalize_newlines(text)
+  lines <- strsplit(text, "\n", fixed = TRUE)[[1L]]
+  if (length(lines) && grepl("\n$", text)) lines <- c(lines, "")
+  lines
+}
+
+.rzig_scan_imports <- function(lines) {
+  out <- list()
+  for (index in seq_along(lines)) {
+    match <- regmatches(lines[[index]], regexec(.rzig_import_pattern, lines[[index]]))[[1L]]
+    if (length(match) == 4L) {
+      out[[length(out) + 1L]] <- list(public = nzchar(match[[2L]]), alias = match[[3L]],
+        file = match[[4L]], line = index)
+    }
+  }
+  out
+}
+
+# The marker options of a doc block: NULL without @export, else "" or
+# "internal"; anything else is an error.
+.rzig_marker <- function(bodies, source_path, index) {
+  trimmed <- trimws(bodies, whitespace = "[ \t\r]")
+  marker <- grepl("^@export([[:space:]]|$)", trimmed)
+  if (!any(marker)) return(NULL)
+  if (sum(marker) > 1L) {
+    stop(sprintf("%s:%d: more than one `/// @export` line above one function", source_path, index),
+      call. = FALSE)
+  }
+  option <- trimws(sub("^@export", "", trimmed[marker]))
+  if (!option %in% c("", "internal")) {
+    stop(sprintf(
+      "%s:%d: unknown option `%s` after @export; use `/// @export` or `/// @export internal`",
+      source_path, index, option
+    ), call. = FALSE)
+  }
+  list(internal = identical(option, "internal"), doc = paste(bodies[!marker], collapse = "\n"))
+}
+
+# The signature of the public function `name` declared in `lines`.
+.rzig_find_function <- function(lines, name, source_path) {
+  pattern <- paste0("^pub[[:space:]]+((inline|export|extern)[[:space:]]+)?fn[[:space:]]+", name, "[[:space:]]*\\(")
+  index <- grep(pattern, lines, perl = TRUE)
+  if (!length(index)) return(NULL)
+  index <- index[[1L]]
+  line <- lines[[index]]
+  open <- regexpr("\\(", line, useBytes = TRUE)
+  signature <- .rzig_signature(paste(lines[index:length(lines)], collapse = "\n"), open, name, source_path, index)
+  list(signature = signature, line = index)
+}
+
+# Turn a parsed signature into the parameter fields of an export record.
+.rzig_parameter_fields <- function(signature, name) {
+  parameters <- character()
+  parameter_types <- character()
+  for (position in seq_along(signature$parameters)) {
+    parameter <- .rzig_parameter(signature$parameters[[position]], name, position)
+    type_key <- gsub("[[:space:]]+", "", parameter$type, useBytes = TRUE)
+    if (position == 1L && type_key %in% c("*Ctx", "*rzig.Ctx")) next
+    parameters <- c(parameters, .rzig_identifier_name(parameter$token))
+    parameter_types <- c(parameter_types, parameter$type)
+  }
+  list(parameters = parameters, parameter_types = parameter_types)
+}
+
+.rzig_scan_package <- function(path) {
+  root <- normalizePath(file.path(path, "src", "rzig", "src"), winslash = "/", mustWork = TRUE)
+  main <- file.path(root, "main.zig")
+  relative <- function(file) substring(file, nchar(root) + 2L)
+  display <- function(file) file.path("src", "rzig", "src", relative(file))
+  exports <- list()
+  visited <- main
+  visit <- function(file, prefix) {
+    lines <- .rzig_lines(.rzig_read_text(file))
+    found <- .rzig_scan_text(paste(lines, collapse = "\n"), display(file))
+    for (item in found) {
+      item$file <- relative(file)
+      if (nzchar(prefix)) item$identifier <- paste0(prefix, ".", item$identifier)
+      exports[[length(exports) + 1L]] <<- item
+    }
+    imports <- .rzig_scan_imports(lines)
+    targets <- list()
+    for (import in imports) {
+      target <- normalizePath(file.path(dirname(file), import$file), winslash = "/", mustWork = FALSE)
+      if (!file.exists(target) || !startsWith(target, paste0(root, "/"))) next
+      targets[[import$alias]] <- target
+      if (target %in% visited) next
+      visited <<- c(visited, target)
+      if (import$public) {
+        visit(target, if (nzchar(prefix)) paste0(prefix, ".", import$alias) else import$alias)
+      } else {
+        marked <- .rzig_scan_text(.rzig_read_text(target), display(target))
+        if (length(marked)) {
+          stop(sprintf(paste0(
+            "%s:%d: `%s` is marked `/// @export`, but %s imports %s with `const %s`, which the ",
+            "generated registration cannot reach; write `pub const %s = @import(\"%s\");`"
+          ), display(target), marked[[1L]]$line, marked[[1L]]$name, relative(file), import$file,
+          import$alias, import$alias, import$file), call. = FALSE)
+        }
+      }
+    }
+    # `/// @export` above `pub const name = alias.function;` re-exports a
+    # function of an imported file under `name`.
+    for (index in seq_along(lines)) {
+      match <- regmatches(lines[[index]], regexec(.rzig_alias_pattern, lines[[index]]))[[1L]]
+      if (length(match) != 4L) next
+      doc_lines <- .rzig_doc_block(lines, index)
+      if (is.null(doc_lines)) next
+      marker <- .rzig_marker(.rzig_doc_bodies(doc_lines), display(file), index)
+      if (is.null(marker)) next
+      name <- match[[2L]]
+      target <- targets[[match[[3L]]]]
+      found <- if (is.null(target)) NULL else
+        .rzig_find_function(.rzig_lines(.rzig_read_text(target)), match[[4L]], display(target))
+      if (is.null(found)) {
+        stop(sprintf(
+          "%s:%d: `%s` re-exports `%s.%s`, but no public function `%s` was found in a file imported as `%s`",
+          display(file), index, name, match[[3L]], match[[4L]], match[[4L]], match[[3L]]
+        ), call. = FALSE)
+      }
+      fields <- .rzig_parameter_fields(found$signature, name)
+      exports[[length(exports) + 1L]] <<- list(
+        name = name,
+        identifier = if (nzchar(prefix)) paste0(prefix, ".", name) else name,
+        parameters = fields$parameters,
+        parameter_types = fields$parameter_types,
+        return_type = found$signature$return_type,
+        doc = marker$doc,
+        line = index,
+        internal = marker$internal,
+        file = relative(file)
+      )
+    }
+  }
+  visit(main, "")
+  names <- vapply(exports, function(item) item$name, character(1L))
+  duplicated_names <- unique(names[duplicated(names)])
+  if (length(duplicated_names)) {
+    where <- vapply(exports[names == duplicated_names[[1L]]], function(item) {
+      sprintf("%s:%d", item$file, item$line)
+    }, character(1L))
+    stop(sprintf("`%s` is exported more than once (%s)", duplicated_names[[1L]],
+      paste(where, collapse = ", ")), call. = FALSE)
+  }
+  all_files <- normalizePath(list.files(root, pattern = "\\.zig$", recursive = TRUE, full.names = TRUE),
+    winslash = "/")
+  unreachable <- character()
+  for (file in setdiff(all_files, visited)) {
+    marked <- tryCatch(.rzig_scan_text(.rzig_read_text(file), display(file)), error = function(error) list())
+    if (length(marked)) unreachable <- c(unreachable, relative(file))
+  }
+  list(exports = exports, files = relative(visited), unreachable = unreachable)
 }
 
 .rzig_scan_text <- function(text, source_path = "main.zig") {
@@ -77,26 +255,12 @@ scan_exports <- function(path) {
     if (is.null(doc_lines)) {
       next
     }
-    bodies <- .rzig_doc_bodies(doc_lines)
-    trimmed <- trimws(bodies, whitespace = "[ \t\r]")
-    marker <- grepl("^@export([[:space:]]|$)", trimmed)
-    if (!any(marker)) {
+    marker <- .rzig_marker(.rzig_doc_bodies(doc_lines), source_path, index)
+    if (is.null(marker)) {
       next
     }
-    options <- trimws(sub("^@export", "", trimmed[marker]))
-    if (sum(marker) > 1L) {
-      stop(sprintf(
-        "%s:%d: more than one `/// @export` line above one function", source_path, index
-      ), call. = FALSE)
-    }
-    if (!options %in% c("", "internal")) {
-      stop(sprintf(
-        "%s:%d: unknown option `%s` after @export; use `/// @export` or `/// @export internal`",
-        source_path, index, options
-      ), call. = FALSE)
-    }
-    internal <- identical(options, "internal")
-    doc <- paste(bodies[!marker], collapse = "\n")
+    internal <- marker$internal
+    doc <- marker$doc
 
     token <- regmatches(
       line,
@@ -393,13 +557,17 @@ as.data.frame.rzig_exports <- function(x, ...) {
 print.rzig_exports <- function(x, ...) {
   source <- attr(x, "source", exact = TRUE)
   package <- attr(x, "package", exact = TRUE)
+  files <- attr(x, "files", exact = TRUE)
+  where <- if (length(files) > 1L) {
+    paste0("src/rzig/src: ", paste(files, collapse = ", "))
+  } else if (is.null(source)) "main.zig" else source
   cat(sprintf(
     "Zig exports of package %s (%s): %d function%s\n",
-    package, if (is.null(source)) "main.zig" else source, length(x),
-    if (length(x) == 1L) "" else "s"
+    package, where, length(x), if (length(x) == 1L) "" else "s"
   ))
   for (item in x) {
     cat("\n", item$name, "(", paste(item$parameters, collapse = ", "), ")",
+      if (!is.null(item$file) && !identical(item$file, "main.zig")) paste0("  [", item$file, "]"),
       if (.rzig_is_internal(item)) "  [internal: not exported from the package]", "\n", sep = "")
     mutable <- FALSE
     for (position in seq_along(item$parameters)) {

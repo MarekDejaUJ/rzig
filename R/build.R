@@ -258,9 +258,11 @@ build_zig <- function(path, lib = NULL, preflight = TRUE) {
     match <- regmatches(errors$message[[index]], regexec("function `([^`]+)`", errors$message[[index]]))[[1L]]
     if (length(match) == 2L) {
       errors$function_name[[index]] <- match[[2L]]
-    } else if (identical(errors$file[[index]], file.path("src", "rzig", "src", "main.zig")) && length(lines)) {
-      before <- which(lines <= errors$line[[index]])
-      if (length(before)) errors$function_name[[index]] <- names[[max(before)]]
+    } else if (!is.na(errors$file[[index]]) && startsWith(errors$file[[index]], "src/rzig/src/") && length(lines)) {
+      file <- substring(errors$file[[index]], nchar("src/rzig/src/") + 1L)
+      in_file <- vapply(exports, function(item) identical(item$file %||% "main.zig", file), logical(1L))
+      before <- which(in_file & lines <= errors$line[[index]])
+      if (length(before)) errors$function_name[[index]] <- names[[before[which.max(lines[before])]]]
     }
   }
   errors

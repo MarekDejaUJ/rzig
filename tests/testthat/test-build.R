@@ -191,12 +191,6 @@ set_constant <- function(path, value) {
     file.path(path, "src", "rzig", "src", "helper.zig"))
 }
 
-run_r <- function(code) {
-  out <- suppressWarnings(system2(file.path(R.home("bin"), "Rscript"), c("--vanilla", "-e", shQuote(code)),
-    stdout = TRUE, stderr = TRUE))
-  structure(paste(out, collapse = "\n"), status = attr(out, "status"))
-}
-
 test_that("an in-place installation rebuilds after an edit of a helper Zig file", {
   skip_on_cran()
   skip_if_not(isTRUE(find_zig(required = FALSE)$supported), "no supported Zig compiler")

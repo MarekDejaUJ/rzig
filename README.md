@@ -192,6 +192,26 @@ generated Makevars and Zig build caches after package installation and checks.
 hand-written `src/Makevars`, because the generated build compiles only the Zig
 sources and `src/entry.c`.
 
+## Exports in several files
+
+`main.zig` can collect exports from other files of `src/rzig/src`:
+
+```zig
+pub const stats = @import("stats.zig"); // exports in stats.zig are found
+const helpers = @import("helpers.zig");
+
+/// Three times a value.
+/// @export
+pub const triple = helpers.triple;       // re-exports helpers.triple as triple()
+```
+
+A function marked `/// @export` in a file that `main.zig` imports with
+`pub const` (directly or through another such file) is registered under its
+own name. A marker in a file imported with a plain `const` is an error, because
+the generated registration can reach only public declarations; a marked file
+that is not imported at all is ignored, and `rzig_status()` notes it. R names
+must be unique across all files.
+
 ## Internal routines
 
 A native routine that only the package's own R code calls is marked

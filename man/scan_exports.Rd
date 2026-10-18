@@ -16,14 +16,24 @@ exported function, each a list with \code{name} (the R function name),
 argument names), \code{parameter_types} (the Zig types of the R arguments),
 \code{return_type} (the Zig return type as written), \code{doc} (the documentation
 comment without the \verb{@export} line), \code{line} (the line of the
-declaration) and \code{internal} (\code{TRUE} for \verb{/// @export internal}). The
-attributes \code{package}, \code{path} and \code{source} record the package name, its
-root and the scanned file. \code{\link[=as.data.frame]{as.data.frame()}} turns the object into a
+declaration), \code{internal} (\code{TRUE} for \verb{/// @export internal}) and \code{file}
+(the file below \code{src/rzig/src}). The attributes \code{package}, \code{path},
+\code{source} (the entry file), \code{files} (every file scanned) and \code{unreachable}
+(marked files that \code{main.zig} does not import) record where the exports
+come from. \code{\link[=as.data.frame]{as.data.frame()}} turns the object into a
 table with one row per function.
 }
 \description{
-Reads \code{src/rzig/src/main.zig} and lists every public top-level Zig function
-whose documentation comment contains a line \verb{/// @export}. A line
+Reads \code{src/rzig/src/main.zig}, and every Zig file that it imports with
+\verb{pub const name = @import("file.zig");} (recursively), and lists every
+public top-level Zig function whose documentation comment contains a line
+\verb{/// @export}. A function of an imported file is registered as
+\code{name.function}; its R name is the function name. \verb{/// @export} above
+\verb{pub const twice = other.twice;} re-exports a function of a file imported as
+\code{other} under the name \code{twice}. A file imported with a plain \code{const} cannot
+be reached by the generated registration, so a marker in it is an error; a
+marked file that is not imported at all is ignored, and \code{\link[=rzig_status]{rzig_status()}}
+notes it. R names must be unique across all files. A line
 \verb{/// @export internal} registers the function and generates its R wrapper
 without exporting the wrapper from the package, for native routines that the
 package's own R code calls. The scan is pure
