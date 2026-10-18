@@ -9,6 +9,7 @@ const es = @import("error_state.zig");
 const io = @import("io.zig");
 const progress_api = @import("progress.zig");
 const rng_api = @import("rng.zig");
+const matrix_api = @import("matrix.zig");
 
 /// Per-call storage for Zig-owned scratch memory and intermediate results.
 ///
@@ -78,6 +79,16 @@ pub const Ctx = struct {
     pub fn alloc(self: *Ctx, comptime T: type, n: usize) es.Error![]T {
         return self.allocator().alloc(T, n) catch
             es.raise("out of memory allocating {d} elements", .{n});
+    }
+
+    /// A zero-filled `nrow` x `ncol` double matrix in memory owned by this
+    /// context, for example as the result of `rzig.Blas.gemm`.
+    pub fn matrix(self: *Ctx, nrow: usize, ncol: usize) es.Error!matrix_api.MutableMatrixOf(f64) {
+        const count = std.math.mul(usize, nrow, ncol) catch
+            return es.raise("out of memory allocating a {d} x {d} matrix", .{ nrow, ncol });
+        const data = try self.alloc(f64, count);
+        @memset(data, 0);
+        return .{ .data = data, .nrow = nrow, .ncol = ncol };
     }
 
     /// Copy a slice into memory owned by this context.

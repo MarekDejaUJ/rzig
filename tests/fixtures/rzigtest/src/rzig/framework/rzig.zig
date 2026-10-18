@@ -28,6 +28,17 @@ pub const Progress = @import("progress.zig").Progress;
 pub const Rmath = @import("rmath.zig").Rmath;
 /// The distributions of R's Rmath library.
 pub const Distribution = @import("rmath.zig").Distribution;
+/// BLAS routines of the libraries R links (opt in with use_rzig_lapack()).
+pub const Blas = @import("lapack.zig").Blas;
+/// LAPACK routines of the libraries R links (opt in with use_rzig_lapack()).
+pub const Lapack = @import("lapack.zig").Lapack;
+/// Options of BLAS and LAPACK routines.
+pub const Transpose = @import("lapack.zig").Transpose;
+pub const Triangle = @import("lapack.zig").Triangle;
+pub const Side = @import("lapack.zig").Side;
+pub const Diagonal = @import("lapack.zig").Diagonal;
+/// A writable column-major double matrix (`rzig.Mut(rzig.Matrix).data`, `ctx.matrix()`).
+pub const MutableMatrix = @import("matrix.zig").MutableMatrixOf(f64);
 /// NA constants (`NA.real`, `NA.integer`, `NA.logical`) and predicates.
 pub const NA = @import("na.zig");
 /// One element of an R logical vector: `TRUE`, `FALSE` or `NA`.

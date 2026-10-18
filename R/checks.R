@@ -434,6 +434,16 @@
       "misses changes to them; use_rzig() adds ", paste(.rzig_extra_sources, collapse = ", ")
     ))
   }
+  sources <- list.files(file.path(path, "src", "rzig", "src"), pattern = "\\.zig$", recursive = TRUE, full.names = TRUE)
+  uses_lapack <- any(vapply(sources, function(source) {
+    grepl("rzig\\.(Blas|Lapack)\\.", .rzig_read_text(source) %||% "")
+  }, logical(1L)))
+  if (uses_lapack && !.rzig_links_lapack(path)) {
+    notes <- c(notes, paste0(
+      "the Zig code calls rzig.Blas or rzig.Lapack, but DESCRIPTION does not ask to link them; ",
+      "run use_rzig_lapack(path)"
+    ))
+  }
   .rzig_check_result(problems, notes)
 }
 

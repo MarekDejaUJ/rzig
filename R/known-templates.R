@@ -6,6 +6,7 @@
   "configure" = c(
     "1cd5ad79f07cd38fa8265a30796e0ff0",
     "2570d212d7e38b610be114e1b4b13b83",
+    "3ad9b510d12fb8881f7bc46ca7cc9363",
     "5770615d8a693e0227b90bdadc4db943",
     "60fcca5e718ba2e4a0a9ea50c2ac5d9b",
     "6f6f0cbe1089d0b1c6640870b0b6b21c",
@@ -31,7 +32,8 @@
     "b55ed8c9d7d4fa89a6df0b7bebaf8ce9",
     "c34e83ac4b525335d473658b9f8e7f5e",
     "c614a0eece58fb051159740f31d01cd7",
-    "c907c5f7c4d8c4935d6e49d0112b09ab"
+    "c907c5f7c4d8c4935d6e49d0112b09ab",
+    "eec889761bf0bff52987b0e309f6ee6a"
   ),
   "Makevars.win" = c(
     "1e563f0454ebde4368eeff7cffe40d50",
@@ -39,6 +41,7 @@
     "5be809dbb12d60e74604d24835bb84f5",
     "6f3400dac516ed6ef1a5988d92242be5",
     "796fc47f7d771c4062fe702e8be7004e",
+    "7a5d014fb5ac248c2f73d878ea13cf3d",
     "a68a0fdbcdfdfcf80d98087e7039ed89",
     "b5729bf548d0253838d1a48f35ee82ae",
     "d1aafbf0a524c1a02917fdd58742c491",

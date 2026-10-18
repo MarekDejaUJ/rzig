@@ -1,3 +1,17 @@
+# rzig 0.30.0
+
+## New features
+
+- `rzig.Blas` (`gemm`, `gemv`, `syrk`, `trsm`) and `rzig.Lapack` (`potrf`,
+  `potrs`, `getrf`, `getrs`, `gesv`, `geqrf`, `ormqr`, `gels`, `syevr`,
+  `gesdd`) call R's BLAS and LAPACK with the shapes checked before each
+  call, the call guarded, Fortran's hidden string lengths passed, and
+  LAPACK's `info` turned into R errors. `ctx.matrix(nrow, ncol)` allocates a
+  zero-filled `rzig.MutableMatrix`, and `view()` gives a read-only view.
+- `use_rzig_lapack()` sets `Config/rzig/lapack: true`, and the generated
+  `configure` then links `$(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)`;
+  `rzig_status()` notes Zig code that calls them without it.
+
 # rzig 0.29.0
 
 ## New features

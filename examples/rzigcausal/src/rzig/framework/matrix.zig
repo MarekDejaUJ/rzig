@@ -66,6 +66,11 @@ pub fn MutableMatrixOf(comptime T: type) type {
             std.debug.assert(index < self.ncol);
             return self.data[index * self.nrow ..][0..self.nrow];
         }
+
+        /// The same elements as a read-only view.
+        pub fn view(self: Self) MatrixOf(T) {
+            return .{ .data = self.data, .nrow = self.nrow, .ncol = self.ncol };
+        }
     };
 }
 

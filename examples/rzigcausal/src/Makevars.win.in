@@ -7,7 +7,7 @@ ZIG_DIR = rzig
 STATLIB = $(ZIG_DIR)/zig-out/lib/zigpkg.lib
 OBJECTS = entry.o
 # Zig's Windows thread runtime calls native NT entry points.
-PKG_LIBS = $(STATLIB) -lntdll
+PKG_LIBS = $(STATLIB) -lntdll @RZIG_LAPACK_LIBS@
 
 all: $(SHLIB)
 

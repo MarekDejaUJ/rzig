@@ -187,14 +187,23 @@ escape_sed_replacement() {
     printf '%s' "$1" | sed 's/[\\&|]/\\&/g'
 }
 
+# Config/rzig/lapack: true in DESCRIPTION (rzig::use_rzig_lapack()) links the
+# LAPACK and BLAS that R uses, and the Fortran runtime they need.
+lapack_libs=
+if grep -Eiq '^Config/rzig/lapack:[[:space:]]*(true|yes)[[:space:]]*$' DESCRIPTION 2>/dev/null; then
+    lapack_libs='$(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)'
+fi
+
 zig_sub=$(escape_sed_replacement "$zig_path")
 target_sub=$(escape_sed_replacement "$zig_target_arg")
 include_sub=$(escape_sed_replacement "$r_include_dir")
 statlib_sub=$(escape_sed_replacement "$statlib")
+lapack_sub=$(escape_sed_replacement "$lapack_libs")
 sed -e "s|@ZIG@|$zig_sub|g" \
     -e "s|@ZIG_TARGET_ARG@|$target_sub|g" \
     -e "s|@R_INCLUDE_DIR@|$include_sub|g" \
     -e "s|@STATLIB@|$statlib_sub|g" \
+    -e "s|@RZIG_LAPACK_LIBS@|$lapack_sub|g" \
     "$makevars_template" > "$makevars_output"
 
 printf 'using Zig %s at %s\n' "$zig_version" "$zig_path"

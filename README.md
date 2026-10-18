@@ -731,6 +731,29 @@ const rng = try ctx.rng();
 const draw = rng.draw(.poisson, .{ .lambda = 3 });
 ```
 
+## Linear algebra
+
+`rzig.Blas` (`gemm`, `gemv`, `syrk`, `trsm`) and `rzig.Lapack` (`potrf`,
+`potrs`, `getrf`, `getrs`, `gesv`, `geqrf`, `ormqr`, `gels`, `syevr`,
+`gesdd`) call the BLAS and LAPACK that R uses, on column-major matrices:
+`rzig.Matrix` operands and `rzig.MutableMatrix` results, for example from
+`ctx.matrix(nrow, ncol)` or `rzig.Mut(rzig.Matrix)`. Every routine checks the
+shapes before the call and turns LAPACK's `info` into an R error, such as
+"the matrix is not positive definite". A package that uses them runs
+`use_rzig_lapack(path)` once, so that it links `$(LAPACK_LIBS) $(BLAS_LIBS)
+$(FLIBS)`:
+
+```zig
+/// @export
+pub fn crossprod(ctx: *rzig.Ctx, x: rzig.Matrix) rzig.Error!rzig.Attributed([]f64) {
+    const out = try ctx.matrix(x.ncol, x.ncol);
+    try rzig.Blas.gemm(ctx, .yes, .no, 1, x, x, 0, out);
+    var result = rzig.Attributed([]f64).init(ctx, out.data);
+    try result.setMatrix(out.nrow, out.ncol);
+    return result;
+}
+```
+
 ## Pure Zig parallel loops
 
 `rzig.parallelFor` distributes an indexed computation across Zig worker threads.
