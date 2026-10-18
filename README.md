@@ -13,6 +13,12 @@ bindings without C++ or hand-written `SEXP` conversion code.
   Zig changes its language and standard library between release series, so
   other versions are rejected with a message naming the version found.
 
+`configure` compiles the Zig code for the platform of R: x86_64 or arm64
+macOS for the macOS version that R links for (`MACOSX_DEPLOYMENT_TARGET`, or
+that of `libR.dylib`), x86_64 or arm64 Linux with glibc or musl, and x86_64
+or arm64 Windows. `RZIG_ZIG_TARGET` names another Zig target, for example
+`RZIG_ZIG_TARGET=x86_64-linux-musl`.
+
 Download Zig from <https://ziglang.org/download/> and confirm the version:
 
 ```sh

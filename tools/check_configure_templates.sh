@@ -85,6 +85,46 @@ if grep -E -q -- '@[A-Z_]+@' "$test_dir/src/Makevars"; then
     exit 1
 fi
 
+# Targets: Windows on arm64 from the compiler name, the macOS version from
+# MACOSX_DEPLOYMENT_TARGET, and the RZIG_ZIG_TARGET override.
+(
+    cd "$test_dir"
+    FAKE_ZIG_VERSION=0.16.0 FAKE_R_HOME="$test_dir/fake-r" R_HOME="$test_dir/fake-r" \
+    FAKE_R_CC=aarch64-w64-mingw32.static.posix-clang ZIG="$test_dir/fake tools/zig" \
+    RZIG_CONFIGURE_PLATFORM=windows sh ./configure >/dev/null
+)
+require_text "$test_dir/src/Makevars" 'ZIG_TARGET_ARG = -Dtarget=aarch64-windows-gnu'
+(
+    cd "$test_dir"
+    FAKE_ZIG_VERSION=0.16.0 FAKE_R_HOME="$test_dir/fake-r" R_HOME="$test_dir/fake-r" \
+    FAKE_R_CC='clang -arch arm64' MACOSX_DEPLOYMENT_TARGET=11.0 ZIG="$test_dir/fake tools/zig" \
+    RZIG_CONFIGURE_PLATFORM=Darwin sh ./configure >/dev/null
+)
+require_text "$test_dir/src/Makevars" 'ZIG_TARGET_ARG = -Dtarget=aarch64-macos.11.0'
+(
+    cd "$test_dir"
+    FAKE_ZIG_VERSION=0.16.0 FAKE_R_HOME="$test_dir/fake-r" R_HOME="$test_dir/fake-r" \
+    FAKE_R_CC='clang -arch arm64' ZIG="$test_dir/fake tools/zig" \
+    RZIG_CONFIGURE_PLATFORM=Darwin sh ./configure >/dev/null
+)
+require_text "$test_dir/src/Makevars" 'ZIG_TARGET_ARG = -Dtarget=aarch64-macos.13.0'
+(
+    cd "$test_dir"
+    FAKE_ZIG_VERSION=0.16.0 FAKE_R_HOME="$test_dir/fake-r" R_HOME="$test_dir/fake-r" \
+    RZIG_ZIG_TARGET=x86_64-linux-musl ZIG="$test_dir/fake tools/zig" \
+    RZIG_CONFIGURE_PLATFORM=Linux sh ./configure >/dev/null
+)
+require_text "$test_dir/src/Makevars" 'ZIG_TARGET_ARG = -Dtarget=x86_64-linux-musl'
+if (
+    cd "$test_dir"
+    FAKE_ZIG_VERSION=0.16.0 FAKE_R_HOME="$test_dir/fake-r" R_HOME="$test_dir/fake-r" \
+    RZIG_ZIG_TARGET='x86_64-linux-gnu; rm' ZIG="$test_dir/fake tools/zig" \
+    RZIG_CONFIGURE_PLATFORM=Linux sh ./configure >/dev/null 2>&1
+); then
+    printf '%s\n' 'configure accepted a malformed RZIG_ZIG_TARGET' >&2
+    exit 1
+fi
+
 # Config/rzig/mixed: R compiles every source of src/, and entry.c leaves
 # R_init_<pkg> to the package.
 printf 'Package: mixedcheck\nConfig/rzig/mixed: true\n' > "$test_dir/DESCRIPTION"

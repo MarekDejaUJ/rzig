@@ -32,7 +32,31 @@ jobs:
       - run: zig fmt --check build.zig src tools tests/fixtures/rzigtest/src/rzig examples/rzigcausal/src/rzig
       - run: zig build test
       - run: zig build --release=safe
+      - name: Cross-compile the framework for the targets configure maps
+        run: |
+          for target in x86_64-linux-musl aarch64-linux-musl aarch64-linux-gnu aarch64-windows-gnu x86_64-windows-gnu x86_64-macos.11.0 aarch64-macos.11.0; do
+            zig build --release=safe -Dtarget="$target" --prefix "$RUNNER_TEMP/cross-$target"
+          done
       - run: zig build lint
+
+  zig-master-canary:
+    # Zig's development build shows coming changes early. rzig supports only
+    # releases, so a failure of this job does not fail the workflow.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: mlugg/setup-zig@v2
+        with: { version: master }
+      - run: zig version
+      - run: zig build test
+      - run: zig build --release=safe
+      - name: Build the client template
+        run: |
+          work="$RUNNER_TEMP/client-template"
+          mkdir -p "$work"
+          cp -R inst/zig/. "$work"
+          cd "$work" && zig build -Dpkg=canary --release=safe
 
   r-check:
     strategy:

@@ -1,3 +1,16 @@
+# rzig 0.39.0
+
+## New features
+
+- `configure` compiles for the macOS version that R links for
+  (`MACOSX_DEPLOYMENT_TARGET`, otherwise the minimum version of
+  `libR.dylib`) in place of a fixed macOS 13.0, for Linux with musl
+  (Alpine) as well as glibc, and for Windows on arm64 (from the name of R's
+  compiler). `RZIG_ZIG_TARGET` overrides the detected target.
+- CI cross-compiles the framework for these targets with Zig 0.16 and 0.17,
+  and a canary job builds with Zig's development version without failing
+  the workflow.
+
 # rzig 0.38.0
 
 ## New features

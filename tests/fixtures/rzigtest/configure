@@ -168,13 +168,48 @@ zig_target_arg=
 # Keep these Make expressions literal while substituting the template.
 statlib='$(ZIG_DIR)/zig-out/lib/libzigpkg.a'
 case "$platform" in
-    Darwin) zig_target_arg="-Dtarget=$zig_arch-macos.13.0" ;;
-    Linux) zig_target_arg="-Dtarget=$zig_arch-linux-gnu" ;;
+    Darwin)
+        # The macOS version that R links for: MACOSX_DEPLOYMENT_TARGET when it
+        # is set, otherwise the minimum version of libR.dylib, so that the
+        # linker never sees Zig objects built for a newer macOS.
+        macos_target=${MACOSX_DEPLOYMENT_TARGET:-}
+        if test -z "$macos_target" && command -v otool >/dev/null 2>&1 && test -f "$r_home/lib/libR.dylib"; then
+            macos_target=$(otool -l "$r_home/lib/libR.dylib" 2>/dev/null | awk '
+                /LC_BUILD_VERSION|LC_VERSION_MIN_MACOSX/ { found = 1 }
+                found && ($1 == "minos" || $1 == "version") { print $2; exit }') || macos_target=
+        fi
+        case "$macos_target" in
+            [0-9]*.[0-9]* | [0-9]*) ;;
+            *) macos_target=13.0 ;;
+        esac
+        zig_target_arg="-Dtarget=$zig_arch-macos.$macos_target"
+        ;;
+    Linux)
+        # musl-based distributions (Alpine) have no getconf GNU_LIBC_VERSION.
+        zig_abi=gnu
+        if ! getconf GNU_LIBC_VERSION >/dev/null 2>&1; then
+            if (ldd --version 2>&1 || true) | grep -qi musl || ls /lib/ld-musl-* >/dev/null 2>&1; then
+                zig_abi=musl
+            fi
+        fi
+        zig_target_arg="-Dtarget=$zig_arch-linux-$zig_abi"
+        ;;
     windows | MINGW* | MSYS* | CYGWIN*)
         zig_target_arg="-Dtarget=$zig_arch-windows-gnu"
         statlib='$(ZIG_DIR)/zig-out/lib/zigpkg.lib'
         ;;
 esac
+# RZIG_ZIG_TARGET names the Zig target when the detection is wrong, for
+# example RZIG_ZIG_TARGET=x86_64-linux-musl.
+if test -n "${RZIG_ZIG_TARGET:-}"; then
+    case "$RZIG_ZIG_TARGET" in
+        *[!A-Za-z0-9._-]*)
+            printf 'RZIG_ZIG_TARGET is not a Zig target: %s\n' "$RZIG_ZIG_TARGET" >&2
+            exit 1
+            ;;
+    esac
+    zig_target_arg="-Dtarget=$RZIG_ZIG_TARGET"
+fi
 
 makevars_template=${RZIG_MAKEVARS_TEMPLATE:-src/Makevars.in}
 makevars_output=${RZIG_MAKEVARS_OUTPUT:-src/Makevars}
