@@ -189,6 +189,30 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{},
             },
             .{
+                .name = "sexp_describe",
+                .func = bound_root.sexp_describe,
+                .doc = "Describe an R value by its kind, length, first class, number of names and S4 flag.",
+                .parameters = .{"value"},
+            },
+            .{
+                .name = "sexp_sum_entry",
+                .func = bound_root.sexp_sum_entry,
+                .doc = "Sum the numeric list entry called `name`, read through rzig.Sexp.",
+                .parameters = .{ "value", "name" },
+            },
+            .{
+                .name = "sexp_attribute_length",
+                .func = bound_root.sexp_attribute_length,
+                .doc = "The length of attribute `name` (an S4 slot is an attribute), or -1.",
+                .parameters = .{ "value", "name" },
+            },
+            .{
+                .name = "sexp_element_kinds",
+                .func = bound_root.sexp_element_kinds,
+                .doc = "The kinds of the elements of a list.",
+                .parameters = .{"value"},
+            },
+            .{
                 .name = "record_options",
                 .func = bound_root.record_options,
                 .doc = "Return the options with their defaults filled in.",

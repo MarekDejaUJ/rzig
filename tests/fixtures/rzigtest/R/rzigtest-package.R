@@ -69,6 +69,22 @@ interruptible_count <- function(iterations) {
 #' @param x A numeric vector.
 #' @return The elementwise squares.
 #' @export
+sexp_describe <- function(value) {
+  .Call(C_sexp_describe, value)
+}
+
+sexp_sum_entry <- function(value, name) {
+  .Call(C_sexp_sum_entry, value, name)
+}
+
+sexp_attribute_length <- function(value, name) {
+  .Call(C_sexp_attribute_length, value, name)
+}
+
+sexp_element_kinds <- function(value) {
+  .Call(C_sexp_element_kinds, value)
+}
+
 record_options <- function(options) {
   .Call(C_record_options, options)
 }

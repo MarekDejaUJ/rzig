@@ -133,6 +133,10 @@ pub extern fn TYPEOF(x: SEXP) c_int;
 pub extern fn Rf_xlength(x: SEXP) R_xlen_t;
 /// Test whether an object is R's null singleton.
 pub extern fn Rf_isNull(x: SEXP) Rboolean;
+/// Whether the object has a class attribute.
+pub extern fn Rf_isObject(x: SEXP) Rboolean;
+/// Whether the object is an S4 object.
+pub extern fn Rf_isS4(x: SEXP) Rboolean;
 /// Test whether an object has matrix dimensions.
 pub extern fn Rf_isMatrix(x: SEXP) Rboolean;
 /// Return R's static name for a SEXPTYPE.

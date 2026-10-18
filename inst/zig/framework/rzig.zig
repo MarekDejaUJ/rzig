@@ -39,8 +39,11 @@ pub const Record = @import("record.zig").Record;
 pub const DataFrame = @import("record.zig").DataFrame;
 /// An R factor: codes and levels.
 pub const Factor = @import("record.zig").Factor;
-/// Opaque borrowed R value escape hatch.
+/// Borrowed R value with read-only methods (kind, length, attributes, names,
+/// classes, list elements, typed conversion with `get`).
 pub const Sexp = @import("sexp.zig").Sexp;
+/// The kinds of R objects that `Sexp.kind()` reports.
+pub const SexpKind = @import("sexp.zig").Kind;
 /// Arena-backed builder materialized as a named R list at the boundary.
 pub const List = @import("list.zig").List;
 /// Borrowed column-major view of an R double matrix.

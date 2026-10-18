@@ -1,3 +1,14 @@
+# rzig 0.26.0
+
+## New features
+
+- `rzig.Sexp` has read-only methods: `kind()` (an `rzig.SexpKind`),
+  `length()`, `isNull()`, `isObject()`, `isS4()`, `inherits()`,
+  `attribute()` (S4 slots are attributes), `names()` and `classes()`
+  (copied into the call context), `element()` and `field()` for lists, and
+  `get(T, ctx)`, which converts the value by the rules of a parameter of
+  type `T`.
+
 # rzig 0.25.0
 
 ## New features

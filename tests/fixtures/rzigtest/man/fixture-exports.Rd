@@ -29,6 +29,10 @@
 \alias{frame_group_means}
 \alias{factor_reverse_levels}
 \alias{optional_length}
+\alias{sexp_describe}
+\alias{sexp_sum_entry}
+\alias{sexp_attribute_length}
+\alias{sexp_element_kinds}
 \title{Fixture Functions for the Types and Services of the Boundary}
 \usage{
 parallel_thread_count(count)
@@ -60,6 +64,10 @@ record_options(options)
 frame_group_means(data)
 factor_reverse_levels(values)
 optional_length(values)
+sexp_describe(value)
+sexp_sum_entry(value, name)
+sexp_attribute_length(value, name)
+sexp_element_kinds(value)
 }
 \arguments{
 \item{count}{A non-negative count.}
@@ -74,9 +82,11 @@ optional_length(values)
 \item{a, b}{Complex scalars.}
 \item{bytes}{A raw vector.}
 \item{key}{A byte value from 0 to 255.}
-\item{value}{A 64-bit integer, \code{NA}, or \code{NULL}.}
+\item{value}{A 64-bit integer, \code{NA}, or \code{NULL}; any R object for the
+\code{sexp_} functions.}
 \item{options}{A named list of fitting options.}
 \item{data}{A data frame with columns \code{value} and \code{group}.}
+\item{name}{The name of a list entry or an attribute.}
 }
 \value{
 The value each function computes; the tests of the package describe them.

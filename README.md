@@ -548,6 +548,25 @@ the levels of a factor. All three are also return types: a record becomes a
 named list, a data frame gets compact row names, and a factor's codes are
 checked against its levels.
 
+## Reading R objects
+
+An `rzig.Sexp` parameter borrows any R object. Its read-only methods
+report `kind()` (`.double`, `.list`, `.s4`, ...), `length()`, `isNull()`,
+`isObject()`, `isS4()` and `inherits(class)`, read `attribute(name)` (S4
+slots are attributes), `names(ctx)` and `classes(ctx)`, walk a list with
+`element(index)` and `field(name)`, and convert a value with
+`get(T, ctx)` by the rules of a parameter of type `T`:
+
+```zig
+/// @export
+pub fn total(ctx: *rzig.Ctx, value: rzig.Sexp) rzig.Error!f64 {
+    const entry = (try value.field("x")) orelse return rzig.raise("no entry x", .{});
+    var sum: f64 = 0;
+    for (try entry.get([]const f64, ctx)) |x| sum += x;
+    return sum;
+}
+```
+
 ## Mutable inputs
 
 Mutation is opt-in with `rzig.Mut([]f64)`, `rzig.Mut([]i32)`,

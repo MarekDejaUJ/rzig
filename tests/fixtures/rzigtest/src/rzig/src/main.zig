@@ -318,6 +318,46 @@ pub fn simulate_interrupt(ctx: *rzig.Ctx) rzig.Error!void {
     return rzig.internal.interrupt.request();
 }
 
+/// Describe an R value by its kind, length, first class, number of names and S4 flag.
+/// @export
+pub fn sexp_describe(ctx: *rzig.Ctx, value: rzig.Sexp) rzig.Error![]const u8 {
+    const classes = try value.classes(ctx);
+    const names = try value.names(ctx);
+    return std.fmt.allocPrint(ctx.allocator(), "{s}[{d}] class={s} names={d} s4={}", .{
+        @tagName(value.kind()),
+        value.length(),
+        if (classes.len > 0) classes[0] else "-",
+        if (names) |present| present.len else 0,
+        value.isS4(),
+    }) catch rzig.raise("out of memory describing a value", .{});
+}
+
+/// Sum the numeric list entry called `name`, read through rzig.Sexp.
+/// @export
+pub fn sexp_sum_entry(ctx: *rzig.Ctx, value: rzig.Sexp, name: []const u8) rzig.Error!f64 {
+    const entry = (try value.field(name)) orelse return rzig.raise("no entry `{s}`", .{name});
+    var total: f64 = 0;
+    for (try entry.get([]const f64, ctx)) |number| total += number;
+    return total;
+}
+
+/// The length of attribute `name` (an S4 slot is an attribute), or -1.
+/// @export
+pub fn sexp_attribute_length(value: rzig.Sexp, name: []const u8) rzig.Error!i32 {
+    const attribute = (try value.attribute(name)) orelse return -1;
+    return @intCast(attribute.length());
+}
+
+/// The kinds of the elements of a list.
+/// @export
+pub fn sexp_element_kinds(ctx: *rzig.Ctx, value: rzig.Sexp) rzig.Error![]const []const u8 {
+    const result = try ctx.alloc([]const u8, value.length());
+    for (result, 0..) |*slot, index| {
+        slot.* = if (value.element(index)) |entry| @tagName(entry.kind()) else "none";
+    }
+    return result;
+}
+
 const FitOptions = struct {
     tolerance: f64 = 1e-8,
     @"max.iter": i32 = 100,
