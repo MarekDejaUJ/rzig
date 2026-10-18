@@ -1,3 +1,12 @@
+# rzig 0.9.1
+
+## Tests
+
+- The integration check that sends a real SIGINT waits until R has entered
+  the interruptible loop (R creates a marker file just before it), instead
+  of sending the signal after a fixed 0.3 seconds, which a loaded machine
+  could exceed before R started the loop.
+
 # rzig 0.9.0
 
 ## New features
