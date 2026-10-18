@@ -109,3 +109,34 @@ test_that("subsetting the exports keeps the class and the attributes", {
   expect_identical(attr(first, "package"), attr(exports, "package"))
   expect_output(print(first), "2 functions")
 })
+
+test_that("export options rename, hide the value and give defaults", {
+  source <- paste(
+    "/// Sum two values.", "/// @param x A number.", "/// @default y 2", "/// @default scale c(a = 1)",
+    "/// @export name=sum_two invisible",
+    "pub fn sum_zig(x: f64, y: f64, scale: []const f64) f64 {", "    return x + y + scale[0];", "}",
+    sep = "\n"
+  )
+  exports <- rzig:::.rzig_scan_text(source)
+  item <- exports[[1L]]
+  expect_identical(item$name, "sum_two")
+  expect_identical(item$identifier, "sum_zig")
+  expect_true(item$invisible)
+  expect_identical(item$defaults, c(y = "2", scale = "c(a = 1)"))
+  expect_false(grepl("@default", item$doc, fixed = TRUE))
+  bindings <- render_bindings(structure(exports, class = "rzig_exports", package = "optpkg"))
+  expect_match(bindings$wrappers,
+    "sum_two <- function(x, y = 2, scale = c(a = 1)) {\n  invisible(.Call(sum_two_, x, y, scale))\n}", fixed = TRUE)
+  expect_match(bindings$manifest, ".name = \"sum_two\",\n                .func = bound_root.sum_zig,", fixed = TRUE)
+  expect_match(rzig:::.rzig_render_rd(item), "\\usage{\nsum_two(x, y = 2, scale = c(a = 1))\n}", fixed = TRUE)
+})
+
+test_that("invalid export options are errors of the scan", {
+  scan <- function(...) rzig:::.rzig_scan_text(paste(..., sep = "\n"))
+  expect_error(scan("/// @export name=1bad", "pub fn f() void {}"), "not a syntactic R name")
+  expect_error(scan("/// @export quiet", "pub fn f() void {}"), "unknown option `quiet`")
+  expect_error(scan("/// @default z 1", "/// @export", "pub fn f(x: f64) f64 {", "    return x;", "}"),
+    "not an argument of `f`")
+  expect_error(scan("/// @default x 1 +", "/// @export", "pub fn f(x: f64) f64 {", "    return x;", "}"),
+    "not one R expression")
+})

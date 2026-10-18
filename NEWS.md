@@ -1,3 +1,14 @@
+# rzig 0.12.0
+
+## New features
+
+- Export options on the marker line: `/// @export name=<R name>` gives the R
+  wrapper a name other than the Zig name, and `/// @export invisible` makes
+  it return its value invisibly; the options combine with `internal`.
+- `/// @default <argument> <R expression>` gives an argument of the wrapper a
+  default value; the expression must parse and the argument must exist.
+  The help pages show the defaults in their usage.
+
 # rzig 0.11.0
 
 ## New features

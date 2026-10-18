@@ -341,3 +341,18 @@ test_that("RZIG_ZIG_CACHE keeps the Zig cache outside the package", {
   second <- build_zig(path)
   expect_true(second$ok)
 })
+
+test_that("renamed, invisible and defaulted exports work after a build", {
+  skip_on_cran()
+  skip_if_not(isTRUE(find_zig(required = FALSE)$supported), "no supported Zig compiler")
+  env <- new.env()
+  zig_function(c(
+    "/// @default y 2", "/// @export name=add_default", "pub fn add_zig(x: f64, y: f64) f64 {", "    return x + y;", "}",
+    "/// @export invisible", "pub fn quiet_value(x: f64) f64 {", "    return x;", "}"
+  ), env = env)
+  expect_identical(env$add_default(1), 3)
+  expect_identical(env$add_default(1, 5), 6)
+  visible <- withVisible(env$quiet_value(4))
+  expect_false(visible$visible)
+  expect_identical(visible$value, 4)
+})

@@ -211,6 +211,23 @@ for the session, and a compiler error is reported with the line of the code.
 In R Markdown and Quarto documents, a `zig` chunk compiles its code with
 `zig_function()` and later R chunks can call the functions.
 
+## Export options
+
+The marker line and `@default` lines shape the R wrapper:
+
+```zig
+/// Fit the model.
+/// @param x The data.
+/// @param tolerance The convergence tolerance.
+/// @default tolerance 1e-8
+/// @export name=fit_model invisible
+pub fn fit_model_zig(x: []const f64, tolerance: f64) f64 { ... }
+```
+
+generates `fit_model <- function(x, tolerance = 1e-8) invisible(...)`. The
+options are `internal` (see below), `invisible` and `name=<R name>`; any other
+option is an error of the scan.
+
 ## Exports in several files
 
 `main.zig` can collect exports from other files of `src/rzig/src`:

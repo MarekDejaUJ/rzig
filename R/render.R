@@ -219,16 +219,30 @@ print.rzig_bindings <- function(x, ...) {
   for (index in seq_along(exports)) {
     item <- exports[[index]]
     arguments <- vapply(item$parameters, .rzig_r_identifier, character(1L))
+    call <- paste0(
+      ".Call(", aliases[[index]],
+      paste0(vapply(arguments, function(argument) paste0(", ", argument), character(1L)), collapse = ""),
+      ")"
+    )
+    if (isTRUE(item$invisible)) call <- paste0("invisible(", call, ")")
     out <- paste0(
       out, "\n",
       .rzig_roxygen_block(item),
-      .rzig_r_identifier(item$name), " <- function(", paste(arguments, collapse = ", "),
-      ") {\n  .Call(", aliases[[index]],
-      paste0(vapply(arguments, function(argument) paste0(", ", argument), character(1L)), collapse = ""),
-      ")\n}\n"
+      .rzig_r_identifier(item$name), " <- function(", .rzig_formals_text(item),
+      ") {\n  ", call, "\n}\n"
     )
   }
   out
+}
+
+# The formal arguments of a wrapper, with the defaults of `/// @default`.
+.rzig_formals_text <- function(item) {
+  arguments <- vapply(item$parameters, function(parameter) {
+    default <- item$defaults[parameter]
+    text <- .rzig_r_identifier(parameter)
+    if (!is.null(item$defaults) && !is.na(default)) paste0(text, " = ", default) else text
+  }, character(1L))
+  paste(arguments, collapse = ", ")
 }
 
 .rzig_doc_lines <- function(doc) {

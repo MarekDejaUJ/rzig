@@ -9,7 +9,14 @@
 #' `other` under the name `twice`. A file imported with a plain `const` cannot
 #' be reached by the generated registration, so a marker in it is an error; a
 #' marked file that is not imported at all is ignored, and [rzig_status()]
-#' notes it. R names must be unique across all files. A line
+#' notes it. R names must be unique across all files.
+#'
+#' The marker line takes options: `/// @export internal` registers the function
+#' without exporting its R wrapper, `/// @export invisible` makes the wrapper
+#' return its value invisibly, and `/// @export name=<R name>` gives the wrapper
+#' an R name other than the Zig name. Lines `/// @default <argument> <R
+#' expression>` give default arguments of the wrapper, for example
+#' `/// @default tolerance 1e-8`. A line
 #' `/// @export internal` registers the function and generates its R wrapper
 #' without exporting the wrapper from the package, for native routines that the
 #' package's own R code calls. The scan is pure
@@ -31,7 +38,8 @@
 #'   `return_type` (the Zig return type as written), `doc` (the documentation
 #'   comment without the `@export` line), `line` (the line of the
 #'   declaration), `internal` (`TRUE` for `/// @export internal`) and `file`
-#'   (the file below `src/rzig/src`). The attributes `package`, `path`,
+#'   (the file below `src/rzig/src`), `invisible` and `defaults` (a named
+#'   character vector of R expressions). The attributes `package`, `path`,
 #'   `source` (the entry file), `files` (every file scanned) and `unreachable`
 #'   (marked files that `main.zig` does not import) record where the exports
 #'   come from. [as.data.frame()] turns the object into a
@@ -110,14 +118,61 @@ scan_exports <- function(path) {
     stop(sprintf("%s:%d: more than one `/// @export` line above one function", source_path, index),
       call. = FALSE)
   }
-  option <- trimws(sub("^@export", "", trimmed[marker]))
-  if (!option %in% c("", "internal")) {
-    stop(sprintf(
-      "%s:%d: unknown option `%s` after @export; use `/// @export` or `/// @export internal`",
-      source_path, index, option
-    ), call. = FALSE)
+  where <- sprintf("%s:%d", source_path, index)
+  tokens <- strsplit(trimws(sub("^@export", "", trimmed[marker])), "[[:space:]]+")[[1L]]
+  tokens <- tokens[nzchar(tokens)]
+  name <- NULL
+  for (token in tokens) {
+    if (token %in% c("internal", "invisible")) next
+    if (startsWith(token, "name=")) {
+      name <- substring(token, 6L)
+      if (!.rzig_is_syntactic(name) || name %in% .rzig_reserved_words) {
+        stop(sprintf("%s: `%s` is not a syntactic R name for name=", where, name), call. = FALSE)
+      }
+      next
+    }
+    stop(sprintf(paste0(
+      "%s: unknown option `%s` after @export; the options are `internal`, `invisible` ",
+      "and `name=<R name>`"
+    ), where, token), call. = FALSE)
   }
-  list(internal = identical(option, "internal"), doc = paste(bodies[!marker], collapse = "\n"))
+  # `@default <argument> <R expression>` lines give default arguments.
+  default_lines <- grepl("^@default([[:space:]]|$)", trimmed)
+  defaults <- character()
+  for (line in trimmed[default_lines]) {
+    parts <- regmatches(line, regexec("^@default[[:space:]]+([^[:space:]]+)[[:space:]]+(.+)$", line))[[1L]]
+    if (length(parts) != 3L) {
+      stop(sprintf("%s: write a default as `/// @default <argument> <R expression>`", where), call. = FALSE)
+    }
+    expression <- trimws(parts[[3L]])
+    parsed <- tryCatch(parse(text = expression, keep.source = FALSE), error = function(error) NULL)
+    if (is.null(parsed) || length(parsed) != 1L) {
+      stop(sprintf("%s: the default of `%s` is not one R expression: %s", where, parts[[2L]], expression),
+        call. = FALSE)
+    }
+    defaults[[parts[[2L]]]] <- expression
+  }
+  list(
+    internal = "internal" %in% tokens,
+    invisible = "invisible" %in% tokens,
+    name = name,
+    defaults = defaults,
+    doc = paste(bodies[!marker & !default_lines], collapse = "\n")
+  )
+}
+
+# Apply the marker options to an export record and check the defaults.
+.rzig_apply_marker <- function(record, marker, source_path, index) {
+  record$internal <- marker$internal
+  record$invisible <- marker$invisible
+  if (!is.null(marker$name)) record$name <- marker$name
+  unknown <- setdiff(names(marker$defaults), record$parameters)
+  if (length(unknown)) {
+    stop(sprintf("%s:%d: @default names `%s`, which is not an argument of `%s`",
+      source_path, index, unknown[[1L]], record$name), call. = FALSE)
+  }
+  record$defaults <- marker$defaults
+  record
 }
 
 # The signature of the public function `name` declared in `lines`.
@@ -202,17 +257,17 @@ scan_exports <- function(path) {
         ), call. = FALSE)
       }
       fields <- .rzig_parameter_fields(found$signature, name)
-      exports[[length(exports) + 1L]] <<- list(
+      record <- .rzig_apply_marker(list(
         name = name,
         identifier = if (nzchar(prefix)) paste0(prefix, ".", name) else name,
         parameters = fields$parameters,
         parameter_types = fields$parameter_types,
         return_type = found$signature$return_type,
         doc = marker$doc,
-        line = index,
-        internal = marker$internal,
-        file = relative(file)
-      )
+        line = index
+      ), marker, display(file), index)
+      record$file <- relative(file)
+      exports[[length(exports) + 1L]] <<- record
     }
   }
   visit(main, "")
@@ -259,7 +314,6 @@ scan_exports <- function(path) {
     if (is.null(marker)) {
       next
     }
-    internal <- marker$internal
     doc <- marker$doc
 
     token <- regmatches(
@@ -284,16 +338,15 @@ scan_exports <- function(path) {
       parameter_types <- c(parameter_types, parameter$type)
     }
 
-    exports[[length(exports) + 1L]] <- list(
+    exports[[length(exports) + 1L]] <- .rzig_apply_marker(list(
       name = name,
       identifier = token,
       parameters = parameters,
       parameter_types = parameter_types,
       return_type = signature$return_type,
       doc = doc,
-      line = index,
-      internal = internal
-    )
+      line = index
+    ), marker, source_path, index)
   }
   exports
 }

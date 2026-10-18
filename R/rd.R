@@ -86,8 +86,7 @@
     paste("Call", item$name, "in Zig")
   }
   description <- if (length(paragraphs)) paragraphs else paste0(title, ".")
-  usage <- paste0(.rzig_r_identifier(item$name), "(",
-    paste(vapply(item$parameters, .rzig_r_identifier, character(1L)), collapse = ", "), ")")
+  usage <- paste0(.rzig_r_identifier(item$name), "(", .rzig_formals_text(item), ")")
   arguments <- vapply(item$parameters, function(parameter) {
     text <- parsed$params[[parameter]]
     if (is.null(text) || !nzchar(trimws(text))) text <- "A value passed to the Zig implementation."
