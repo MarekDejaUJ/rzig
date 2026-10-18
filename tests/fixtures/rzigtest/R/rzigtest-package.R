@@ -69,6 +69,22 @@ interruptible_count <- function(iterations) {
 #' @param x A numeric vector.
 #' @return The elementwise squares.
 #' @export
+record_options <- function(options) {
+  .Call(C_record_options, options)
+}
+
+frame_group_means <- function(data) {
+  .Call(C_frame_group_means, data)
+}
+
+factor_reverse_levels <- function(values) {
+  .Call(C_factor_reverse_levels, values)
+}
+
+optional_length <- function(values) {
+  .Call(C_optional_length, values)
+}
+
 int64_sum <- function(values) {
   .Call(C_int64_sum, values)
 }

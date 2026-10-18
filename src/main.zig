@@ -25,6 +25,7 @@ test {
     _ = @import("complex.zig");
     _ = @import("matrix.zig");
     _ = @import("na.zig");
+    _ = @import("record.zig");
     _ = @import("panic.zig");
     _ = @import("protect.zig");
     _ = @import("sexp.zig");

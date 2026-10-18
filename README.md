@@ -449,6 +449,10 @@ function. The complete input surface is:
 | `rzig.Complex` | length-one complex, double, or integer | checked scalar; `NA` errors |
 | `[]const rzig.Complex` | complex vector | borrowed, read-only, layout of `Rcomplex` |
 | `rzig.Raw` | raw vector | borrowed bytes in `.data` |
+| `rzig.Record(T)` | named list | entries read into the fields of struct `T` by name; defaults fill missing entries |
+| `rzig.DataFrame(T)` | data frame | columns read into the fields of struct `T`; `.nrow` rows |
+| `rzig.Factor` | factor | `.codes` borrowed, `.levels` copied |
+| `?T` | `T`, or `NULL` | `NULL` becomes `null` (scalars also map `NA` to `null`) |
 | `rzig.Matrix` | double matrix | borrowed, read-only, column-major |
 | `rzig.IntMatrix` | integer matrix | borrowed, read-only, column-major; `NA` is `std.math.minInt(i32)` |
 | `rzig.BoolMatrix` | logical matrix without `NA` | copied into the call arena |
@@ -473,6 +477,8 @@ Supported return values are:
 | `rzig.Complex` | length-one complex vector |
 | `[]const rzig.Complex` / `[]rzig.Complex` | complex vector |
 | `rzig.Raw` | raw vector |
+| `rzig.Record(T)` / `rzig.DataFrame(T)` | named list / data frame built from the fields of `T` |
+| `rzig.Factor` | factor |
 | `rzig.List` | named R list |
 | `rzig.Attributed(T)` | supported vector `T` with names, dimensions, dimnames, or classes |
 | `rzig.Sexp` | the supplied R object |
@@ -513,6 +519,34 @@ List entries may contain `f64`, `i32`, `bool`, double, integer, or logical
 slices, UTF-8 strings or string vectors, optional values, or `rzig.Sexp`. Names
 are copied into the call context, and no R object is allocated until boundary
 conversion begins.
+
+## Lists, data frames and factors
+
+`rzig.Record(T)` reads a named list into the struct `T`, field by field;
+a field with a default value may be missing from the list, an optional field
+becomes `null`, and an unknown entry gives a warning. One record argument
+carries any number of values, beyond the 32 arguments of a function:
+
+```zig
+const Options = struct {
+    tolerance: f64 = 1e-8,
+    @"max.iter": i32 = 100,
+    weights: ?[]const f64 = null,
+};
+
+/// @export
+pub fn fit(x: []const f64, options: rzig.Record(Options)) f64 {
+    _ = options.value.@"max.iter";
+    return x[0] * options.value.tolerance;
+}
+```
+
+`rzig.DataFrame(T)` reads the columns of a data frame (slices or
+`rzig.Factor`) and its number of rows; other columns are ignored, and every
+column must have one value per row. `rzig.Factor` holds the 1-based codes and
+the levels of a factor. All three are also return types: a record becomes a
+named list, a data frame gets compact row names, and a factor's codes are
+checked against its levels.
 
 ## Mutable inputs
 

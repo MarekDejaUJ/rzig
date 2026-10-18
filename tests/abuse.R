@@ -436,3 +436,23 @@ test_that("integer64 values never reach double or integer parameters", {
   )
   for (case in cases) expect_error_live(case[[1L]], case[[2L]])
 })
+
+test_that("hostile lists, data frames and factors fail cleanly", {
+  cases <- list(
+    list(function() record_options(NULL), c("argument `options` of record_options", "named list")),
+    list(function() record_options("tolerance"), c("named list")),
+    list(function() record_options(list(tolerance = c(1, 2))), c("entry `tolerance`", "length 1")),
+    list(function() record_options(list(method = NA_character_)), c("entry `method`", "NA")),
+    list(function() record_options(list(weights = "x")), c("entry `weights`", "numeric vector")),
+    list(function() frame_group_means(NULL), c("data frame")),
+    list(function() frame_group_means(structure(list(value = 1:2, group = factor("a")), class = "data.frame",
+      row.names = 1:2)), c("column `value`")),
+    list(function() frame_group_means(structure(list(value = c(1, 2), group = factor("a")), class = "data.frame",
+      row.names = 1:2)), c("column `group` has 1 values for 2 rows")),
+    list(function() factor_reverse_levels(structure(1L, levels = NA_character_, class = "factor")), c("NA")),
+    list(function() factor_reverse_levels(structure(0L, levels = "a", class = "factor")), c("outside its 1 levels")),
+    list(function() factor_reverse_levels(structure(1:2, levels = c("a", "b"), class = "grouping")),
+      c("must be a factor"))
+  )
+  for (case in cases) expect_error_live(case[[1L]], case[[2L]])
+})

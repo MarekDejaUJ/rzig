@@ -12,7 +12,7 @@
 .rzig_input_types <- c(
   "f64", "i32", "bool", "usize", "i64", "?f64", "?i32", "?bool", "?usize", "?i64", "[]consti64",
   "[]constf64", "[]consti32", "[]constbool", "[]constu8", "[]const[]constu8",
-  "[]constLogical", "[]const?[]constu8", "?[]constu8", "Complex", "[]constComplex", "Raw",
+  "[]constLogical", "[]const?[]constu8", "?[]constu8", "Complex", "[]constComplex", "Raw", "Factor",
   "Matrix", "IntMatrix", "BoolMatrix", "Sexp",
   "Mut([]f64)", "Mut([]i32)", "Mut(Matrix)", "Mut(IntMatrix)"
 )
@@ -24,7 +24,8 @@
 )
 
 .rzig_plain_returns <- c(
-  "void", "f64", "i32", "i64", "[]i64", "[]consti64", "bool", .rzig_vector_returns, "[]constu8", "Complex", "Raw", "List", "Sexp"
+  "void", "f64", "i32", "i64", "[]i64", "[]consti64", "bool", .rzig_vector_returns, "[]constu8", "Complex", "Raw",
+  "Factor", "List", "Sexp"
 )
 
 # The prefix `rzig.` goes first: removing the spaces of "[]const rzig.Logical"
@@ -39,7 +40,8 @@
     paste0(
       "^(f(16|32|64|80|128)|[iu][0-9]+|isize|usize|bool|void|anyopaque|",
       "anyerror|noreturn|type|anytype|comptime_int|comptime_float|const|",
-      "c_[a-z]+|Matrix|IntMatrix|BoolMatrix|Logical|Complex|Raw|Mut|Sexp|List|Attributed|Error|Ctx)$"
+      "c_[a-z]+|Matrix|IntMatrix|BoolMatrix|Logical|Complex|Raw|Record|DataFrame|Factor|Mut|Sexp|List|",
+      "Attributed|Error|Ctx)$"
     ),
     identifier
   )
@@ -49,6 +51,8 @@
 # author's source, which only the Zig compiler can resolve).
 .rzig_classify <- function(key, supported) {
   if (key %in% supported) return("supported")
+  # The fields of a record are checked by the compiler, which knows the struct.
+  if (grepl("^(Record|DataFrame)\\(.+\\)$", key)) return("supported")
   spaced <- gsub("const", " const ", key, fixed = TRUE)
   identifiers <- regmatches(spaced, gregexpr("[A-Za-z_][A-Za-z0-9_]*", spaced))[[1L]]
   if (length(identifiers) && !all(.rzig_known_identifier(identifiers))) return("local")
@@ -125,7 +129,10 @@
         next
       }
       if (startsWith(key, "Mut(")) mutable <- mutable + 1L
-      verdict <- .rzig_classify(key, .rzig_input_types)
+      # ?T accepts NULL for any input T other than rzig.Mut and optionals.
+      inner <- sub("^\\?", "", key)
+      verdict <- if (startsWith(key, "?") && !grepl("^(\\?|Mut\\()", inner) &&
+        inner %in% .rzig_input_types) "supported" else .rzig_classify(key, .rzig_input_types)
       if (verdict == "unsupported") {
         problems <- c(problems, sprintf(
           "`%s`, argument `%s`: type %s is not supported; use %s",

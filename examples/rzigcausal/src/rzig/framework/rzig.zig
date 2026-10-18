@@ -33,6 +33,12 @@ pub const Logical = @import("na.zig").Logical;
 pub const Complex = @import("complex.zig").Complex;
 /// The bytes of an R raw vector.
 pub const Raw = @import("complex.zig").Raw;
+/// A named R list read into, or built from, a Zig struct.
+pub const Record = @import("record.zig").Record;
+/// A data frame read into, or built from, a Zig struct of columns.
+pub const DataFrame = @import("record.zig").DataFrame;
+/// An R factor: codes and levels.
+pub const Factor = @import("record.zig").Factor;
 /// Opaque borrowed R value escape hatch.
 pub const Sexp = @import("sexp.zig").Sexp;
 /// Arena-backed builder materialized as a named R list at the boundary.

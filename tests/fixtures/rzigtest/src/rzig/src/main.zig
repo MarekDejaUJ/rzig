@@ -318,6 +318,65 @@ pub fn simulate_interrupt(ctx: *rzig.Ctx) rzig.Error!void {
     return rzig.internal.interrupt.request();
 }
 
+const FitOptions = struct {
+    tolerance: f64 = 1e-8,
+    @"max.iter": i32 = 100,
+    method: []const u8 = "newton",
+    weights: ?[]const f64 = null,
+};
+
+/// Return the options with their defaults filled in.
+/// @export
+pub fn record_options(options: rzig.Record(FitOptions)) rzig.Record(FitOptions) {
+    return options;
+}
+
+const Grouped = struct {
+    value: []const f64,
+    group: rzig.Factor,
+};
+
+const GroupSummary = struct {
+    group: []const []const u8,
+    mean: []f64,
+    n: []i32,
+};
+
+/// Mean and count of `value` for each level of `group`; NA groups are skipped.
+/// @export
+pub fn frame_group_means(ctx: *rzig.Ctx, data: rzig.DataFrame(Grouped)) rzig.Error!rzig.DataFrame(GroupSummary) {
+    const levels = data.value.group.levels;
+    const mean = try ctx.alloc(f64, levels.len);
+    const n = try ctx.alloc(i32, levels.len);
+    @memset(mean, 0);
+    @memset(n, 0);
+    for (data.value.value, data.value.group.codes) |value, code| {
+        if (code == rzig.NA.integer) continue;
+        const index: usize = @intCast(code - 1);
+        mean[index] += value;
+        n[index] += 1;
+    }
+    for (mean, n) |*total, count| total.* = if (count > 0) total.* / @as(f64, @floatFromInt(count)) else rzig.NA.real;
+    return .{ .value = .{ .group = levels, .mean = mean, .n = n } };
+}
+
+/// Reverse the order of the levels of a factor, keeping each element's level.
+/// @export
+pub fn factor_reverse_levels(ctx: *rzig.Ctx, values: rzig.Factor) rzig.Error!rzig.Factor {
+    const count: i32 = @intCast(values.levels.len);
+    const levels = try ctx.alloc([]const u8, values.levels.len);
+    for (levels, 0..) |*slot, index| slot.* = values.levels[values.levels.len - 1 - index];
+    const codes = try ctx.alloc(i32, values.codes.len);
+    for (values.codes, codes) |code, *slot| slot.* = if (code == rzig.NA.integer) code else count + 1 - code;
+    return .{ .codes = codes, .levels = levels };
+}
+
+/// The number of rows of a data frame and the length of an optional vector.
+/// @export
+pub fn optional_length(values: ?[]const f64) i32 {
+    return if (values) |present| @intCast(present.len) else -1;
+}
+
 /// Sum a bit64::integer64 vector, stopping on overflow; NA is skipped.
 /// @export
 pub fn int64_sum(values: []const i64) rzig.Error!i64 {

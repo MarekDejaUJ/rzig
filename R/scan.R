@@ -649,6 +649,8 @@ print.rzig_exports <- function(x, ...) {
     i64 = "integer64, integer or whole double, length 1"
   )
   if (key %in% names(scalar)) return(scalar[[key]])
+  if (grepl("^Record\\(", key, useBytes = TRUE)) return("named list, read into a struct")
+  if (grepl("^DataFrame\\(", key, useBytes = TRUE)) return("data frame, read into a struct of columns")
   if (grepl("^\\?", key, useBytes = TRUE) && substring(key, 2L) %in% names(scalar)) {
     return(paste0(scalar[[substring(key, 2L)]], ", NA or NULL"))
   }
@@ -664,6 +666,7 @@ print.rzig_exports <- function(x, ...) {
     "Complex" = "complex, length 1",
     "[]constComplex" = "complex vector, borrowed",
     "Raw" = "raw vector, borrowed",
+    "Factor" = "factor, codes borrowed, levels copied",
     "[]constu8" = "character, length 1, copied",
     "[]const[]constu8" = "character vector, copied",
     "Matrix" = "double matrix, borrowed",
@@ -686,6 +689,8 @@ print.rzig_exports <- function(x, ...) {
     duplicate <- sub(", writable duplicate$", "", .rzig_describe_parameter(mutable))
     return(paste0("the writable duplicate, ", if (grepl("^[aeiou]", duplicate)) "an " else "a ", duplicate))
   }
+  if (grepl("^Record\\(", key, useBytes = TRUE)) return("named list built from a struct")
+  if (grepl("^DataFrame\\(", key, useBytes = TRUE)) return("data frame built from a struct of columns")
   attributed <- regmatches(key, regexec("^Attributed\\((.*)\\)$", key))[[1L]]
   if (length(attributed) == 2L) {
     inner <- .rzig_describe_return(attributed[[2L]])
@@ -706,6 +711,7 @@ print.rzig_exports <- function(x, ...) {
     "Complex" = "complex, length 1",
     "[]Complex" = , "[]constComplex" = "complex vector",
     "Raw" = "raw vector",
+    "Factor" = "factor",
     "[]constu8" = "character, length 1",
     "[][]constu8" = , "[]const[]constu8" = "character vector",
     "[]?[]constu8" = , "[]const?[]constu8" = "character vector with NA",

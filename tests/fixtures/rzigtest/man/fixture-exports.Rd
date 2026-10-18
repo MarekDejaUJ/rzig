@@ -25,6 +25,10 @@
 \alias{int64_double}
 \alias{int64_or_default}
 \alias{long_count}
+\alias{record_options}
+\alias{frame_group_means}
+\alias{factor_reverse_levels}
+\alias{optional_length}
 \title{Fixture Functions for the Types and Services of the Boundary}
 \usage{
 parallel_thread_count(count)
@@ -52,6 +56,10 @@ int64_sum(values)
 int64_double(values)
 int64_or_default(value)
 long_count(count)
+record_options(options)
+frame_group_means(data)
+factor_reverse_levels(values)
+optional_length(values)
 }
 \arguments{
 \item{count}{A non-negative count.}
@@ -67,6 +75,8 @@ long_count(count)
 \item{bytes}{A raw vector.}
 \item{key}{A byte value from 0 to 255.}
 \item{value}{A 64-bit integer, \code{NA}, or \code{NULL}.}
+\item{options}{A named list of fitting options.}
+\item{data}{A data frame with columns \code{value} and \code{group}.}
 }
 \value{
 The value each function computes; the tests of the package describe them.

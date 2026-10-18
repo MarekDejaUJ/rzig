@@ -1,3 +1,18 @@
+# rzig 0.25.0
+
+## New features
+
+- `rzig.Record(T)` reads a named list into the fields of the struct `T` by
+  name (defaults fill missing entries, optional fields become `null`,
+  unknown entries give a warning) and builds a named list from it as a
+  result. A record carries any number of values in one argument.
+- `rzig.DataFrame(T)` reads the columns of a data frame into a struct of
+  slices and factors, with its number of rows in `.nrow`, and builds a data
+  frame with compact row names as a result.
+- `rzig.Factor` reads a factor (borrowed codes, copied levels) and returns
+  one; codes outside the levels are errors.
+- `?T` accepts `NULL` for every input type `T`, not only scalars.
+
 # rzig 0.24.0
 
 ## New features

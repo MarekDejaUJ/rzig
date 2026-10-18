@@ -5,7 +5,9 @@
 
 const std = @import("std");
 const attributes = @import("attributes.zig");
+const compat = @import("compat.zig");
 const complex = @import("complex.zig");
+const record = @import("record.zig");
 const c = @import("c/abi.zig");
 const es = @import("error_state.zig");
 const list = @import("list.zig");
@@ -117,11 +119,15 @@ pub fn fromSexp(
     if (comptime T == []const complex.Complex) return complexSlice(x, name);
     if (comptime T == complex.Raw) return rawFromSexp(x, name);
     if (comptime matrix.isMatrix(T)) return matrixFromSexp(T, ctx, x, name);
+    if (comptime record.isRecord(T)) return recordFromSexp(T, ctx, x, name);
+    if (comptime T == record.Factor) return factorFromSexp(ctx, x, name);
     if (comptime T == sexp.Sexp) return sexp.fromRaw(x);
 
     return switch (@typeInfo(T)) {
-        .optional => |info| optionalScalar(info.child, ctx, x, name),
-        // TODO: slices and strings.
+        .optional => |info| if (comptime isScalar(info.child))
+            optionalScalar(info.child, ctx, x, name)
+        else
+            optionalValue(info.child, ctx, x, name),
         else => @compileError(unsupportedMessage(T, name)),
     };
 }
@@ -300,6 +306,135 @@ fn stringSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const
     return result;
 }
 
+/// A named list or data frame read into the fields of a struct.
+fn recordFromSexp(comptime T: type, ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error!T {
+    const Inner = T.rzig_record_inner;
+    const frame = comptime record.isDataFrame(T);
+    if (comptime frame) {
+        if (c.TYPEOF(x) != c.VECSXP or c.Rf_inherits(x, "data.frame") == c.FALSE) {
+            return es.raise("rzig: {s} must be a data frame; got {s}", .{ name, typeName(x) });
+        }
+    } else if (c.TYPEOF(x) != c.VECSXP) {
+        return es.raise(
+            "rzig: {s} must be a named list; got {s}; use list(name = value) in R",
+            .{ name, typeName(x) },
+        );
+    }
+    const length = try vectorLength(x, name);
+    const names = c.Rf_getAttrib(x, c.R_NamesSymbol);
+    if (length > 0 and c.TYPEOF(names) != c.STRSXP) {
+        return es.raise("rzig: {s} must be a named list; its entries have no names", .{name});
+    }
+    const rows: usize = if (comptime frame) dataFrameRows(x) else 0;
+
+    const info = @typeInfo(Inner).@"struct";
+    const field_names = comptime compat.fieldNames(info);
+    const field_types = comptime compat.fieldTypes(info);
+    var value: Inner = undefined;
+    inline for (field_names, 0..) |field_name, index| {
+        const Field = field_types[index];
+        const label = name ++ (if (frame) ", column `" else ", entry `") ++ field_name ++ "`";
+        if (try findEntry(names, length, field_name)) |position| {
+            @field(value, field_name) = try fromSexp(Field, ctx, c.VECTOR_ELT(x, @intCast(position)), label);
+            if (comptime frame) try checkColumnLength(@field(value, field_name), rows, label);
+        } else if (comptime compat.fieldDefault(info, index)) |default| {
+            @field(value, field_name) = default;
+        } else if (comptime @typeInfo(Field) == .optional) {
+            @field(value, field_name) = null;
+        } else {
+            return es.raise(
+                "rzig: {s} has no " ++ (if (frame) "column" else "entry") ++ " `" ++ field_name ++ "`",
+                .{name},
+            );
+        }
+    }
+    if (comptime !frame) try warnUnknownEntries(field_names, names, length, name);
+    if (comptime frame) return .{ .value = value, .nrow = rows };
+    return .{ .value = value };
+}
+
+/// The position of the first entry called `field_name`, or `null`.
+fn findEntry(names: c.SEXP, length: usize, comptime field_name: []const u8) es.Error!?usize {
+    if (c.TYPEOF(names) != c.STRSXP) return null;
+    const mark = c.vmaxget();
+    defer c.vmaxset(mark);
+    for (0..length) |index| {
+        const element = c.STRING_ELT(names, @intCast(index));
+        if (element == c.R_NaString) continue;
+        if (std.mem.eql(u8, std.mem.span(c.Rf_translateCharUTF8(element)), field_name)) return index;
+    }
+    return null;
+}
+
+fn warnUnknownEntries(
+    comptime field_names: []const [:0]const u8,
+    names: c.SEXP,
+    length: usize,
+    comptime name: []const u8,
+) es.Error!void {
+    if (c.TYPEOF(names) != c.STRSXP) return;
+    const mark = c.vmaxget();
+    defer c.vmaxset(mark);
+    for (0..length) |index| {
+        const element = c.STRING_ELT(names, @intCast(index));
+        const text = if (element == c.R_NaString) "NA" else std.mem.span(c.Rf_translateCharUTF8(element));
+        var known = false;
+        inline for (field_names) |field_name| {
+            if (std.mem.eql(u8, text, field_name)) known = true;
+        }
+        if (!known) es.warn("rzig: {s} has an unknown entry `{s}`, which is ignored", .{ name, text });
+    }
+}
+
+fn dataFrameRows(x: c.SEXP) usize {
+    // R expands compact row names (c(NA, -n)) when they are read this way.
+    const row_names = c.Rf_getAttrib(x, c.Rf_install("row.names"));
+    return @intCast(@max(0, c.Rf_xlength(row_names)));
+}
+
+/// The number of values of a data frame column, or `null` for an absent one.
+fn columnLength(column: anytype) ?usize {
+    const Column = @TypeOf(column);
+    if (comptime Column == record.Factor) return column.codes.len;
+    return switch (@typeInfo(Column)) {
+        .pointer => column.len,
+        .optional => if (column) |present| columnLength(present) else null,
+        else => null,
+    };
+}
+
+fn checkColumnLength(column: anytype, rows: usize, comptime label: []const u8) es.Error!void {
+    if (columnLength(column)) |count| {
+        if (count != rows) {
+            return es.raise("rzig: {s} has {d} values for {d} rows", .{ label, count, rows });
+        }
+    }
+}
+
+/// A factor: borrowed codes and copied levels.
+fn factorFromSexp(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error!record.Factor {
+    if (c.TYPEOF(x) != c.INTSXP or c.Rf_inherits(x, "factor") == c.FALSE) {
+        return es.raise("rzig: {s} must be a factor; got {s}; use factor() in R", .{ name, typeName(x) });
+    }
+    const levels = c.Rf_getAttrib(x, c.Rf_install("levels"));
+    if (c.TYPEOF(levels) != c.STRSXP) {
+        return es.raise("rzig: {s} is a factor without character levels", .{name});
+    }
+    const level_names = try stringSlice(ctx, levels, name ++ ", levels");
+    const length = try vectorLength(x, name);
+    const codes = c.INTEGER_RO(x)[0..length];
+    for (codes, 0..) |code, index| {
+        if (code == c.NA_INTEGER) continue;
+        if (code < 1 or code > level_names.len) {
+            return es.raise(
+                "rzig: {s} has code {d} at position {d}, outside its {d} levels",
+                .{ name, code, index + 1, level_names.len },
+            );
+        }
+    }
+    return .{ .codes = codes, .levels = level_names };
+}
+
 /// A complex scalar; a double or integer scalar becomes its real part.
 fn scalarComplex(x: c.SEXP, comptime name: []const u8) es.Error!complex.Complex {
     const kind: c.SEXPTYPE = @intCast(c.TYPEOF(x));
@@ -463,6 +598,12 @@ fn optionalScalar(
 
     try validateScalar(T, x, name);
     if (scalarIsNa(x)) return null;
+    return try fromSexp(T, ctx, x, name);
+}
+
+/// A non-scalar input that may be NULL, which becomes `null`.
+fn optionalValue(comptime T: type, ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error!?T {
+    if (c.Rf_isNull(x) != c.FALSE) return null;
     return try fromSexp(T, ctx, x, name);
 }
 
@@ -650,6 +791,8 @@ fn integer64Slice(x: c.SEXP, comptime name: []const u8) es.Error![]const i64 {
 
 fn isSupportedInput(comptime T: type) bool {
     if (isSupportedMutableInput(T)) return true;
+    if (record.isRecord(T)) return isSupportedRecordInput(T);
+    if (T == record.Factor) return true;
     if (isScalar(T) or
         T == []const f64 or
         T == []const i32 or
@@ -671,9 +814,41 @@ fn isSupportedInput(comptime T: type) bool {
         return true;
     }
     return switch (@typeInfo(T)) {
-        .optional => |info| isScalar(info.child),
+        .optional => |info| isScalar(info.child) or
+            (@typeInfo(info.child) != .optional and !isMutableInput(info.child) and isSupportedInput(info.child)),
         else => false,
     };
+}
+
+fn isSupportedRecordInput(comptime T: type) bool {
+    if (!record.isRecord(T)) return false;
+    const info = @typeInfo(T.rzig_record_inner).@"struct";
+    inline for (comptime compat.fieldTypes(info)) |Field| {
+        if (isMutableInput(Field) or !isSupportedInput(Field)) return false;
+        if (comptime record.isDataFrame(T) and !isColumnInput(Field)) return false;
+    }
+    return true;
+}
+
+fn isColumnInput(comptime T: type) bool {
+    const Column = switch (@typeInfo(T)) {
+        .optional => |info| info.child,
+        else => T,
+    };
+    return Column == record.Factor or switch (@typeInfo(Column)) {
+        .pointer => |info| info.size == .slice,
+        else => false,
+    };
+}
+
+fn isSupportedRecordReturn(comptime T: type) bool {
+    if (!record.isRecord(T)) return false;
+    const info = @typeInfo(T.rzig_record_inner).@"struct";
+    inline for (comptime compat.fieldTypes(info)) |Field| {
+        if (Field == void or !isSupportedReturn(Field)) return false;
+        if (comptime record.isDataFrame(T) and !(Field == record.Factor or isSupportedVectorReturn(Field))) return false;
+    }
+    return true;
 }
 
 fn isSupportedMutableInput(comptime T: type) bool {
@@ -684,6 +859,8 @@ fn isSupportedMutableInput(comptime T: type) bool {
 
 fn isSupportedReturn(comptime T: type) bool {
     if (isSupportedAttributedReturn(T)) return true;
+    if (record.isRecord(T)) return isSupportedRecordReturn(T);
+    if (T == record.Factor) return true;
     if (T == void or
         T == f64 or
         T == i32 or
@@ -834,6 +1011,8 @@ pub fn toSexp(
     if (comptime T == complex.Raw) return rawToSexp(stack, value);
     if (comptime attributes.isAttributed(T)) return attributedToSexp(stack, ctx, value);
     if (comptime T == list.List) return listToSexp(stack, ctx, value);
+    if (comptime record.isRecord(T)) return recordToSexp(stack, ctx, value);
+    if (comptime T == record.Factor) return factorToSexp(stack, ctx, value);
     if (comptime T == sexp.Sexp) return stack.push(sexp.toRaw(value));
 
     return switch (@typeInfo(T)) {
@@ -1104,6 +1283,79 @@ fn stringSliceToSexp(stack: *protect.Stack, value: []const []const u8) es.Error!
         );
         c.SET_STRING_ELT(result, @intCast(index), element);
     }
+    return result;
+}
+
+/// A named list, or a data frame with compact row names, from the fields.
+fn recordToSexp(stack: *protect.Stack, ctx: *Ctx, value: anytype) es.Error!c.SEXP {
+    const T = @TypeOf(value);
+    const frame = comptime record.isDataFrame(T);
+    const info = @typeInfo(T.rzig_record_inner).@"struct";
+    const field_names = comptime compat.fieldNames(info);
+
+    var rows: usize = 0;
+    if (comptime frame) {
+        inline for (field_names, 0..) |field_name, index| {
+            const length = columnLength(@field(value.value, field_name)).?;
+            if (index == 0) {
+                rows = length;
+            } else if (length != rows) {
+                return es.raise(
+                    "rzig: data frame column `" ++ field_name ++ "` has {d} values, but the first column has {d}",
+                    .{ length, rows },
+                );
+            }
+        }
+        if (rows > std.math.maxInt(i32)) return es.raise("rzig: a data frame has at most 2147483647 rows", .{});
+    }
+    // Symbols first: installing one can allocate.
+    const row_names_symbol: ?c.SEXP = if (comptime frame) c.Rf_install("row.names") else null;
+
+    const result = stack.push(c.Rf_allocVector(c.VECSXP, @intCast(field_names.len)));
+    const names = stack.push(c.Rf_allocVector(c.STRSXP, @intCast(field_names.len)));
+    inline for (field_names, 0..) |field_name, index| {
+        c.SET_STRING_ELT(names, index, c.Rf_mkCharLenCE(field_name.ptr, @intCast(field_name.len), c.CE_UTF8));
+        const checkpoint = stack.count;
+        const element = try toSexp(stack, ctx, @field(value.value, field_name));
+        _ = c.SET_VECTOR_ELT(result, index, element);
+        stack.pop(stack.count - checkpoint);
+    }
+    _ = c.Rf_setAttrib(result, c.R_NamesSymbol, names);
+    stack.pop(1);
+    if (comptime frame) {
+        const class = stack.push(c.Rf_mkString("data.frame"));
+        _ = c.Rf_setAttrib(result, c.R_ClassSymbol, class);
+        stack.pop(1);
+        const row_names = stack.push(c.Rf_allocVector(c.INTSXP, 2));
+        c.INTEGER(row_names)[0] = c.NA_INTEGER;
+        c.INTEGER(row_names)[1] = -@as(c_int, @intCast(rows));
+        _ = c.Rf_setAttrib(result, row_names_symbol.?, row_names);
+        stack.pop(1);
+    }
+    return result;
+}
+
+/// An integer vector with `levels` and class `factor`.
+fn factorToSexp(stack: *protect.Stack, ctx: *Ctx, value: record.Factor) es.Error!c.SEXP {
+    for (value.codes, 0..) |code, index| {
+        if (code == c.NA_INTEGER) continue;
+        if (code < 1 or code > value.levels.len) {
+            return es.raise(
+                "rzig: returned factor has code {d} at position {d}, outside its {d} levels",
+                .{ code, index + 1, value.levels.len },
+            );
+        }
+    }
+    try validateReturnedStrings(value.levels);
+    const levels_symbol = c.Rf_install("levels");
+    const result = try integerSliceToSexp(stack, value.codes);
+    const checkpoint = stack.count;
+    const levels = try toSexp(stack, ctx, value.levels);
+    _ = c.Rf_setAttrib(result, levels_symbol, levels);
+    stack.pop(stack.count - checkpoint);
+    const class = stack.push(c.Rf_mkString("factor"));
+    _ = c.Rf_setAttrib(result, c.R_ClassSymbol, class);
+    stack.pop(1);
     return result;
 }
 

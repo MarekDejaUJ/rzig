@@ -8,7 +8,8 @@ test_that("argument types follow the rules of the boundary", {
                  "rzig.IntMatrix", "rzig.BoolMatrix", "rzig.Sexp", "rzig.Mut([]f64)",
                  "rzig.Mut([]i32)", "rzig.Mut(rzig.Matrix)", "rzig.Mut(rzig.IntMatrix)",
                  "[]const rzig.Logical", "[]const ?[]const u8", "?[]const u8",
-                 "rzig.Complex", "[]const rzig.Complex", "rzig.Raw", "i64", "?i64", "[]const i64")) {
+                 "rzig.Complex", "[]const rzig.Complex", "rzig.Raw", "i64", "?i64", "[]const i64",
+                 "rzig.Record(Options)", "rzig.DataFrame(Columns)", "rzig.Factor")) {
     expect_identical(input(type), "supported", info = type)
   }
   for (type in c("f32", "[]const f32", "u64", "[]f64", "*const f64", "u8", "[]const u64",
@@ -24,7 +25,7 @@ test_that("return types follow the rules of the boundary", {
                  "rzig.Attributed([]f64)", "[][]const u8", "[]rzig.Logical", "[]const rzig.Logical",
                  "[]?[]const u8", "rzig.Attributed([]rzig.Logical)", "rzig.Attributed([]const ?[]const u8)",
                  "rzig.Complex", "[]rzig.Complex", "rzig.Raw", "rzig.Attributed([]rzig.Complex)",
-                 "i64", "[]i64", "[]const i64")) {
+                 "i64", "[]i64", "[]const i64", "rzig.Record(Out)", "rzig.DataFrame(Out)", "rzig.Factor")) {
     expect_identical(output(type), "supported", info = type)
   }
   for (type in c("f32", "usize", "rzig.Attributed([]const u8)", "rzig.Mut([]f64)", "rzig.Attributed(rzig.Raw)")) {
@@ -48,6 +49,8 @@ test_that("signature rules are checked before compilation", {
   expect_match(check("matret", "x", "rzig.Mut(rzig.IntMatrix)", "f64")$problems, "must return void")
   expect_match(check("intvec", "x", "[]i32", "void")$problems, "rzig.Mut([]i32)", fixed = TRUE)
   expect_match(check("boolmut", "x", "rzig.Mut([]bool)", "void")$problems, "rzig.Mut(rzig.IntMatrix)", fixed = TRUE)
+  expect_length(check("optvec", c("x", "m"), c("?[]const f64", "?rzig.Matrix"), "f64")$problems, 0L)
+  expect_length(check("optmut", "x", "?rzig.Mut([]f64)", "void")$problems, 1L)
   expect_match(check("generic", "x", "anytype", "f64")$problems, "anytype")
   expect_match(check("inferred", "x", "f64", "!f64")$problems, "rzig.Error!T")
   expect_match(check("anyerr", "x", "f64", "anyerror!f64")$problems, "rzig.Error!T")

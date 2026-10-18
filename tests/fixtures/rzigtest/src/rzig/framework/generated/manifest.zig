@@ -189,6 +189,30 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{},
             },
             .{
+                .name = "record_options",
+                .func = bound_root.record_options,
+                .doc = "Return the options with their defaults filled in.",
+                .parameters = .{"options"},
+            },
+            .{
+                .name = "frame_group_means",
+                .func = bound_root.frame_group_means,
+                .doc = "Mean and count of `value` for each level of `group`; NA groups are skipped.",
+                .parameters = .{"data"},
+            },
+            .{
+                .name = "factor_reverse_levels",
+                .func = bound_root.factor_reverse_levels,
+                .doc = "Reverse the order of the levels of a factor, keeping each element's level.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "optional_length",
+                .func = bound_root.optional_length,
+                .doc = "The number of rows of a data frame and the length of an optional vector.",
+                .parameters = .{"values"},
+            },
+            .{
                 .name = "int64_sum",
                 .func = bound_root.int64_sum,
                 .doc = "Sum a bit64::integer64 vector, stopping on overflow; NA is skipped.",
