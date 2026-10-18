@@ -99,6 +99,18 @@ for pair in "tests/fixtures/rzigtest:rzigtest" "examples/rzigcausal:rzigcausal";
     fi
 done
 
+# The example uses the template build.zig and the empty c_libraries.zon.
+for relative in build.zig c_libraries.zon; do
+    source_file="$repo_dir/inst/zig/$relative"
+    example_file="$repo_dir/examples/rzigcausal/src/rzig/$relative"
+    if test "$mode" = "--write"; then
+        cp "$source_file" "$example_file"
+    elif ! cmp -s "$source_file" "$example_file"; then
+        printf 'example copy is stale: src/rzig/%s\n' "$relative" >&2
+        failed=1
+    fi
+done
+
 abuse_source="$repo_dir/tests/abuse.R"
 abuse_fixture="$repo_dir/tests/fixtures/rzigtest/tests/testthat/test-abuse.R"
 if test "$mode" = "--write"; then

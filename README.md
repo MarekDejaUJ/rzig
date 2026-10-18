@@ -223,6 +223,31 @@ The R code keeps its own `useDynLib()` directive for the C routines and may
 name them by symbol or by string. `rzig_status()` and `build_zig()` report a
 mixed package whose sources do not call `rzig_register()`.
 
+## C libraries compiled by Zig
+
+A package can ship the sources of a C library, for example under
+`src/rzig/vendor/answer`, and list it in `src/rzig/c_libraries.zon`. Zig
+compiles the sources into the package and translates the header into a Zig
+module; nothing is downloaded.
+
+```zig
+.{
+    .{
+        .name = "answer",
+        .header = "vendor/answer/answer.h",
+        .sources = .{"vendor/answer/answer.c"},
+        .include = .{"vendor/answer"},
+        .flags = .{"-std=c99"},
+    },
+}
+```
+
+The Zig sources then call the library through `const answer =
+@import("answer");`, also in the tests of `test_zig()`. Paths are relative to
+`src/rzig`; `rzig_status()` reports listed files that do not exist, and
+`update_rzig()` never replaces the file. The license and copyright of the
+vendored code belong in the package's `DESCRIPTION` and `inst/COPYRIGHTS`.
+
 ## Compiling Zig from the R prompt
 
 `zig_function()` compiles Zig code into a small package in the session's

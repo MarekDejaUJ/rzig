@@ -1,3 +1,15 @@
+# rzig 0.36.0
+
+## New features
+
+- Vendored C libraries: `src/rzig/c_libraries.zon` lists C libraries whose
+  sources the package ships; the template `build.zig` compiles them with Zig
+  and turns each header into a Zig module (`@import("name")`) with
+  translate-c, which works with Zig 0.16 and 0.17 (Zig 0.17 has no
+  `@cImport`). Nothing is downloaded. `use_rzig()` writes the empty list,
+  `update_rzig()` adds it when missing and never replaces it, and
+  `rzig_status()` reports listed files that do not exist.
+
 # rzig 0.35.0
 
 ## New features

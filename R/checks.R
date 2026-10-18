@@ -320,6 +320,8 @@
   framework_files <- shipped[startsWith(shipped, "framework/") &
     shipped != "framework/generated/manifest.zig"]
   zig_templates <- shipped[!startsWith(shipped, "framework/") & !startsWith(shipped, "src/")]
+  # c_libraries.zon belongs to the package author once it exists.
+  authored <- "c_libraries.zon"
   missing_framework <- framework_files[!file.exists(file.path(path, "src", "rzig", framework_files))]
   outdated <- setdiff(framework_files, missing_framework)
   outdated <- outdated[!vapply(outdated, function(file) {
@@ -359,7 +361,7 @@
         customized <- c(customized, pair$file)
       }
     }
-    present_templates <- setdiff(zig_templates, missing_templates)
+    present_templates <- setdiff(zig_templates, c(missing_templates, authored))
     for (file in present_templates) {
       if (!.rzig_same_text(file.path(path, "src", "rzig", file), file.path(assets, file))) {
         customized <- c(customized, file.path("src", "rzig", file))
@@ -370,6 +372,13 @@
         "differs from the rzig template: ", paste(customized, collapse = ", ")
       ))
     }
+  }
+  absent <- .rzig_c_library_files_missing(path)
+  if (length(absent)) {
+    problems <- c(problems, paste0(
+      "src/rzig/c_libraries.zon names files that do not exist: ",
+      paste(file.path("src", "rzig", absent), collapse = ", ")
+    ))
   }
   foreign <- .rzig_foreign_sources(path)
   if (.rzig_is_mixed(path)) {
@@ -536,4 +545,23 @@
     Windows = "Rtools (https://cran.r-project.org/bin/windows/Rtools/)",
     "a C compiler, make and the R development headers"
   )
+}
+
+# The paths that src/rzig/c_libraries.zon names (string literals ending in a C
+# source or header suffix, or under `.include`) and that do not exist. The
+# file is ZON; this reads its string literals outside comments.
+.rzig_c_library_files_missing <- function(path) {
+  file <- file.path(path, "src", "rzig", "c_libraries.zon")
+  text <- .rzig_read_text(file)
+  if (is.null(text)) return(character())
+  lines <- strsplit(.rzig_normalize_newlines(text), "\n", fixed = TRUE)[[1L]]
+  lines <- sub("//.*$", "", lines)
+  literals <- unlist(regmatches(lines, gregexpr("\"[^\"]*\"", lines)), use.names = FALSE)
+  literals <- substring(literals, 2L, nchar(literals) - 1L)
+  include <- unlist(regmatches(lines, gregexpr("\\.include[[:space:]]*=[[:space:]]*\\.\\{[^}]*\\}", lines)), use.names = FALSE)
+  directories <- unlist(regmatches(include, gregexpr("\"[^\"]*\"", include)), use.names = FALSE)
+  directories <- substring(directories, 2L, nchar(directories) - 1L)
+  files <- literals[grepl("\\.(c|h|cc|cpp|cxx|hpp|S|s)$", literals)]
+  candidates <- unique(c(files, directories))
+  candidates[!file.exists(file.path(path, "src", "rzig", candidates))]
 }

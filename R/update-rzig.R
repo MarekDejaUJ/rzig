@@ -15,8 +15,9 @@
 #'   reviewed; `force = TRUE` replaces it as well;
 #' * missing build files are added, and the Zig scanner that rzig 0.2 copied
 #'   into `src/rzig/tools/scan.zig` is removed;
-#' * the package author's Zig sources in `src/rzig/src` and any file rzig does
-#'   not know are never changed or removed;
+#' * the package author's Zig sources in `src/rzig/src`, the list of C
+#'   libraries `src/rzig/c_libraries.zon` (added when missing) and any file
+#'   rzig does not know are never changed or removed;
 #' * finally [document()] regenerates the bindings.
 #'
 #' @param path Path to a package previously initialized with [use_rzig()].
@@ -190,6 +191,10 @@ print.rzig_update <- function(x, ...) {
       "kept"
     }
     add(entry$file, action, entry$template, entry$executable)
+  }
+  # The package author's list of C libraries: added when missing, never replaced.
+  if (!file.exists(file.path(zig_dir, "c_libraries.zon"))) {
+    add(file.path("src", "rzig", "c_libraries.zon"), "added", file.path(assets, "c_libraries.zon"))
   }
   scanner <- file.path(zig_dir, "tools", "scan.zig")
   if (file.exists(scanner) && .rzig_is_known_template(.rzig_read_text(scanner), "tools/scan.zig", package)) {

@@ -9,7 +9,8 @@
 #' The files written below the package root are: `configure`,
 #' `configure.win`, `cleanup`, `cleanup.win`, `src/entry.c`,
 #' `src/Makevars.in`, `src/Makevars.win.in`, the framework sources under
-#' `src/rzig/framework`, the package author's Zig source
+#' `src/rzig/framework`, the list of vendored C libraries
+#' `src/rzig/c_libraries.zon` (empty), the package author's Zig source
 #' `src/rzig/src/main.zig`, the generated `R/rzig-wrappers.R`, and a managed
 #' block in `NAMESPACE`. Entries for the Zig build caches are added to
 #' `.Rbuildignore`, and the Zig sources are listed in the
@@ -101,9 +102,11 @@ use_rzig <- function(path, overwrite = FALSE, force = FALSE, mixed = FALSE) {
     }
   } else {
     keep_source <- file.exists(file.path(path, "src", "rzig", "src", "main.zig"))
+    keep_libraries <- file.exists(file.path(path, "src", "rzig", "c_libraries.zon"))
+    skip <- c(if (keep_source) "^src/", if (keep_libraries) "^c_libraries\\.zon$")
     .rzig_copy_tree(
       zig_assets, file.path(path, "src", "rzig"),
-      skip = if (keep_source) "^src/" else NULL
+      skip = if (length(skip)) paste(skip, collapse = "|") else NULL
     )
     for (pair in list(c("Makevars", "src/Makevars.in"), c("Makevars.win", "src/Makevars.win.in"))) {
       file.copy(file.path(templates, pair[[1L]]), file.path(path, pair[[2L]]),

@@ -198,7 +198,8 @@
 # Files pkgbuild (and so devtools::load_all()) should treat as sources of the
 # shared object; it otherwise watches only C, C++, Fortran and Rust files.
 .rzig_extra_sources <- c(
-  "src/rzig/src", "src/rzig/framework", "src/rzig/build.zig", "src/rzig/build.zig.zon"
+  "src/rzig/src", "src/rzig/framework", "src/rzig/build.zig", "src/rzig/build.zig.zon",
+  "src/rzig/c_libraries.zon"
 )
 
 .rzig_extra_sources_field <- "Config/build/extra-sources"

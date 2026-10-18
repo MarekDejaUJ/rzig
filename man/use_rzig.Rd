@@ -42,7 +42,8 @@ only when the package is installed.
 The files written below the package root are: \code{configure},
 \code{configure.win}, \code{cleanup}, \code{cleanup.win}, \code{src/entry.c},
 \code{src/Makevars.in}, \code{src/Makevars.win.in}, the framework sources under
-\code{src/rzig/framework}, the package author's Zig source
+\code{src/rzig/framework}, the list of vendored C libraries
+\code{src/rzig/c_libraries.zon} (empty), the package author's Zig source
 \code{src/rzig/src/main.zig}, the generated \code{R/rzig-wrappers.R}, and a managed
 block in \code{NAMESPACE}. Entries for the Zig build caches are added to
 \code{.Rbuildignore}, and the Zig sources are listed in the

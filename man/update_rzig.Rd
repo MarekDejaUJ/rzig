@@ -38,8 +38,9 @@ kept and listed, so that its differences from the new template can be
 reviewed; \code{force = TRUE} replaces it as well;
 \item missing build files are added, and the Zig scanner that rzig 0.2 copied
 into \code{src/rzig/tools/scan.zig} is removed;
-\item the package author's Zig sources in \code{src/rzig/src} and any file rzig does
-not know are never changed or removed;
+\item the package author's Zig sources in \code{src/rzig/src}, the list of C
+libraries \code{src/rzig/c_libraries.zon} (added when missing) and any file
+rzig does not know are never changed or removed;
 \item finally \code{\link[=document]{document()}} regenerates the bindings.
 }
 }
