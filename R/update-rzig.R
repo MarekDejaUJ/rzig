@@ -109,17 +109,19 @@ print.rzig_update <- function(x, ...) {
       file.path("src", "Makevars.in"), file.path("src", "Makevars.win.in"),
       file.path("src", "entry.c"),
       file.path("src", "rzig", "build.zig"), file.path("src", "rzig", "build.zig.zon"),
-      file.path("src", "rzig", "tools", "repack_macos_archive.sh")
+      file.path("src", "rzig", "tools", "repack_macos_archive.sh"),
+      file.path("src", "rzig", "tools", "fetch_zig.R")
     ),
     template = c(
       file.path(templates, c("configure", "configure.win", "cleanup", "cleanup.win", "Makevars", "Makevars.win", "entry.c")),
-      file.path(assets, c("build.zig", "build.zig.zon", file.path("tools", "repack_macos_archive.sh")))
+      file.path(assets, c("build.zig", "build.zig.zon", file.path("tools", "repack_macos_archive.sh"),
+        file.path("tools", "fetch_zig.R")))
     ),
     key = c(
       "configure", "configure.win", "cleanup", "cleanup.win", "Makevars", "Makevars.win", "entry.c",
-      "build.zig", "build.zig.zon", "tools/repack_macos_archive.sh"
+      "build.zig", "build.zig.zon", "tools/repack_macos_archive.sh", "tools/fetch_zig.R"
     ),
-    executable = c(TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE),
+    executable = c(TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE),
     stringsAsFactors = FALSE
   )
 }

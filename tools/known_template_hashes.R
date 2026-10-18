@@ -18,6 +18,7 @@ templates <- c(
   "build.zig" = "inst/zig/build.zig",
   "build.zig.zon" = "inst/zig/build.zig.zon",
   "tools/repack_macos_archive.sh" = "inst/zig/tools/repack_macos_archive.sh",
+  "tools/fetch_zig.R" = "inst/zig/tools/fetch_zig.R",
   "tools/scan.zig" = "inst/zig/tools/scan.zig"
 )
 

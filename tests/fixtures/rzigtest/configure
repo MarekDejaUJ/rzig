@@ -24,8 +24,19 @@ zig_rejected() {
         *) build_kind='an unsupported release series' ;;
     esac
     printf 'Zig %s found at %s is %s; this package requires a Zig 0.16.x or 0.17.x release.\n' "$2" "$1" "$build_kind" >&2
-    printf '%s\n' 'Download a supported release from https://ziglang.org/download/ and set ZIG=/absolute/path/to/zig.' >&2
+    printf '%s\n' 'Install one with rzig::install_zig() in R, or download a release from https://ziglang.org/download/ and set ZIG=/absolute/path/to/zig.' >&2
 }
+
+r_bin=
+if test -n "${R_HOME:-}" && test -x "$R_HOME/bin/R"; then
+    r_bin=$R_HOME/bin/R
+else
+    r_bin=$(command -v R || true)
+fi
+if test -z "$r_bin"; then
+    printf '%s\n' 'R is required to configure this package.' >&2
+    exit 1
+fi
 
 zig_path=
 zig_version=
@@ -65,7 +76,20 @@ else
     }
     path_zig=$(command -v zig || true)
     if test -z "$path_zig" || ! try_candidate "$path_zig"; then
-        if test -n "${HOME:-}"; then
+        # The folder of rzig::install_zig(): RZIG_ZIG_HOME, or zig in the user
+        # cache folder of rzig.
+        zig_home=${RZIG_ZIG_HOME:-}
+        if test -z "$zig_home"; then
+            zig_home=$("$r_bin" --no-echo --vanilla -e 'cat(normalizePath(file.path(tools::R_user_dir("rzig", "cache"), "zig"), winslash = "/", mustWork = FALSE))' 2>/dev/null) || zig_home=
+        fi
+        if test -n "$zig_home"; then
+            for candidate in "$zig_home"/zig-*/zig "$zig_home"/zig-*/zig.exe; do
+                if try_candidate "$candidate"; then
+                    break
+                fi
+            done
+        fi
+        if test -z "$zig_path" && test -n "${HOME:-}"; then
             for candidate in "$HOME/.local/share/zig/"*/zig "$HOME/.local/share/zig/"*/zig.exe \
                              "$HOME/zig/zig" "$HOME/zig/zig.exe"; do
                 if try_candidate "$candidate"; then
@@ -80,23 +104,14 @@ else
         else
             printf '%s\n' \
                 "Zig 0.16.x or 0.17.x is required to install this package." \
-                "Download it from https://ziglang.org/download/, add it to PATH," \
-                "or reinstall with ZIG=/absolute/path/to/zig." >&2
+                "Install it with rzig::install_zig() in R, or download it from" \
+                "https://ziglang.org/download/ and add it to PATH or reinstall with" \
+                "ZIG=/absolute/path/to/zig." >&2
         fi
         exit 1
     fi
 fi
 
-r_bin=
-if test -n "${R_HOME:-}" && test -x "$R_HOME/bin/R"; then
-    r_bin=$R_HOME/bin/R
-else
-    r_bin=$(command -v R || true)
-fi
-if test -z "$r_bin"; then
-    printf '%s\n' 'R is required to configure this package.' >&2
-    exit 1
-fi
 r_home=$("$r_bin" RHOME)
 # Ask R for its include directory: Linux distributions can install the R
 # headers outside R_HOME (for example /usr/share/R/include).

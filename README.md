@@ -238,6 +238,15 @@ Files that use the `rzig` module call into R and are tested from R
 (`testthat`). Packages scaffolded by an older rzig get the `test` step of
 `build.zig` from `update_rzig(path)`.
 
+## Installing Zig
+
+`install_zig()` downloads Zig 0.16.0 (or `install_zig("0.17.0")`) for the
+current platform into `zig_home()`, a folder in rzig's user cache. The
+archive is checked against the size and SHA-256 that ziglang.org publishes,
+pinned in rzig, and comes from a community mirror of Zig or from
+ziglang.org. `find_zig()` and the `configure` scripts of rzig packages find
+compilers installed there; `uninstall_zig()` removes them.
+
 ## Creating a package
 
 `create_rzig_package("path/to/zigstats")` creates a package named

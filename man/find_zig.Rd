@@ -17,9 +17,9 @@ or \code{NULL}), \code{version} (character or \code{NULL}), \code{supported} (lo
 }
 \description{
 Uses the compiler named by the environment variable \code{ZIG} when it is set.
-Otherwise searches the \code{PATH}, \verb{~/.local/share/zig/*/zig} and \verb{~/zig/zig},
-in that order, and reports the first compiler of a supported release
-series; when none is supported, it reports the first compiler found and why
+Otherwise searches the \code{PATH}, the installations of \code{\link[=install_zig]{install_zig()}} in
+\code{\link[=zig_home]{zig_home()}}, \verb{~/.local/share/zig/*/zig} and \verb{~/zig/zig}, in that order,
+and reports the first compiler of a supported release series; when none is supported, it reports the first compiler found and why
 it is rejected. rzig itself runs without Zig: \code{\link[=use_rzig]{use_rzig()}}, \code{\link[=scan_exports]{scan_exports()}} and
 \code{\link[=document]{document()}} are pure R. A Zig compiler of the supported release series is
 needed to install a package created with \code{\link[=use_rzig]{use_rzig()}}.

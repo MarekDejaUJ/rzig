@@ -24,9 +24,10 @@
   if (nzchar(on_path)) {
     candidates <- c(candidates, on_path)
   }
+  executable <- if (.Platform$OS.type == "windows") "zig.exe" else "zig"
+  candidates <- c(candidates, sort(Sys.glob(file.path(zig_home(), "zig-*", executable))))
   home <- Sys.getenv("HOME", unset = "")
   if (nzchar(home)) {
-    executable <- if (.Platform$OS.type == "windows") "zig.exe" else "zig"
     candidates <- c(
       candidates,
       Sys.glob(file.path(home, ".local", "share", "zig", "*", executable)),
@@ -39,9 +40,9 @@
 #' Locate a supported Zig compiler
 #'
 #' Uses the compiler named by the environment variable `ZIG` when it is set.
-#' Otherwise searches the `PATH`, `~/.local/share/zig/*/zig` and `~/zig/zig`,
-#' in that order, and reports the first compiler of a supported release
-#' series; when none is supported, it reports the first compiler found and why
+#' Otherwise searches the `PATH`, the installations of [install_zig()] in
+#' [zig_home()], `~/.local/share/zig/*/zig` and `~/zig/zig`, in that order,
+#' and reports the first compiler of a supported release series; when none is supported, it reports the first compiler found and why
 #' it is rejected. rzig itself runs without Zig: [use_rzig()], [scan_exports()] and
 #' [document()] are pure R. A Zig compiler of the supported release series is
 #' needed to install a package created with [use_rzig()].
@@ -89,8 +90,8 @@ find_zig <- function(required = TRUE) {
   if (!length(candidates)) {
     result$problem <- paste0(
       "no Zig compiler found. rzig supports Zig ", result$series,
-      "; download it from https://ziglang.org/download/, add it to PATH, ",
-      "or set ZIG=/absolute/path/to/zig"
+      "; install it with install_zig(), or download it from https://ziglang.org/download/ ",
+      "and add it to PATH or set ZIG=/absolute/path/to/zig"
     )
     return(.rzig_compiler_result(result, required))
   }

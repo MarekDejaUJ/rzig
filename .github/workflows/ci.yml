@@ -90,6 +90,10 @@ jobs:
           R CMD INSTALL --library="$parity_library" rzig_*.tar.gz
           NOT_CRAN=true ZIG="$(command -v zig)" R_LIBS="$parity_library" Rscript -e 'library(testthat); library(rzig); test_dir("tests/testthat", stop_on_failure = TRUE)'
         shell: bash
+      - name: Compare the pinned Zig archives with the Zig download index
+        if: runner.os == 'Linux' && matrix.zig == '0.16.0'
+        run: Rscript tools/check_zig_pins.R
+        shell: bash
       - name: Check a generated client package with the CRAN settings
         run: |
           R_LIBS="$RUNNER_TEMP/rzig-parity-library" ZIG="$(command -v zig)" Rscript tools/check_client_package.R

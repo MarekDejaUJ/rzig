@@ -308,6 +308,15 @@
     .rzig_same_text(file.path(path, "src", "rzig", file), file.path(assets, file))
   }, logical(1L))]
   missing_templates <- zig_templates[!file.exists(file.path(path, "src", "rzig", zig_templates))]
+  # The Zig downloader runs only when RZIG_DOWNLOAD_ZIG asks for it.
+  missing_optional <- intersect(missing_templates, "tools/fetch_zig.R")
+  missing_templates <- setdiff(missing_templates, missing_optional)
+  if (length(missing_optional)) {
+    notes <- c(notes, paste0(
+      "missing: ", paste(file.path("src", "rzig", missing_optional), collapse = ", "),
+      " (used only to download Zig during installation); run update_rzig(path)"
+    ))
+  }
   if (length(missing_framework) || length(missing_templates)) {
     problems <- c(problems, paste0(
       "missing: ",

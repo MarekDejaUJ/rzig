@@ -63,6 +63,17 @@ for repack_fixture in "$repo_dir/tests/fixtures/rzigtest/src/rzig/tools/repack_m
     fi
 done
 
+fetch_source="$repo_dir/inst/zig/tools/fetch_zig.R"
+for fetch_copy in "$repo_dir/tests/fixtures/rzigtest/src/rzig/tools/fetch_zig.R" \
+                  "$repo_dir/examples/rzigcausal/src/rzig/tools/fetch_zig.R"; do
+    if test "$mode" = "--write"; then
+        cp "$fetch_source" "$fetch_copy"
+    elif ! cmp -s "$fetch_source" "$fetch_copy"; then
+        printf 'copy is stale: %s\n' "$fetch_copy" >&2
+        failed=1
+    fi
+done
+
 for relative in configure configure.win; do
     source_file="$repo_dir/inst/templates/$relative"
     fixture_file="$repo_dir/tests/fixtures/rzigtest/$relative"

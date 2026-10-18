@@ -10,6 +10,7 @@
     "60fcca5e718ba2e4a0a9ea50c2ac5d9b",
     "6f6f0cbe1089d0b1c6640870b0b6b21c",
     "8d565b3b557cd326b253157300377c16",
+    "db67db78223377b96500af69d91d2a49",
     "f8f96661584967ca6642d417457045ac"
   ),
   "configure.win" = c(
@@ -60,6 +61,9 @@
   "tools/repack_macos_archive.sh" = c(
     "8bceb37e3a28a95fba4d3b4285f73a05",
     "cbf3112e9704598a2adfcea30fbc82bf"
+  ),
+  "tools/fetch_zig.R" = c(
+    "939a9380815b852aa9bf2bfc2517dfee"
   ),
   "tools/scan.zig" = c(
     "7be5d2d84f225378e14a4486e6c17534",

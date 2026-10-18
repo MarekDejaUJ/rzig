@@ -1,3 +1,21 @@
+# rzig 0.18.0
+
+## New features
+
+- `install_zig()` downloads a Zig release (0.16.0 by default, or 0.17.0) for
+  the current platform into `zig_home()`, rzig's user cache folder or the
+  folder named by `RZIG_ZIG_HOME`. The archive is verified against the size
+  and SHA-256 published in ziglang.org's download index and pinned in rzig,
+  and is fetched from a community mirror of Zig or from ziglang.org; an
+  archive that differs is deleted before anything is extracted or run.
+  `uninstall_zig()` removes the installations.
+- `find_zig()` and the generated `configure` scripts search `zig_home()`
+  after the `PATH`, so a compiler from `install_zig()` builds rzig packages
+  without further setup. Their messages for a missing compiler name
+  `install_zig()`.
+- New packages contain `src/rzig/tools/fetch_zig.R`, the downloader that
+  `install_zig()` runs; `update_rzig()` adds it to existing packages.
+
 # rzig 0.17.0
 
 ## New features
