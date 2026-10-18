@@ -1,3 +1,14 @@
+# rzig 0.10.0
+
+## New features
+
+- The environment variable `RZIG_ZIG_CACHE` names a persistent global Zig
+  cache for the builds of client packages. Without it, each installation
+  starts with an empty cache inside the package, which keeps `R CMD check`
+  clean but lets Zig 0.17 compile its build runner again for every
+  installation; with it, a repeated build of the starter package takes about
+  15 seconds instead of minutes on a loaded machine.
+
 # rzig 0.9.1
 
 ## Tests

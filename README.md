@@ -233,6 +233,20 @@ fit_model <- function(x, y) {
 }
 ```
 
+## Faster builds on a development machine
+
+Every installation compiles in a fresh copy of the package, and Zig keeps its
+global cache inside that copy so that `R CMD check` and CRAN find nothing
+written outside the package. With Zig 0.17 the first step of each build then
+compiles Zig's build runner again. On a development machine, a persistent
+cache avoids that:
+
+```r
+Sys.setenv(RZIG_ZIG_CACHE = tools::R_user_dir("rzig", "cache"))
+```
+
+Leave `RZIG_ZIG_CACHE` unset for checks of a package before release.
+
 ## Updating rzig in a package
 
 After installing a new version of rzig, bring a package up to date with

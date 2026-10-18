@@ -19,7 +19,7 @@ abi_check.o: abi_check.c
 
 $(STATLIB): FORCE
 	cd $(ZIG_DIR) && \
-	ZIG_GLOBAL_CACHE_DIR="$(CURDIR)/$(ZIG_DIR)/.zig-global-cache" \
+	ZIG_GLOBAL_CACHE_DIR="$${RZIG_ZIG_CACHE:-$(CURDIR)/$(ZIG_DIR)/.zig-global-cache}" \
 	"$(ZIG)" build \
 	  --release=safe -j2 \
 	  $(ZIG_TARGET_ARG) \

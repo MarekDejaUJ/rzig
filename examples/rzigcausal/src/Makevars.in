@@ -16,9 +16,11 @@ entry.o: entry.c
 	$(CC) $(ALL_CPPFLAGS) $(ALL_CFLAGS) \
 	  -c entry.c -o entry.o
 
+# Zig keeps its global cache inside the package unless RZIG_ZIG_CACHE names a
+# persistent directory (developer machines; checks leave it unset).
 $(STATLIB): FORCE
 	cd $(ZIG_DIR) && \
-	ZIG_GLOBAL_CACHE_DIR="$(CURDIR)/$(ZIG_DIR)/.zig-global-cache" \
+	ZIG_GLOBAL_CACHE_DIR="$${RZIG_ZIG_CACHE:-$(CURDIR)/$(ZIG_DIR)/.zig-global-cache}" \
 	"$(ZIG)" build \
 	  --release=safe -j2 \
 	  $(ZIG_TARGET_ARG) \

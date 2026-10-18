@@ -317,3 +317,27 @@ test_that("a fresh scaffold passes R CMD check", {
   expect_false(any(grepl("ERROR|WARNING", status)), info = paste(log, collapse = "\n"))
   expect_true(any(grepl("checking examples ... OK", log, fixed = TRUE)))
 })
+
+test_that("RZIG_ZIG_CACHE keeps the Zig cache outside the package", {
+  skip_on_cran()
+  skip_if_not(isTRUE(find_zig(required = FALSE)$supported), "no supported Zig compiler")
+  path <- local_package("cachepkg")
+  writeLines(c(
+    "Package: cachepkg", "Version: 0.0.1", "Title: Cache Test", "License: GPL-3",
+    "Description: Uses a persistent Zig cache.",
+    "Authors@R: person('A', 'B', email = 'a@example.org', role = c('aut', 'cre'))"
+  ), file.path(path, "DESCRIPTION"))
+  use_rzig(path)
+  cache <- tempfile("rzig-zig-cache-")
+  old <- Sys.getenv("RZIG_ZIG_CACHE", unset = NA)
+  Sys.setenv(RZIG_ZIG_CACHE = cache)
+  on.exit({
+    if (is.na(old)) Sys.unsetenv("RZIG_ZIG_CACHE") else Sys.setenv(RZIG_ZIG_CACHE = old)
+    unlink(cache, recursive = TRUE)
+  }, add = TRUE)
+  first <- build_zig(path)
+  expect_true(first$ok)
+  expect_true(length(list.files(cache, recursive = TRUE)) > 0L)
+  second <- build_zig(path)
+  expect_true(second$ok)
+})

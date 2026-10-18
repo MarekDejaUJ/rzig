@@ -27,6 +27,7 @@
     "905acae88b6bbad8e85058851c50f071",
     "b55ed8c9d7d4fa89a6df0b7bebaf8ce9",
     "c34e83ac4b525335d473658b9f8e7f5e",
+    "c614a0eece58fb051159740f31d01cd7",
     "c907c5f7c4d8c4935d6e49d0112b09ab"
   ),
   "Makevars.win" = c(
@@ -34,6 +35,7 @@
     "573e272a933fb88bac2cfb4bb09f4572",
     "5be809dbb12d60e74604d24835bb84f5",
     "6f3400dac516ed6ef1a5988d92242be5",
+    "796fc47f7d771c4062fe702e8be7004e",
     "a68a0fdbcdfdfcf80d98087e7039ed89",
     "b5729bf548d0253838d1a48f35ee82ae",
     "d1aafbf0a524c1a02917fdd58742c491",
