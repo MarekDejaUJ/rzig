@@ -261,12 +261,23 @@
     list(file = "cleanup", template = file.path(templates, "cleanup")),
     list(file = "cleanup.win", template = file.path(templates, "cleanup.win")),
     list(file = file.path("src", "Makevars.in"), template = file.path(templates, "Makevars")),
-    list(file = file.path("src", "Makevars.win.in"), template = file.path(templates, "Makevars.win"))
+    list(file = file.path("src", "Makevars.win.in"), template = file.path(templates, "Makevars.win")),
+    list(file = file.path("src", "entry.c"), template = file.path(templates, "entry.c"), package = package)
   )
 }
 
-.rzig_same_text <- function(a, b) {
-  identical(.rzig_normalize_newlines(.rzig_read_text(a)), .rzig_normalize_newlines(.rzig_read_text(b)))
+# Compare a file with a template. With `package`, the template's @PKG@
+# placeholder is replaced the way use_rzig() writes the file.
+.rzig_same_text <- function(a, b, package = NULL) {
+  expected <- .rzig_normalize_newlines(.rzig_read_text(b))
+  if (!is.null(package) && !is.null(expected)) {
+    expected <- gsub("@PKG@", .rzig_c_identifier(package), expected, fixed = TRUE)
+  }
+  identical(.rzig_normalize_newlines(.rzig_read_text(a)), expected)
+}
+
+.rzig_c_identifier <- function(package) {
+  gsub("[^A-Za-z0-9_]", "_", package)
 }
 
 .rzig_check_scaffold <- function(path, package) {
@@ -281,16 +292,31 @@
       "missing: ", paste(missing, collapse = ", "), "; run use_rzig()"
     )))
   }
+  # The framework sources must match the installed rzig: the R side of the
+  # boundary (scan, wrappers, checks) assumes them. The build files around them
+  # (build.zig, build.zig.zon, tools/*) are templates a package author may
+  # extend, like configure and the Makevars, so a difference is only a note.
   assets <- system.file("zig", package = "rzig")
   shipped <- list.files(assets, recursive = TRUE, all.files = TRUE)
-  shipped <- shipped[!grepl("^src/|^framework/generated/manifest\\.zig$", shipped)]
-  outdated <- shipped[!vapply(shipped, function(file) {
-    target <- file.path(path, "src", "rzig", file)
-    file.exists(target) && .rzig_same_text(target, file.path(assets, file))
+  framework_files <- shipped[startsWith(shipped, "framework/") &
+    shipped != "framework/generated/manifest.zig"]
+  zig_templates <- shipped[!startsWith(shipped, "framework/") & !startsWith(shipped, "src/")]
+  missing_framework <- framework_files[!file.exists(file.path(path, "src", "rzig", framework_files))]
+  outdated <- setdiff(framework_files, missing_framework)
+  outdated <- outdated[!vapply(outdated, function(file) {
+    .rzig_same_text(file.path(path, "src", "rzig", file), file.path(assets, file))
   }, logical(1L))]
+  missing_templates <- zig_templates[!file.exists(file.path(path, "src", "rzig", zig_templates))]
+  if (length(missing_framework) || length(missing_templates)) {
+    problems <- c(problems, paste0(
+      "missing: ",
+      paste(file.path("src", "rzig", c(missing_framework, missing_templates)), collapse = ", "),
+      "; run use_rzig(path, overwrite = TRUE)"
+    ))
+  }
   if (length(outdated)) {
     problems <- c(problems, sprintf(
-      "%d framework file%s differ%s from rzig %s (%s); run use_rzig(path, overwrite = TRUE), which keeps src/rzig/src",
+      "%d framework file%s differ%s from rzig %s (%s); run use_rzig(path, overwrite = TRUE), which keeps src/rzig/src and replaces the build files with the templates",
       length(outdated), if (length(outdated) == 1L) "" else "s",
       if (length(outdated) == 1L) "s" else "",
       as.character(utils::packageVersion("rzig")),
@@ -300,8 +326,15 @@
   if (!is.null(package)) {
     customized <- character()
     for (pair in .rzig_template_pairs(package)) {
-      if (!.rzig_same_text(file.path(path, pair$file), pair$template)) {
+      target <- file.path(path, pair$file)
+      if (file.exists(target) && !.rzig_same_text(target, pair$template, pair$package)) {
         customized <- c(customized, pair$file)
+      }
+    }
+    present_templates <- setdiff(zig_templates, missing_templates)
+    for (file in present_templates) {
+      if (!.rzig_same_text(file.path(path, "src", "rzig", file), file.path(assets, file))) {
+        customized <- c(customized, file.path("src", "rzig", file))
       }
     }
     if (length(customized)) {

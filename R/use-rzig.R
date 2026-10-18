@@ -98,7 +98,7 @@ use_rzig <- function(path, overwrite = FALSE) {
   }
 
   entry <- readLines(file.path(templates, "entry.c"), warn = FALSE)
-  entry <- gsub("@PKG@", gsub("[^A-Za-z0-9_]", "_", package), entry, fixed = TRUE)
+  entry <- gsub("@PKG@", .rzig_c_identifier(package), entry, fixed = TRUE)
   writeLines(entry, file.path(path, "src", "entry.c"), useBytes = TRUE)
 
   bindings <- document(path)

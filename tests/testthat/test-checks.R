@@ -81,6 +81,41 @@ test_that("framework files from another version and blocked scripts are reported
   expect_match(rzig:::.rzig_check_scaffold(path, "scaffoldpkg")$problems, "configure not executable")
 })
 
+test_that("customized build files are notes and missing ones are failures", {
+  path <- local_package("custompkg")
+  use_rzig(path)
+  zig_dir <- file.path(path, "src", "rzig")
+  zon <- file.path(zig_dir, "build.zig.zon")
+  writeLines(sub('.version = "0.0.1"', '.version = "0.1.0"', readLines(zon), fixed = TRUE), zon)
+  cat("// a package-specific build step\n", file = file.path(zig_dir, "build.zig"), append = TRUE)
+  cat("# local change\n", file = file.path(zig_dir, "tools", "repack_macos_archive.sh"), append = TRUE)
+  result <- rzig:::.rzig_check_scaffold(path, "custompkg")
+  expect_length(result$problems, 0L)
+  for (file in c("src/rzig/build.zig.zon", "src/rzig/build.zig", "src/rzig/tools/repack_macos_archive.sh")) {
+    expect_match(result$notes, file, fixed = TRUE)
+  }
+  unlink(file.path(zig_dir, "build.zig"))
+  expect_match(rzig:::.rzig_check_scaffold(path, "custompkg")$problems, "missing: src/rzig/build.zig", fixed = TRUE)
+})
+
+test_that("entry.c written by use_rzig matches its template for any package name", {
+  path <- local_package("entry.pkg")
+  use_rzig(path)
+  expect_true(any(grepl("R_init_entry_pkg", readLines(file.path(path, "src", "entry.c")), fixed = TRUE)))
+  result <- rzig:::.rzig_check_scaffold(path, "entry.pkg")
+  expect_length(result$problems, 0L)
+  expect_length(result$notes, 0L)
+  cat("/* local */\n", file = file.path(path, "src", "entry.c"), append = TRUE)
+  expect_match(rzig:::.rzig_check_scaffold(path, "entry.pkg")$notes, "src/entry.c", fixed = TRUE)
+})
+
+test_that("the example package of the repository passes the scaffold check", {
+  example <- testthat::test_path("..", "..", "examples", "rzigcausal")
+  skip_if_not(dir.exists(example), "the examples are only available in the repository")
+  result <- rzig:::.rzig_check_scaffold(normalizePath(example), "rzigcausal")
+  expect_length(result$problems, 0L)
+})
+
 test_that("use_rzig(overwrite = TRUE) keeps the package author's Zig source", {
   path <- local_package("keeppkg")
   use_rzig(path)

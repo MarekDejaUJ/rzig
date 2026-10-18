@@ -6,7 +6,9 @@
 #' * **DESCRIPTION**: the package name and a valid version.
 #' * **Scaffold**: the files written by [use_rzig()], framework sources that
 #'   match the installed rzig, and executable `configure` and `cleanup`
-#'   scripts.
+#'   scripts. Build files that differ from the rzig templates (`configure`,
+#'   the Makevars, `entry.c`, `build.zig`, `build.zig.zon`, `tools/`) are
+#'   noted, since a package may extend them.
 #' * **Zig source**: `src/rzig/src/main.zig` with the registration block and
 #'   the panic handler of rzig.
 #' * **Exports**: the exported functions found by [scan_exports()], with

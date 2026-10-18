@@ -1,3 +1,15 @@
+# rzig 0.3.2
+
+## Bug fixes
+
+- `rzig_status()` compares only the framework sources under
+  `src/rzig/framework` with the installed rzig. `build.zig`, `build.zig.zon`
+  and `src/rzig/tools/` are templates a package may extend, like `configure`
+  and the Makevars, so a difference is a note and no longer fails the
+  Scaffold check; `build_zig()` therefore builds packages with customized
+  build files. A missing build file still fails the check. `src/entry.c` is
+  compared with its template after the package name is substituted.
+
 # rzig 0.3.1
 
 ## Bug fixes
