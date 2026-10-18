@@ -121,7 +121,7 @@ stays clean, and reports compiler errors by file and line:
 ```{r build, eval = has_zig}
 build <- build_zig(path)
 build
-library(hellozig, lib.loc = build$library)
+library(build$package, character.only = TRUE, lib.loc = build$library)
 hello_zig("R")
 cumulative(c(1, 2, 3, 4))
 ```

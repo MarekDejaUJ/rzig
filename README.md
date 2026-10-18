@@ -13,6 +13,11 @@ bindings without C++ or hand-written `SEXP` conversion code.
   Zig changes its language and standard library between release series, so
   other versions are rejected with a message naming the version found.
 
+Code that has to build with both series is best formatted with the `zig fmt`
+of Zig 0.16: the formatter of Zig 0.17 rewrites `@intFromEnum` and
+`@enumFromInt` into the builtins `@backingInt` and `@fromBackingInt`, which
+Zig 0.16 does not have.
+
 `configure` compiles the Zig code for the platform of R: x86_64 or arm64
 macOS for the macOS version that R links for (`MACOSX_DEPLOYMENT_TARGET`, or
 that of `libR.dylib`), x86_64 or arm64 Linux with glibc or musl, and x86_64

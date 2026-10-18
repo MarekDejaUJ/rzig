@@ -125,8 +125,8 @@ document(clib)
 ```{r c-library-build, eval = has_zig}
 built <- build_zig(clib, lib = lib)
 built$ok
-clibpkg_smoothed <- getExportedValue(loadNamespace("clibpkg", lib.loc = lib), "smoothed")
-clibpkg_smoothed(c(0, 4, 0, 4))
+smoothed <- getExportedValue(loadNamespace(built$package, lib.loc = lib), "smoothed")
+smoothed(c(0, 4, 0, 4))
 ```
 
 ## A Zig module shared between packages
@@ -164,8 +164,9 @@ read.dcf(file.path(consumer, "DESCRIPTION"), fields = c("LinkingTo", "Config/rzi
 old_paths <- .libPaths()
 .libPaths(c(lib, old_paths))
 build_zig(provider, lib = lib)$ok
-build_zig(consumer, lib = lib)$ok
-twice_sum <- getExportedValue(loadNamespace("userpkg", lib.loc = lib), "twice_sum")
+consumer_build <- build_zig(consumer, lib = lib)
+consumer_build$ok
+twice_sum <- getExportedValue(loadNamespace(consumer_build$package, lib.loc = lib), "twice_sum")
 twice_sum(c(1, 2, 3))
 .libPaths(old_paths)
 ```
@@ -219,8 +220,9 @@ document(caller)
 old_paths <- .libPaths()
 .libPaths(c(lib, old_paths))
 build_zig(callee, lib = lib)$ok
-build_zig(caller, lib = lib)$ok
-clamped <- getExportedValue(loadNamespace("callerpkg", lib.loc = lib), "clamped")
+caller_build <- build_zig(caller, lib = lib)
+caller_build$ok
+clamped <- getExportedValue(loadNamespace(caller_build$package, lib.loc = lib), "clamped")
 clamped(c(-1, 0.5, 2))
 .libPaths(old_paths)
 ```

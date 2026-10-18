@@ -1,3 +1,18 @@
+# rzig 0.42.1
+
+## Bug fixes
+
+- A test of `create_rzig_package()` expected the compiler step of
+  `rzig_status()` to pass, which fails on machines without Zig, such as
+  CRAN's.
+- `digest`, the fallback of the Zig downloader for SHA-256 checksums on R
+  older than 4.5.0, is listed in `Suggests`.
+- The vignettes load the packages they build through the build result, so
+  R CMD check reports no undeclared packages.
+- CI checks the format of the Zig sources with Zig 0.16 only: the formatter of
+  Zig 0.17 rewrites `@intFromEnum` and `@enumFromInt` into builtins that Zig
+  0.16 lacks. The README says so for package authors.
+
 # rzig 0.42.0
 
 ## Documentation

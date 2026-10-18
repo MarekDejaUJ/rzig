@@ -1,7 +1,7 @@
 Package: rzig
 Type: Package
 Title: Safe Zig Bindings
-Version: 0.42.0
+Version: 0.42.1
 Authors@R: person("Marek", "Deja", email = "marek.deja@uj.edu.pl",
     role = c("aut", "cre"),
     comment = c(ORCID = "0000-0003-0015-2322"))
@@ -24,6 +24,7 @@ SystemRequirements: Zig 0.16.x or 0.17.x (https://ziglang.org/download/), needed
     install packages created with rzig
 NeedsCompilation: no
 Suggests:
+    digest,
     knitr,
     pkgload,
     rmarkdown,

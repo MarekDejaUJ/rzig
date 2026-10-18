@@ -160,7 +160,7 @@ without code of their own.
 
 ```{r build, eval = has_zig}
 build <- build_zig(path)
-library(parallelpkg, lib.loc = build$library)
+library(build$package, character.only = TRUE, lib.loc = build$library)
 squares(c(1, 2, 3))
 set.seed(1)
 x <- rnorm(1e5)

@@ -159,7 +159,7 @@ document(path)
 
 ```{r build, eval = has_zig && has_flibs}
 build <- build_zig(path)
-library(numericspkg, lib.loc = build$library)
+library(build$package, character.only = TRUE, lib.loc = build$library)
 all.equal(gamma_upper(c(0.5, 2)), pgamma(c(0.5, 2), shape = 2, lower.tail = FALSE))
 a <- crossprod(matrix(c(2, 1, 0, 1, 3, 1, 0, 1, 4), 3)) + diag(3)
 all.equal(chol_solve(a, c(1, 2, 3)), solve(a, c(1, 2, 3)))

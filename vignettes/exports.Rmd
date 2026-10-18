@@ -158,7 +158,7 @@ cat(readLines(file.path(path, "NAMESPACE")), sep = "\n")
 
 ```{r build, eval = has_zig}
 build <- build_zig(path)
-library(exportspkg, lib.loc = build$library)
+library(build$package, character.only = TRUE, lib.loc = build$library)
 shrink(c(-2, 0.2, 3))
 print(shrink(c(-2, 0.2, 3), amount = 1))
 weighted_mean(c(1, 2, 3), c(1, 1, 2))

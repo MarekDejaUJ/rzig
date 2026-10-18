@@ -14,8 +14,10 @@ test_that("create_rzig_package creates a documented package with tests", {
     "tests/testthat.R", "tests/testthat/test-hello-zig.R"
   )))))
   expect_false(file.exists(file.path(path, ".github")))
+  # The compiler and toolchain steps depend on the machine (CRAN has no Zig).
   status <- rzig_status(path)
-  expect_true(all(status$ok))
+  structural <- c("DESCRIPTION", "Scaffold", "Zig source", "Exports", "Bindings")
+  expect_true(all(status$ok[status$step %in% structural]))
   expect_error(create_rzig_package(path), "exists and is not empty")
 })
 

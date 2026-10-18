@@ -29,6 +29,7 @@ several levels, and a pull request is expected to pass all of them.
 zig build test            # Zig unit tests, with Zig 0.16 and 0.17
 zig build lint            # the one-error-exit and jump-resume rules
 sh tools/sync_fixture.sh --check
+# with Zig 0.16, whose format is the format of record
 zig fmt --check build.zig src tools tests/fixtures/rzigtest/src/rzig examples/rzigcausal/src/rzig
 ```
 
