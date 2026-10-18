@@ -1,7 +1,10 @@
 #' Scan the Zig source of a package for exported functions
 #'
 #' Reads `src/rzig/src/main.zig` and lists every public top-level Zig function
-#' whose documentation comment contains a line `/// @export`. The scan is pure
+#' whose documentation comment contains a line `/// @export`. A line
+#' `/// @export internal` registers the function and generates its R wrapper
+#' without exporting the wrapper from the package, for native routines that the
+#' package's own R code calls. The scan is pure
 #' R and needs no Zig compiler; the Zig compiler checks the parameter and
 #' return types when the package is installed.
 #'
@@ -18,10 +21,11 @@
 #'   `identifier` (the Zig identifier as written), `parameters` (the R
 #'   argument names), `parameter_types` (the Zig types of the R arguments),
 #'   `return_type` (the Zig return type as written), `doc` (the documentation
-#'   comment without the `@export` line) and `line` (the line of the
-#'   declaration). The attributes `package`, `path` and `source` record the
-#'   package name, its root and the scanned file. [as.data.frame()] turns the
-#'   object into a table with one row per function.
+#'   comment without the `@export` line), `line` (the line of the
+#'   declaration) and `internal` (`TRUE` for `/// @export internal`). The
+#'   attributes `package`, `path` and `source` record the package name, its
+#'   root and the scanned file. [as.data.frame()] turns the object into a
+#'   table with one row per function.
 #' @examples
 #' package_path <- tempfile("rzig-scan-", tmpdir = tempdir())
 #' dir.create(package_path)
@@ -74,10 +78,24 @@ scan_exports <- function(path) {
       next
     }
     bodies <- .rzig_doc_bodies(doc_lines)
-    marker <- trimws(bodies, whitespace = "[ \t\r]") == "@export"
+    trimmed <- trimws(bodies, whitespace = "[ \t\r]")
+    marker <- grepl("^@export([[:space:]]|$)", trimmed)
     if (!any(marker)) {
       next
     }
+    options <- trimws(sub("^@export", "", trimmed[marker]))
+    if (sum(marker) > 1L) {
+      stop(sprintf(
+        "%s:%d: more than one `/// @export` line above one function", source_path, index
+      ), call. = FALSE)
+    }
+    if (!options %in% c("", "internal")) {
+      stop(sprintf(
+        "%s:%d: unknown option `%s` after @export; use `/// @export` or `/// @export internal`",
+        source_path, index, options
+      ), call. = FALSE)
+    }
+    internal <- identical(options, "internal")
     doc <- paste(bodies[!marker], collapse = "\n")
 
     token <- regmatches(
@@ -109,7 +127,8 @@ scan_exports <- function(path) {
       parameter_types = parameter_types,
       return_type = signature$return_type,
       doc = doc,
-      line = index
+      line = index,
+      internal = internal
     )
   }
   exports
@@ -334,6 +353,17 @@ scan_exports <- function(path) {
 }
 
 #' @export
+`[.rzig_exports` <- function(x, i) {
+  structure(
+    unclass(x)[i],
+    class = "rzig_exports",
+    package = attr(x, "package", exact = TRUE),
+    path = attr(x, "path", exact = TRUE),
+    source = attr(x, "source", exact = TRUE)
+  )
+}
+
+#' @export
 as.data.frame.rzig_exports <- function(x, ...) {
   if (!length(x)) {
     return(data.frame(
@@ -341,6 +371,7 @@ as.data.frame.rzig_exports <- function(x, ...) {
       arguments = character(),
       return_type = character(),
       documented = logical(),
+      internal = logical(),
       line = integer(),
       stringsAsFactors = FALSE
     ))
@@ -350,10 +381,13 @@ as.data.frame.rzig_exports <- function(x, ...) {
     arguments = vapply(x, function(item) paste(item$parameters, collapse = ", "), character(1L)),
     return_type = vapply(x, function(item) item$return_type, character(1L)),
     documented = vapply(x, function(item) nzchar(item$doc), logical(1L)),
+    internal = vapply(x, .rzig_is_internal, logical(1L)),
     line = vapply(x, function(item) as.integer(item$line), integer(1L)),
     stringsAsFactors = FALSE
   )
 }
+
+.rzig_is_internal <- function(item) isTRUE(item$internal)
 
 #' @export
 print.rzig_exports <- function(x, ...) {
@@ -365,7 +399,8 @@ print.rzig_exports <- function(x, ...) {
     if (length(x) == 1L) "" else "s"
   ))
   for (item in x) {
-    cat("\n", item$name, "(", paste(item$parameters, collapse = ", "), ")\n", sep = "")
+    cat("\n", item$name, "(", paste(item$parameters, collapse = ", "), ")",
+      if (.rzig_is_internal(item)) "  [internal: not exported from the package]", "\n", sep = "")
     mutable <- FALSE
     for (position in seq_along(item$parameters)) {
       type <- item$parameter_types[[position]]

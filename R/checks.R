@@ -233,6 +233,7 @@
 .rzig_check_masking <- function(exports) {
   notes <- character()
   for (item in exports) {
+    if (.rzig_is_internal(item)) next
     for (package in .rzig_masking_packages) {
       names <- if (identical(package, "base")) {
         ls(baseenv(), all.names = TRUE)

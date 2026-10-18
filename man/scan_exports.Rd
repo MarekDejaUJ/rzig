@@ -15,14 +15,18 @@ exported function, each a list with \code{name} (the R function name),
 \code{identifier} (the Zig identifier as written), \code{parameters} (the R
 argument names), \code{parameter_types} (the Zig types of the R arguments),
 \code{return_type} (the Zig return type as written), \code{doc} (the documentation
-comment without the \verb{@export} line) and \code{line} (the line of the
-declaration). The attributes \code{package}, \code{path} and \code{source} record the
-package name, its root and the scanned file. \code{\link[=as.data.frame]{as.data.frame()}} turns the
-object into a table with one row per function.
+comment without the \verb{@export} line), \code{line} (the line of the
+declaration) and \code{internal} (\code{TRUE} for \verb{/// @export internal}). The
+attributes \code{package}, \code{path} and \code{source} record the package name, its
+root and the scanned file. \code{\link[=as.data.frame]{as.data.frame()}} turns the object into a
+table with one row per function.
 }
 \description{
 Reads \code{src/rzig/src/main.zig} and lists every public top-level Zig function
-whose documentation comment contains a line \verb{/// @export}. The scan is pure
+whose documentation comment contains a line \verb{/// @export}. A line
+\verb{/// @export internal} registers the function and generates its R wrapper
+without exporting the wrapper from the package, for native routines that the
+package's own R code calls. The scan is pure
 R and needs no Zig compiler; the Zig compiler checks the parameter and
 return types when the package is installed.
 }

@@ -242,3 +242,34 @@ test_that("printing a build warns about a package loaded in the session", {
   ), class = "rzig_build")
   expect_output(print(result), "already loaded in this session")
 })
+
+test_that("an internal routine is callable from the package but not exported", {
+  skip_on_cran()
+  skip_if_not(isTRUE(find_zig(required = FALSE)$supported), "no supported Zig compiler")
+  path <- local_package("internalpkg")
+  writeLines(c(
+    "Package: internalpkg", "Version: 0.0.1", "Title: Internal Routines", "License: GPL-3",
+    "Description: Calls an internal Zig routine from R.",
+    "Authors@R: person('A', 'B', email = 'a@example.org', role = c('aut', 'cre'))"
+  ), file.path(path, "DESCRIPTION"))
+  use_rzig(path)
+  main <- file.path(path, "src", "rzig", "src", "main.zig")
+  text <- readLines(main)
+  routine <- c("/// Double a value for the package's R code.", "/// @export internal",
+    "pub fn twice_internal(x: f64) f64 {", "    return 2 * x;", "}", "")
+  writeLines(append(text, routine, after = grep("^comptime", text) - 1L), main)
+  writeLines(c("#' Quadruple a value", "#' @param x A number.", "#' @export",
+    "quadruple <- function(x) twice_internal(twice_internal(x))"), file.path(path, "R", "quadruple.R"))
+  cat("export(quadruple)\n", file = file.path(path, "NAMESPACE"), append = TRUE)
+  document(path)
+  expect_true(rzig_status(path)$ok[rzig_status(path)$step == "Bindings"])
+  result <- build_zig(path)
+  expect_true(result$ok)
+  output <- run_r(paste(
+    sprintf("library(internalpkg, lib.loc = '%s')", result$library),
+    "stopifnot(quadruple(2) == 8, !exists('twice_internal'), internalpkg:::twice_internal(3) == 6)",
+    "stopifnot(.Call(internalpkg:::twice_internal_, 5) == 10, !'twice_internal' %in% getNamespaceExports('internalpkg'))",
+    "cat('internal ok')", sep = "; "))
+  expect_null(attr(output, "status"))
+  expect_match(as.character(output), "internal ok", fixed = TRUE)
+})

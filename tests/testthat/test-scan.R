@@ -50,7 +50,7 @@ test_that("documentation keeps every line except the export marker", {
 
 test_that("as.data.frame summarizes the exports", {
   table <- as.data.frame(edge_exports())
-  expect_identical(names(table), c("name", "arguments", "return_type", "documented", "line"))
+  expect_identical(names(table), c("name", "arguments", "return_type", "documented", "internal", "line"))
   expect_identical(nrow(table), 11L)
   expect_identical(table$arguments[[6L]], "data, labels, flag")
   expect_true(all(diff(table$line) > 0))
@@ -83,4 +83,29 @@ test_that("Zig string literals decode escapes", {
   expect_identical(rzig:::.rzig_decode_zig_string("\"a\\\"b\\\\c\\n\\t\""), "a\"b\\c\n\t")
   expect_identical(rzig:::.rzig_decode_zig_string("\"\\x41\\u{142}\""), "A\u0142")
   expect_error(rzig:::.rzig_decode_zig_string("\"\\q\""), "unsupported escape")
+})
+
+test_that("/// @export internal marks a registered routine that is not exported", {
+  source <- paste(
+    "/// A public function.", "/// @export", "pub fn shown(x: f64) f64 {", "    return x;", "}",
+    "", "/// A helper for the package's R code.", "/// @export internal",
+    "pub fn hidden(x: f64) f64 {", "    return x;", "}", "",
+    sep = "\n"
+  )
+  exports <- rzig:::.rzig_scan_text(source)
+  expect_identical(vapply(exports, function(item) item$internal, logical(1L)), c(FALSE, TRUE))
+  expect_identical(exports[[2L]]$doc, "A helper for the package's R code.")
+  expect_error(rzig:::.rzig_scan_text("/// @export hidden\npub fn f() void {}\n"), "unknown option `hidden`")
+  expect_error(rzig:::.rzig_scan_text("/// @export\n/// @export internal\npub fn f() void {}\n"), "more than one")
+  frame <- as.data.frame(structure(exports, class = "rzig_exports"))
+  expect_identical(frame$internal, c(FALSE, TRUE))
+})
+
+test_that("subsetting the exports keeps the class and the attributes", {
+  exports <- edge_exports()
+  first <- exports[1:2]
+  expect_s3_class(first, "rzig_exports")
+  expect_length(first, 2L)
+  expect_identical(attr(first, "package"), attr(exports, "package"))
+  expect_output(print(first), "2 functions")
 })

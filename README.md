@@ -192,6 +192,27 @@ generated Makevars and Zig build caches after package installation and checks.
 hand-written `src/Makevars`, because the generated build compiles only the Zig
 sources and `src/entry.c`.
 
+## Internal routines
+
+A native routine that only the package's own R code calls is marked
+`/// @export internal`. It is registered and gets an R wrapper, but the
+wrapper is not exported from the package and gets no help page:
+
+```zig
+/// Fit the penalized model for the R function fit_model().
+/// @export internal
+pub fn fit_model_zig(ctx: *rzig.Ctx, x: rzig.Matrix, y: []const f64) rzig.Error![]f64 {
+    ...
+}
+```
+
+```r
+fit_model <- function(x, y) {
+  stopifnot(is.matrix(x), is.numeric(y))
+  fit_model_zig(x, as.double(y))
+}
+```
+
 ## Updating rzig in a package
 
 After installing a new version of rzig, bring a package up to date with

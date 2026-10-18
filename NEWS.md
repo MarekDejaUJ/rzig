@@ -1,3 +1,18 @@
+# rzig 0.5.0
+
+## New features
+
+- A doc line `/// @export internal` marks a native routine that only the
+  package's own R code calls: it is registered and gets an R wrapper and a
+  native symbol (`<name>_`), but the wrapper is not exported from the package
+  and gets no help page. Packages no longer need to patch the generated
+  manifest and `NAMESPACE` for such routines.
+- Only `/// @export` and `/// @export internal` are accepted; any other
+  option, or a second `@export` line above one function, is an error of the
+  scan with the file and line.
+- `scan_exports()` records `internal`, `as.data.frame()` shows it, and
+  subsetting the result (`exports[1:2]`) keeps its class.
+
 # rzig 0.4.0
 
 ## New features

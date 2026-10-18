@@ -98,7 +98,9 @@ rzig_status <- function(path, build = FALSE, lib = NULL) {
       types <- .rzig_check_exports(exports)
       conflicts <- .rzig_check_r_conflicts(path, exports)
       masking <- .rzig_check_masking(exports)
-      names <- vapply(exports, function(item) item$name, character(1L))
+      names <- vapply(exports, function(item) {
+        if (.rzig_is_internal(item)) paste(item$name, "(internal)") else item$name
+      }, character(1L))
       add(
         "Exports", c(types$problems, conflicts$problems),
         paste0(
