@@ -345,6 +345,27 @@ test_that("malformed inputs always become R errors and the session stays alive",
   expect_gte(calls, 100L)
 })
 
+test_that("S4 objects and classed vectors follow the type of their data", {
+  probe <- methods::setClass("RzigProbe", representation(x = "numeric"), where = environment())
+  numeric_s4 <- methods::setClass("RzigNumeric", contains = "numeric", where = environment())
+  object <- probe(x = c(1, 2))
+  expect_true(isS4(object))
+  expect_error_live(function() echo_f64(object), c("argument 1", "echo_f64"))
+  expect_error_live(function() echo_reals(object), c("numeric vector"))
+  expect_error_live(function() integer_length(object), c("integer vector"))
+  expect_error_live(function() logical_count(object), c("logical vector"))
+  expect_error_live(function() echo_string(object), c("character vector"))
+  expect_error_live(function() add_vectors(object, c(1, 2)), c("numeric vector"))
+  expect_identical(identity_sexp(object), object)
+  # An S4 object whose data part is a double vector is a double vector.
+  expect_identical(echo_reals(numeric_s4(c(1.5, 2.5))), c(1.5, 2.5))
+  # Attributes of classed vectors are not carried into Zig.
+  expect_identical(echo_reals(structure(c(1.5, 2.5), class = "units")), c(1.5, 2.5))
+  expect_identical(echo_reals(as.Date("2026-01-01")), as.numeric(as.Date("2026-01-01")))
+  expect_error_live(function() echo_reals(data.frame(a = 1)), c("numeric vector"))
+  expect_identical(echo_i32(11L), 11L)
+})
+
 test_that("byte-encoded strings fail safely if R cannot translate them", {
   bytes <- rawToChar(as.raw(255L))
   Encoding(bytes) <- "bytes"

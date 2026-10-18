@@ -1,3 +1,14 @@
+# rzig 0.3.8
+
+## Tests
+
+- The hostile-input suite (`tests/abuse.R` and the test package) passes S4
+  objects, an S4 class whose data part is a double vector, classed vectors
+  (a units-like class and `Date`) and a data frame to every typed parameter
+  and checks that each call ends in an R error naming the argument or
+  converts the data part, and that `rzig.Sexp` returns the S4 object
+  unchanged.
+
 # rzig 0.3.7
 
 ## Bug fixes
