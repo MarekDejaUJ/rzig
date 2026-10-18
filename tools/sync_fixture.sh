@@ -52,14 +52,16 @@ for framework_dir in $framework_dirs; do
 done
 
 repack_source="$repo_dir/tools/repack_macos_archive.sh"
-repack_fixture="$repo_dir/tests/fixtures/rzigtest/src/rzig/tools/repack_macos_archive.sh"
-if test "$mode" = "--write"; then
-    cp "$repack_source" "$repack_fixture"
-    chmod +x "$repack_fixture"
-elif ! cmp -s "$repack_source" "$repack_fixture"; then
-    printf '%s\n' 'fixture copy is stale: tools/repack_macos_archive.sh' >&2
-    failed=1
-fi
+for repack_fixture in "$repo_dir/tests/fixtures/rzigtest/src/rzig/tools/repack_macos_archive.sh" \
+                      "$repo_dir/examples/rzigcausal/src/rzig/tools/repack_macos_archive.sh"; do
+    if test "$mode" = "--write"; then
+        cp "$repack_source" "$repack_fixture"
+        chmod +x "$repack_fixture"
+    elif ! cmp -s "$repack_source" "$repack_fixture"; then
+        printf 'copy is stale: %s\n' "$repack_fixture" >&2
+        failed=1
+    fi
+done
 
 for relative in configure configure.win; do
     source_file="$repo_dir/inst/templates/$relative"

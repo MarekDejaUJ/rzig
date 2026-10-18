@@ -68,6 +68,17 @@ chmod +x "$test_dir/configure" "$test_dir/configure.win" \
 require_text "$test_dir/src/Makevars" "ZIG = $test_dir/fake tools/zig"
 require_text "$test_dir/src/Makevars" 'ZIG_TARGET_ARG = -Dtarget=x86_64-linux-gnu'
 require_text "$test_dir/src/Makevars" "R_INCLUDE_DIR = $test_dir/fake-r/include"
+(
+    cd "$test_dir"
+    FAKE_ZIG_VERSION=0.16.0 \
+    FAKE_R_HOME="$test_dir/fake-r" \
+    FAKE_R_INCLUDE=/usr/share/R/include \
+    R_HOME="$test_dir/fake-r" \
+    ZIG="$test_dir/fake tools/zig" \
+    RZIG_CONFIGURE_PLATFORM=Linux \
+        sh ./configure >/dev/null
+)
+require_text "$test_dir/src/Makevars" "R_INCLUDE_DIR = /usr/share/R/include"
 if grep -E -q -- '@[A-Z_]+@' "$test_dir/src/Makevars"; then
     printf '%s\n' 'configure left an unsubstituted Makevars placeholder' >&2
     exit 1

@@ -14,14 +14,14 @@ all: $(SHLIB)
 $(SHLIB): $(STATLIB)
 
 entry.o: entry.c
-	$(CC) $(ALL_CPPFLAGS) $(CPICFLAGS) -O2 -Wall -pedantic \
+	$(CC) $(ALL_CPPFLAGS) $(ALL_CFLAGS) \
 	  -c entry.c -o entry.o
 
 $(STATLIB): FORCE
 	cd $(ZIG_DIR) && \
 	ZIG_GLOBAL_CACHE_DIR="$(CURDIR)/$(ZIG_DIR)/.zig-global-cache" \
 	"$(ZIG)" build \
-	  --release=safe \
+	  --release=safe -j2 \
 	  $(ZIG_TARGET_ARG) \
 	  -Dpkg=$(R_PACKAGE_NAME) \
 	  -Dr-include="$(R_INCLUDE_DIR)" \

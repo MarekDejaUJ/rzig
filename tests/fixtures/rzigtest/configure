@@ -57,7 +57,12 @@ if test -z "$r_bin"; then
     exit 1
 fi
 r_home=$("$r_bin" RHOME)
-r_include_dir=$r_home/include
+# Ask R for its include directory: Linux distributions can install the R
+# headers outside R_HOME (for example /usr/share/R/include).
+r_include_dir=$("$r_bin" --no-echo --vanilla -e 'cat(R.home("include"))' 2>/dev/null) || r_include_dir=
+if test -z "$r_include_dir"; then
+    r_include_dir=$r_home/include
+fi
 r_cc=$("$r_bin" CMD config CC)
 
 machine=$(uname -m)

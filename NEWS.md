@@ -1,3 +1,19 @@
+# rzig 0.3.5
+
+## Build files
+
+- The generated Makevars compile `src/entry.c` with R's compiler flags
+  (`$(ALL_CFLAGS)`), so the flags of the R installation and of CRAN's check
+  configurations reach it; the fixed `-O2 -Wall -pedantic` is gone.
+- `zig build` runs with `-j2`, within CRAN's limit of two cores during
+  checks.
+- `configure` asks R for its include directory (`R.home("include")`), which
+  Linux distributions can place outside `R_HOME`, and falls back to
+  `R_HOME/include`.
+- The macOS repack script points `TMPDIR` at its own temporary directory, so
+  a cache written by the Apple tool shims (`xcrun_db`) is removed with it and
+  does not appear as detritus in `R CMD check`.
+
 # rzig 0.3.4
 
 ## Documentation
