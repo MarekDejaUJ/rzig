@@ -1,3 +1,19 @@
+# rzig 0.3.9
+
+## Bug fixes
+
+- `use_rzig()` stops with an explanation when the package already has a
+  hand-written `src/Makevars` or `src/Makevars.win` (which `configure` would
+  overwrite and `cleanup` would remove, so that its settings silently
+  disappeared from the built package) or C, C++ or Fortran sources in `src/`
+  (which the generated Makevars do not compile).
+- `rzig_status()` reports such sources and Makevars files in the Scaffold
+  check. A source whose object file a customized `src/Makevars.in` lists
+  counts as handled.
+- `document()` removes a `useDynLib(<pkg>, .registration = TRUE, .fixes =
+  "C_")` line only when the old wrapper file shows that rzig 0.1 wrote it; a
+  package author's own directive stays in `NAMESPACE`.
+
 # rzig 0.3.8
 
 ## Tests

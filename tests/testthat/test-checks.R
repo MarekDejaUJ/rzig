@@ -187,3 +187,43 @@ test_that("use_rzig lists the Zig sources for pkgbuild and keeps other entries",
   matches <- Sys.glob(file.path(path, rzig:::.rzig_extra_sources))
   expect_length(matches, length(rzig:::.rzig_extra_sources))
 })
+
+test_that("use_rzig stops on a hand-written Makevars and on other compiled sources", {
+  path <- local_package("mkpkg")
+  dir.create(file.path(path, "src"))
+  writeLines("PKG_LIBS = -lm", file.path(path, "src", "Makevars"))
+  expect_error(use_rzig(path), "src/Makevars exists", fixed = TRUE)
+  unlink(file.path(path, "src", "Makevars"))
+  writeLines("int extra_one(void) { return 1; }", file.path(path, "src", "extra.c"))
+  expect_error(use_rzig(path), "extra.c", fixed = TRUE)
+  unlink(file.path(path, "src", "extra.c"))
+  suppressMessages(use_rzig(path))
+  file.copy(file.path(path, "src", "Makevars.in"), file.path(path, "src", "Makevars"))
+  expect_length(rzig:::.rzig_check_scaffold(path, "mkpkg")$problems, 0L)
+  writeLines("PKG_LIBS = -lm", file.path(path, "src", "Makevars"))
+  expect_match(rzig:::.rzig_check_scaffold(path, "mkpkg")$problems, "written by hand", fixed = TRUE)
+  unlink(file.path(path, "src", "Makevars"))
+  writeLines("int extra_one(void) { return 1; }", file.path(path, "src", "extra.c"))
+  expect_match(rzig:::.rzig_check_scaffold(path, "mkpkg")$problems,
+    "not compiled by the rzig build: src/extra.c", fixed = TRUE)
+  cat("OBJECTS += extra.o\n", file = file.path(path, "src", "Makevars.in"), append = TRUE)
+  expect_false(any(grepl("not compiled", rzig:::.rzig_check_scaffold(path, "mkpkg")$problems)))
+})
+
+test_that("document keeps a useDynLib directive unless rzig 0.1 wrote it", {
+  path <- local_package("dynpkg")
+  directive <- 'useDynLib(dynpkg, .registration = TRUE, .fixes = "C_")'
+  writeLines(c(directive, "export(other)"), file.path(path, "NAMESPACE"))
+  suppressMessages(use_rzig(path))
+  expect_true(directive %in% readLines(file.path(path, "NAMESPACE")))
+  legacy <- local_package("legacypkg")
+  writeLines(c('useDynLib(legacypkg, .registration = TRUE, .fixes = "C_")', "export(hello_zig)"),
+    file.path(legacy, "NAMESPACE"))
+  dir.create(file.path(legacy, "R"))
+  writeLines(c("hello_zig <- function(name) {", "  .Call(C_hello_zig, name)", "}"),
+    file.path(legacy, "R", "rzig-wrappers.R"))
+  suppressMessages(use_rzig(legacy, overwrite = TRUE))
+  namespace <- readLines(file.path(legacy, "NAMESPACE"))
+  expect_false(any(grepl(".fixes", namespace, fixed = TRUE)))
+  expect_identical(sum(grepl("hello_zig", namespace, fixed = TRUE)), 2L)
+})

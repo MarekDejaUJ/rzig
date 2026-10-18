@@ -343,6 +343,20 @@
       ))
     }
   }
+  foreign <- .rzig_foreign_sources(path)
+  if (length(foreign)) {
+    problems <- c(problems, paste0(
+      "not compiled by the rzig build: ", paste(file.path("src", foreign), collapse = ", "),
+      "; the generated Makevars build the Zig sources and src/entry.c only"
+    ))
+  }
+  makevars <- .rzig_foreign_makevars(path)
+  if (length(makevars)) {
+    problems <- c(problems, paste0(
+      paste(makevars, collapse = " and "), " written by hand: configure overwrites ",
+      "it and cleanup removes it; move its settings into the .in templates"
+    ))
+  }
   if (.Platform$OS.type != "windows") {
     scripts <- c("configure", "cleanup")
     blocked <- scripts[file.access(file.path(path, scripts), mode = 1L) != 0L]

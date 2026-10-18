@@ -90,11 +90,17 @@
   if (length(starts) == 1L) {
     existing <- existing[-seq.int(starts, ends)]
   } else {
+    # rzig 0.1 wrote `useDynLib(<pkg>, .registration = TRUE, .fixes = "C_")`
+    # and wrappers calling `.Call(C_<name>, ...)`. Remove that directive only
+    # when the old wrapper file shows it was rzig's; a package author's own
+    # directive for C routines stays.
     legacy <- sprintf(
       "useDynLib(%s, .registration = TRUE, .fixes = \"C_\")",
       package
     )
-    existing <- existing[trimws(existing) != legacy]
+    if (any(grepl(".Call(C_", old_wrapper, fixed = TRUE))) {
+      existing <- existing[trimws(existing) != legacy]
+    }
 
     wrapper_matches <- regexec(
       "^([A-Za-z.][A-Za-z0-9._]*)[[:space:]]*<-[[:space:]]*function\\(",
@@ -241,4 +247,33 @@
   missing <- setdiff(.rzig_buildignore_entries, existing)
   if (length(missing)) writeLines(c(existing, missing), file)
   invisible(file)
+}
+
+# Compiled sources in src/ that the rzig build does not compile: the generated
+# Makevars build the Zig library and src/entry.c only. A source whose object
+# file is listed in a customized src/Makevars.in is considered handled.
+.rzig_foreign_sources <- function(path) {
+  sources <- list.files(file.path(path, "src"),
+    pattern = "\\.(c|cc|cpp|cxx|C|f|f90|f95|m|mm|M)$", full.names = FALSE)
+  sources <- setdiff(sources, "entry.c")
+  if (!length(sources)) return(character())
+  makevars <- .rzig_read_text(file.path(path, "src", "Makevars.in")) %||% ""
+  objects <- sub("\\.[^.]+$", ".o", sources)
+  sources[!vapply(objects, function(object) grepl(object, makevars, fixed = TRUE), logical(1L))]
+}
+
+# A src/Makevars or src/Makevars.win written by the package author. configure
+# generates both from the .in templates during installation, keeping their
+# first line, so a file without its template or with another first line is
+# the author's.
+.rzig_foreign_makevars <- function(path) {
+  files <- c("Makevars", "Makevars.win")
+  first_line <- function(text) strsplit(.rzig_normalize_newlines(text), "\n", fixed = TRUE)[[1L]][1L]
+  foreign <- vapply(files, function(file) {
+    text <- .rzig_read_text(file.path(path, "src", file))
+    if (is.null(text)) return(FALSE)
+    template <- .rzig_read_text(file.path(path, "src", paste0(file, ".in")))
+    is.null(template) || !identical(first_line(text), first_line(template))
+  }, logical(1L))
+  file.path("src", files[foreign])
 }

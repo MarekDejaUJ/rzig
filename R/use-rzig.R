@@ -52,6 +52,26 @@ use_rzig <- function(path, overwrite = FALSE) {
     stop("the installed rzig package is missing its scaffold assets", call. = FALSE)
   }
 
+  makevars <- .rzig_foreign_makevars(path)
+  if (length(makevars)) {
+    stop(
+      paste(makevars, collapse = " and "), " exists. rzig writes src/Makevars and src/Makevars.win ",
+      "from src/Makevars.in and src/Makevars.win.in during installation and removes them in ",
+      "cleanup. Delete ", paste(makevars, collapse = " and "), ", run use_rzig() again, and move ",
+      "its settings (for example PKG_LIBS) into src/Makevars.in and src/Makevars.win.in",
+      call. = FALSE
+    )
+  }
+  foreign <- .rzig_foreign_sources(path)
+  if (length(foreign)) {
+    stop(
+      "src/ contains compiled sources that the rzig build does not compile: ",
+      paste(foreign, collapse = ", "), ". The generated Makevars build the Zig sources and ",
+      "src/entry.c only; keep those sources in another package, or port them to Zig",
+      call. = FALSE
+    )
+  }
+
   managed <- .rzig_managed_files
   conflicts <- managed[file.exists(file.path(path, managed))]
   if (length(conflicts) && !overwrite) {
