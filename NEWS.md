@@ -1,3 +1,11 @@
+# rzig 0.42.2
+
+## Bug fixes
+
+- The test package of the repository suggests `bit64`, which its integer64
+  tests use, and skips the worker-panic test under Valgrind as it skips the
+  panic test of the calling thread.
+
 # rzig 0.42.1
 
 ## Bug fixes

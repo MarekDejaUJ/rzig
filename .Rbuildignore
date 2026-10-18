@@ -20,11 +20,6 @@
 ^tools$
 ^zig-out$
 ^docs$
-^PROMPT\.md$
-^AGENTS\.md$
-^CLAUDE\.md$
-^\.claude$
-^\.codex$
 ^cran-comments\.md$
 ^v40i08\.pdf$
 ^\.Rproj\.user$

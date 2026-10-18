@@ -58,6 +58,10 @@ test_that("random streams follow set.seed() and not the number of threads", {
 })
 
 test_that("a panic on a worker becomes an R error and the session continues", {
+  skip_if(
+    identical(Sys.getenv("RZIG_RUNNING_UNDER_VALGRIND"), "true"),
+    "Valgrind cannot resume from an intentional Zig safety trap"
+  )
   expect_error(parallel_out_of_bounds(as.numeric(1:1000)), "a parallel worker failed and its work was abandoned: index out of bounds")
   expect_identical(parallel_sum(c(1, 2, 3)), 6)
   expect_identical(parallel_count(1000), 1000)
