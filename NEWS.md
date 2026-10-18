@@ -1,3 +1,17 @@
+# rzig 0.3.6
+
+## Compiler search
+
+- Without `ZIG`, `find_zig()` and the generated `configure` use the first
+  compiler of a supported release series among the `PATH` and the usual
+  install locations (`~/.local/share/zig/*/zig`, `~/zig/zig`), so an old
+  `zig` on the `PATH` no longer hides a supported one. When none is
+  supported, the first compiler found is reported with the reason, and
+  `find_zig()` lists the others. An explicit `ZIG` is used as given.
+- Development builds of Zig (for example `0.17.0-dev.12+abcdef`) are
+  rejected with a message saying so: their language and standard library can
+  differ from the release of the same series.
+
 # rzig 0.3.5
 
 ## Build files

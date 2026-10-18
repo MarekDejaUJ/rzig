@@ -16,10 +16,11 @@ or \code{NULL}), \code{version} (character or \code{NULL}), \code{supported} (lo
 \code{series} (the supported release series, \code{"0.16.x or 0.17.x"}).
 }
 \description{
-Searches the environment variable \code{ZIG}, the \code{PATH},
-\verb{~/.local/share/zig/*/zig} and \verb{~/zig/zig}, in that order, and reports the
-first Zig executable found, its version and whether rzig supports that
-version. rzig itself runs without Zig: \code{\link[=use_rzig]{use_rzig()}}, \code{\link[=scan_exports]{scan_exports()}} and
+Uses the compiler named by the environment variable \code{ZIG} when it is set.
+Otherwise searches the \code{PATH}, \verb{~/.local/share/zig/*/zig} and \verb{~/zig/zig},
+in that order, and reports the first compiler of a supported release
+series; when none is supported, it reports the first compiler found and why
+it is rejected. rzig itself runs without Zig: \code{\link[=use_rzig]{use_rzig()}}, \code{\link[=scan_exports]{scan_exports()}} and
 \code{\link[=document]{document()}} are pure R. A Zig compiler of the supported release series is
 needed to install a package created with \code{\link[=use_rzig]{use_rzig()}}.
 }
@@ -27,7 +28,9 @@ needed to install a package created with \code{\link[=use_rzig]{use_rzig()}}.
 rzig supports the Zig 0.16 and 0.17 release series (versions
 \verb{0.16.x} and \verb{0.17.x}). Zig changes its language and standard library
 between release series, so a newer or older compiler is reported as
-unsupported.
+unsupported. Development builds such as \verb{0.17.0-dev.1234+abcdef} are
+unsupported too: their language and standard library can differ from the
+release.
 }
 \examples{
 find_zig(required = FALSE)

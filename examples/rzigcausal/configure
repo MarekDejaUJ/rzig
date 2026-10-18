@@ -3,47 +3,88 @@ set -eu
 
 ZIG_SERIES="0.16 0.17"
 
-zig_path=${ZIG:-}
-if test -n "$zig_path" && test ! -x "$zig_path"; then
-    printf 'ZIG does not name an executable: %s\n' "$zig_path" >&2
-    exit 1
-fi
-if test -z "$zig_path"; then
-    zig_path=$(command -v zig || true)
-fi
-if test -z "$zig_path" && test -n "${HOME:-}"; then
-    for candidate in "$HOME/.local/share/zig/"*/zig "$HOME/zig/zig"; do
-        if test -x "$candidate"; then
-            zig_path=$candidate
-            break
-        fi
-    done
-fi
-if test -z "$zig_path"; then
-    printf '%s\n' \
-        "Zig 0.16.x or 0.17.x is required to install this package." \
-        "Download it from https://ziglang.org/download/, add it to PATH," \
-        "or reinstall with ZIG=/absolute/path/to/zig." >&2
-    exit 1
-fi
-
-zig_version=$("$zig_path" version) || {
-    printf 'could not run Zig at %s\n' "$zig_path" >&2
-    exit 1
+# A Zig release of a supported series: exactly MAJOR.MINOR.PATCH, so that
+# development builds (0.17.0-dev.N+hash) are rejected.
+zig_supported() {
+    awk -v got="$1" -v series="$ZIG_SERIES" 'BEGIN {
+        if (got !~ /^[0-9]+\.[0-9]+\.[0-9]+$/) exit 1
+        split(got, g, ".")
+        n = split(series, list, " ")
+        for (i = 1; i <= n; i++) {
+            if (split(list[i], s, ".") < 2) continue
+            if ((g[1] + 0) == (s[1] + 0) && (g[2] + 0) == (s[2] + 0)) exit 0
+        }
+        exit 1
+    }'
 }
-if ! awk -v got="$zig_version" -v series="$ZIG_SERIES" 'BEGIN {
-    if (split(got, g, ".") < 3) exit 1
-    if (g[1] !~ /^[0-9]+$/ || g[2] !~ /^[0-9]+$/) exit 1
-    n = split(series, list, " ")
-    for (i = 1; i <= n; i++) {
-        if (split(list[i], s, ".") < 2) continue
-        if ((g[1] + 0) == (s[1] + 0) && (g[2] + 0) == (s[2] + 0)) exit 0
-    }
-    exit 1
-}'; then
-    printf 'Zig %s found at %s, but this package requires Zig 0.16.x or 0.17.x.\n' "$zig_version" "$zig_path" >&2
+
+zig_rejected() {
+    case "$2" in
+        *-*) build_kind='a development build' ;;
+        *) build_kind='an unsupported release series' ;;
+    esac
+    printf 'Zig %s found at %s is %s; this package requires a Zig 0.16.x or 0.17.x release.\n' "$2" "$1" "$build_kind" >&2
     printf '%s\n' 'Download a supported release from https://ziglang.org/download/ and set ZIG=/absolute/path/to/zig.' >&2
-    exit 1
+}
+
+zig_path=
+zig_version=
+if test -n "${ZIG:-}"; then
+    # An explicit ZIG is used as given.
+    if test ! -x "$ZIG"; then
+        printf 'ZIG does not name an executable: %s\n' "$ZIG" >&2
+        exit 1
+    fi
+    zig_version=$("$ZIG" version) || {
+        printf 'could not run Zig at %s\n' "$ZIG" >&2
+        exit 1
+    }
+    if ! zig_supported "$zig_version"; then
+        zig_rejected "$ZIG" "$zig_version"
+        exit 1
+    fi
+    zig_path=$ZIG
+else
+    # Otherwise the first supported compiler among PATH and the usual install
+    # locations is used, so an old zig on PATH does not hide a supported one.
+    first_path=
+    first_version=
+    try_candidate() {
+        test -x "$1" || return 1
+        candidate_version=$("$1" version 2>/dev/null) || return 1
+        if test -z "$first_path"; then
+            first_path=$1
+            first_version=$candidate_version
+        fi
+        if zig_supported "$candidate_version"; then
+            zig_path=$1
+            zig_version=$candidate_version
+            return 0
+        fi
+        return 1
+    }
+    path_zig=$(command -v zig || true)
+    if test -z "$path_zig" || ! try_candidate "$path_zig"; then
+        if test -n "${HOME:-}"; then
+            for candidate in "$HOME/.local/share/zig/"*/zig "$HOME/.local/share/zig/"*/zig.exe \
+                             "$HOME/zig/zig" "$HOME/zig/zig.exe"; do
+                if try_candidate "$candidate"; then
+                    break
+                fi
+            done
+        fi
+    fi
+    if test -z "$zig_path"; then
+        if test -n "$first_path"; then
+            zig_rejected "$first_path" "$first_version"
+        else
+            printf '%s\n' \
+                "Zig 0.16.x or 0.17.x is required to install this package." \
+                "Download it from https://ziglang.org/download/, add it to PATH," \
+                "or reinstall with ZIG=/absolute/path/to/zig." >&2
+        fi
+        exit 1
+    fi
 fi
 
 r_bin=

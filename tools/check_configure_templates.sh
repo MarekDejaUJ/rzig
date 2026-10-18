@@ -84,7 +84,7 @@ if grep -E -q -- '@[A-Z_]+@' "$test_dir/src/Makevars"; then
     exit 1
 fi
 
-for unsupported in 0.15.2 0.18.0-dev.1234+abcdef 1.0.0; do
+for unsupported in 0.15.2 0.18.0-dev.1234+abcdef 1.0.0 0.17.0-dev.12+abcdef 0.16.0-rc1; do
     if (
         cd "$test_dir"
         FAKE_ZIG_VERSION=$unsupported \
@@ -110,6 +110,38 @@ for supported in 0.16.7 0.17.0 0.17.3; do
             sh ./configure >/dev/null
     )
 done
+
+# Without ZIG, an unsupported zig on PATH must not hide a supported one in the
+# usual install locations.
+mkdir -p "$test_dir/path bin" "$test_dir/home/.local/share/zig/zig-0.16.1"
+printf '#!/bin/sh\nprintf "%%s\\n" 0.15.2\n' > "$test_dir/path bin/zig"
+printf '#!/bin/sh\nprintf "%%s\\n" 0.16.1\n' > "$test_dir/home/.local/share/zig/zig-0.16.1/zig"
+chmod +x "$test_dir/path bin/zig" "$test_dir/home/.local/share/zig/zig-0.16.1/zig"
+(
+    cd "$test_dir"
+    unset ZIG
+    PATH="$test_dir/path bin:$PATH" \
+    HOME="$test_dir/home" \
+    FAKE_R_HOME="$test_dir/fake-r" \
+    R_HOME="$test_dir/fake-r" \
+    RZIG_CONFIGURE_PLATFORM=Linux \
+        sh ./configure >/dev/null
+)
+require_text "$test_dir/src/Makevars" "ZIG = $test_dir/home/.local/share/zig/zig-0.16.1/zig"
+if (
+    cd "$test_dir"
+    unset ZIG
+    PATH="$test_dir/path bin:$PATH" \
+    HOME="$test_dir/empty-home" \
+    FAKE_R_HOME="$test_dir/fake-r" \
+    R_HOME="$test_dir/fake-r" \
+    RZIG_CONFIGURE_PLATFORM=Linux \
+        sh ./configure > "$test_dir/reject.out" 2>&1
+); then
+    printf '%s\n' 'configure accepted Zig 0.15.2 from PATH' >&2
+    exit 1
+fi
+require_text "$test_dir/reject.out" "Zig 0.15.2 found at $test_dir/path bin/zig is an unsupported release series"
 
 (
     cd "$test_dir"
