@@ -127,6 +127,15 @@ rzig_status <- function(path, build = FALSE, lib = NULL) {
       grepl(bindings$namespace, namespace, fixed = TRUE)
     }
     if (!namespace_current) stale <- c(stale, "NAMESPACE")
+    if (!roxygen) {
+      pages <- .rzig_rd_pages(exports)
+      for (file in names(pages)) {
+        target <- file.path(path, "man", file)
+        if (file.exists(target) && !.rzig_rd_generated(target)) next
+        current <- .rzig_normalize_newlines(.rzig_read_text(target))
+        if (!identical(current, pages[[file]])) stale <- c(stale, file.path("man", file))
+      }
+    }
     add(
       "Bindings",
       if (length(stale)) paste0("out of date: ", paste(stale, collapse = ", "), "; run document()"),

@@ -17,8 +17,12 @@ with the element \code{files} naming the files written, invisibly.
 Scans the Zig source of the package with \code{\link[=scan_exports]{scan_exports()}}, renders the
 bindings with \code{\link[=render_bindings]{render_bindings()}}, and writes them: the Zig manifest
 \code{src/rzig/framework/generated/manifest.zig}, the R wrappers
-\code{R/rzig-wrappers.R}, and a managed block in \code{NAMESPACE}. Lines of
-\code{NAMESPACE} outside the block are kept. The function is pure R; no Zig
+\code{R/rzig-wrappers.R}, a managed block in \code{NAMESPACE}, and a help page
+\verb{man/<name>.Rd} for every exported function, written from its Zig doc
+comment (the first paragraph is the title and description; \verb{@param},
+\verb{@return}, \verb{@examples}, \verb{@details}, \verb{@seealso}, \verb{@references} and \verb{@note}
+fill the matching sections). Lines of \code{NAMESPACE} outside the block and help
+pages that rzig did not write are kept. The function is pure R; no Zig
 compiler is needed.
 }
 \details{
@@ -29,6 +33,8 @@ is written into \code{R/rzig-wrappers.R} as a \verb{@rawNamespace} tag, and
 package then works whichever of \code{document()}, \code{roxygen2::roxygenise()} or
 \code{devtools::document()} ran last; run \code{document()} after changing an
 exported Zig signature so that the wrappers follow it.
+roxygen2 then writes the help pages from the wrappers, and \code{document()}
+writes none.
 
 Run \code{document()} after every change to an exported Zig signature or its
 documentation comment, and before installing the package.

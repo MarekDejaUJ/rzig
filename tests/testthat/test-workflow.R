@@ -18,7 +18,7 @@ test_that("use_rzig scaffolds a package and generates bindings without Zig", {
   expect_s3_class(use_rzig(path, overwrite = TRUE), "rzig_scaffold")
 })
 
-test_that("document writes the three generated files and keeps foreign NAMESPACE lines", {
+test_that("document writes the generated files and keeps foreign NAMESPACE lines", {
   path <- local_package("docpkg")
   use_rzig(path)
   writeLines(
@@ -30,7 +30,8 @@ test_that("document writes the three generated files and keeps foreign NAMESPACE
   expect_identical(bindings$files, c(
     file.path("src", "rzig", "framework", "generated", "manifest.zig"),
     file.path("R", "rzig-wrappers.R"),
-    "NAMESPACE"
+    "NAMESPACE",
+    file.path("man", "hello_zig.Rd")
   ))
   namespace <- readLines(file.path(path, "NAMESPACE"))
   expect_identical(namespace[[1L]], "importFrom(stats, median)")

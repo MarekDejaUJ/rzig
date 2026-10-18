@@ -249,8 +249,13 @@ Every public Zig function with a `/// @export` line produces:
 
 - a compile-time Zig manifest entry;
 - an R wrapper with the visible Zig parameter names;
-- an explicitly resolved native symbol in `NAMESPACE`; and
-- a roxygen block derived from the Zig doc comment.
+- an explicitly resolved native symbol in `NAMESPACE`;
+- a roxygen block derived from the Zig doc comment; and
+- a help page `man/<name>.Rd` written from the same comment (the first
+  paragraph gives the title and description; `@param`, `@return`, `@examples`,
+  `@details`, `@seealso`, `@references` and `@note` fill their sections). In a
+  package documented with roxygen2, roxygen2 writes the page from the roxygen
+  block instead.
 
 The first `*rzig.Ctx` parameter is supplied by RZig and omitted from the R
 function. The complete input surface is:

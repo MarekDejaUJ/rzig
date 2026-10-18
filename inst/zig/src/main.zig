@@ -9,6 +9,10 @@ else
     rzig.Panic;
 
 /// Return a friendly greeting.
+/// @param name A name to greet.
+/// @return A character string.
+/// @examples
+/// hello_zig("R")
 /// @export
 pub fn hello_zig(ctx: *rzig.Ctx, name: []const u8) rzig.Error![]const u8 {
     return std.fmt.allocPrint(ctx.allocator(), "Hello, {s}!", .{name}) catch

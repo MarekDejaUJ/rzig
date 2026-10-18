@@ -1,3 +1,21 @@
+# rzig 0.8.0
+
+## New features
+
+- `document()` writes a help page `man/<name>.Rd` for every exported Zig
+  function of a package that does not use roxygen2, from the function's doc
+  comment: the first paragraph is the title and description, and `@param`,
+  `@return`, `@examples`, `@details`, `@seealso`, `@references` and `@note`
+  fill their sections; `code` spans become `\code{}`. Pages rzig wrote for
+  functions that are gone are removed, and pages of other origin are left
+  alone. In roxygen-managed packages roxygen2 writes the pages, and rzig
+  removes its own.
+- The starter `hello_zig()` documents its parameter and return value and has
+  an example, so a new scaffold passes `R CMD check` without the
+  "Undocumented code objects" and "No examples, no tests, no vignettes"
+  warnings.
+- `rzig_status()` reports help pages that no longer match the doc comments.
+
 # rzig 0.7.0
 
 ## New features

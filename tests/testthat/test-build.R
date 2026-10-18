@@ -295,3 +295,31 @@ test_that("a package works when roxygen2 regenerated its NAMESPACE last", {
   expect_null(attr(output, "status"))
   expect_match(as.character(output), "roxygen ok", fixed = TRUE)
 })
+
+test_that("a fresh scaffold passes R CMD check", {
+  skip_on_cran()
+  skip_if_not(isTRUE(find_zig(required = FALSE)$supported), "no supported Zig compiler")
+  path <- local_package("checkpkg")
+  writeLines(c(
+    "Package: checkpkg", "Version: 0.0.1", "Title: A Checked Scaffold", "License: GPL-3",
+    "Description: Checks the scaffold of 'rzig' with R CMD check.", "Encoding: UTF-8",
+    "Authors@R: person('A', 'B', email = 'a@example.org', role = c('aut', 'cre'))",
+    "SystemRequirements: Zig 0.16.x or 0.17.x"
+  ), file.path(path, "DESCRIPTION"))
+  use_rzig(path)
+  work <- tempfile("rzig-check-")
+  dir.create(work)
+  on.exit(unlink(work, recursive = TRUE), add = TRUE)
+  r <- file.path(R.home("bin"), "R")
+  old <- setwd(work)
+  on.exit(setwd(old), add = TRUE)
+  build <- suppressWarnings(system2(r, c("CMD", "build", shQuote(path)), stdout = TRUE, stderr = TRUE))
+  expect_null(attr(build, "status"))
+  tarball <- list.files(work, pattern = "^checkpkg_.*\\.tar\\.gz$")
+  check <- suppressWarnings(system2(r, c("CMD", "check", "--no-manual", tarball),
+    stdout = TRUE, stderr = TRUE, env = c(paste0("ZIG=", find_zig()$path), "_R_CHECK_FORCE_SUGGESTS_=false")))
+  log <- readLines(file.path(work, "checkpkg.Rcheck", "00check.log"))
+  status <- grep("^Status:", log, value = TRUE)
+  expect_false(any(grepl("ERROR|WARNING", status)), info = paste(log, collapse = "\n"))
+  expect_true(any(grepl("checking examples ... OK", log, fixed = TRUE)))
+})

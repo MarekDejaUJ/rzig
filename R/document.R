@@ -3,8 +3,12 @@
 #' Scans the Zig source of the package with [scan_exports()], renders the
 #' bindings with [render_bindings()], and writes them: the Zig manifest
 #' `src/rzig/framework/generated/manifest.zig`, the R wrappers
-#' `R/rzig-wrappers.R`, and a managed block in `NAMESPACE`. Lines of
-#' `NAMESPACE` outside the block are kept. The function is pure R; no Zig
+#' `R/rzig-wrappers.R`, a managed block in `NAMESPACE`, and a help page
+#' `man/<name>.Rd` for every exported function, written from its Zig doc
+#' comment (the first paragraph is the title and description; `@param`,
+#' `@return`, `@examples`, `@details`, `@seealso`, `@references` and `@note`
+#' fill the matching sections). Lines of `NAMESPACE` outside the block and help
+#' pages that rzig did not write are kept. The function is pure R; no Zig
 #' compiler is needed.
 #'
 #' When roxygen2 generates `NAMESPACE` (its first line is
@@ -14,6 +18,8 @@
 #' package then works whichever of `document()`, `roxygen2::roxygenise()` or
 #' `devtools::document()` ran last; run `document()` after changing an
 #' exported Zig signature so that the wrappers follow it.
+#' roxygen2 then writes the help pages from the wrappers, and `document()`
+#' writes none.
 #'
 #' Run `document()` after every change to an exported Zig signature or its
 #' documentation comment, and before installing the package.
@@ -81,11 +87,18 @@ document <- function(path) {
   .rzig_write_text(bindings$manifest, manifest_path)
   .rzig_write_text(bindings$wrappers, wrapper_path)
   .rzig_write_text(paste0(paste(merged_namespace, collapse = "\n"), "\n"), namespace_path)
+  pages <- .rzig_write_rd(info$path, exports, roxygen)
+  if (length(pages$foreign)) {
+    message(
+      "Left unchanged (not written by rzig): ", paste(pages$foreign, collapse = ", ")
+    )
+  }
 
   bindings$files <- c(
     file.path("src", "rzig", "framework", "generated", "manifest.zig"),
     file.path("R", "rzig-wrappers.R"),
-    "NAMESPACE"
+    "NAMESPACE",
+    pages$written
   )
   message(
     "Generated RZig bindings for ", info$package, ": ", length(exports),
