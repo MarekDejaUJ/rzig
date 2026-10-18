@@ -264,14 +264,14 @@ test_that("R errors release resources through unwind cleanup", {
 
 test_that("malformed inputs always become R errors and the session stays alive", {
   cases <- list(
-    list(function() echo_f64("a"), c("argument 1", "echo_f64")),
-    list(function() echo_f64(NULL), c("argument 1", "echo_f64")),
+    list(function() echo_f64("a"), c("argument `value` of echo_f64")),
+    list(function() echo_f64(NULL), c("argument `value` of echo_f64")),
     list(function() echo_f64(numeric()), c("length 0")),
     list(function() echo_f64(c(1, 2)), c("length 2")),
     list(function() echo_f64(NA_real_), c("cannot be NA")),
 
-    list(function() echo_i32("a"), c("argument 1", "echo_i32")),
-    list(function() echo_i32(NULL), c("argument 1", "echo_i32")),
+    list(function() echo_i32("a"), c("argument `value` of echo_i32")),
+    list(function() echo_i32(NULL), c("argument `value` of echo_i32")),
     list(function() echo_i32(integer()), c("length 0")),
     list(function() echo_i32(c(1L, 2L)), c("length 2")),
     list(function() echo_i32(NA_integer_), c("cannot be NA")),
@@ -286,8 +286,8 @@ test_that("malformed inputs always become R errors and the session stays alive",
     list(function() echo_bool(c(TRUE, FALSE)), c("length 2")),
     list(function() echo_bool(NA), c("cannot be NA")),
 
-    list(function() echo_usize("a"), c("argument 1", "echo_usize")),
-    list(function() echo_usize(NULL), c("argument 1", "echo_usize")),
+    list(function() echo_usize("a"), c("argument `value` of echo_usize")),
+    list(function() echo_usize(NULL), c("argument `value` of echo_usize")),
     list(function() echo_usize(integer()), c("length 0")),
     list(function() echo_usize(c(1L, 2L)), c("length 2")),
     list(function() echo_usize(NA_integer_), c("cannot be NA")),
@@ -295,7 +295,7 @@ test_that("malformed inputs always become R errors and the session stays alive",
     list(function() echo_usize(1.5), c("whole number")),
     list(function() echo_usize(2147483648), c("0 to 2147483647")),
 
-    list(function() echo_optional("a"), c("argument 1", "echo_optional")),
+    list(function() echo_optional("a"), c("argument `value` of echo_optional")),
     list(function() echo_optional(numeric()), c("length 0")),
     list(function() echo_optional(c(1, 2)), c("length 2")),
 
@@ -350,7 +350,7 @@ test_that("S4 objects and classed vectors follow the type of their data", {
   numeric_s4 <- methods::setClass("RzigNumeric", contains = "numeric", where = environment())
   object <- probe(x = c(1, 2))
   expect_true(isS4(object))
-  expect_error_live(function() echo_f64(object), c("argument 1", "echo_f64"))
+  expect_error_live(function() echo_f64(object), c("argument `value` of echo_f64"))
   expect_error_live(function() echo_reals(object), c("numeric vector"))
   expect_error_live(function() integer_length(object), c("integer vector"))
   expect_error_live(function() logical_count(object), c("logical vector"))

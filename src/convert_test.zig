@@ -245,14 +245,14 @@ fn expectConversion(comptime T: type, value: *FakeSexp, expected: T) !void {
     var ctx = Ctx.init();
     defer ctx.deinit();
     es.reset();
-    try std.testing.expectEqual(expected, try convert.fromSexp(T, &ctx, raw(value), "x"));
+    try std.testing.expectEqual(expected, try convert.fromSexp(T, &ctx, raw(value), "`x`"));
 }
 
 fn expectConversionError(comptime T: type, value: *FakeSexp, expected: []const u8) !void {
     var ctx = Ctx.init();
     defer ctx.deinit();
     es.reset();
-    try std.testing.expectError(es.Error.RZigError, convert.fromSexp(T, &ctx, raw(value), "x"));
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp(T, &ctx, raw(value), "`x`"));
     try std.testing.expectEqualStrings(expected, es.take());
 }
 
@@ -317,7 +317,7 @@ test "ordinary NaN remains a valid f64" {
     var ctx = Ctx.init();
     defer ctx.deinit();
     es.reset();
-    const converted = try convert.fromSexp(f64, &ctx, raw(&value), "x");
+    const converted = try convert.fromSexp(f64, &ctx, raw(&value), "`x`");
     try std.testing.expect(std.math.isNan(converted));
 }
 
@@ -345,7 +345,7 @@ test "Sexp input uses the explicit low-level escape hatch unchanged" {
     var ctx = Ctx.init();
     defer ctx.deinit();
     es.reset();
-    const converted = try convert.fromSexp(sexp.Sexp, &ctx, raw(&value), "x");
+    const converted = try convert.fromSexp(sexp.Sexp, &ctx, raw(&value), "`x`");
     try std.testing.expect(sexp.toRaw(converted) == raw(&value));
 }
 
@@ -407,9 +407,9 @@ test "empty numeric and logical slices are valid" {
     defer ctx.deinit();
     es.reset();
 
-    try std.testing.expectEqual(@as(usize, 0), (try convert.fromSexp([]const f64, &ctx, raw(&real), "x")).len);
-    try std.testing.expectEqual(@as(usize, 0), (try convert.fromSexp([]const i32, &ctx, raw(&integer), "x")).len);
-    try std.testing.expectEqual(@as(usize, 0), (try convert.fromSexp([]const bool, &ctx, raw(&logical), "x")).len);
+    try std.testing.expectEqual(@as(usize, 0), (try convert.fromSexp([]const f64, &ctx, raw(&real), "`x`")).len);
+    try std.testing.expectEqual(@as(usize, 0), (try convert.fromSexp([]const i32, &ctx, raw(&integer), "`x`")).len);
+    try std.testing.expectEqual(@as(usize, 0), (try convert.fromSexp([]const bool, &ctx, raw(&logical), "`x`")).len);
 }
 
 test "a scalar string is translated to UTF-8 and copied before vmax reset" {
@@ -740,7 +740,7 @@ test "Mut rejects non-numeric vectors before duplicating" {
             convert.Mut([]f64),
             &stack,
             raw(&source),
-            "values",
+            "`values`",
             &mutable_result,
         ),
     );
@@ -785,12 +785,12 @@ test "Matrix rejects vectors and inconsistent dimensions" {
 
     try std.testing.expectError(
         es.Error.RZigError,
-        convert.fromSexp(matrix.Matrix, &ctx, raw(&vector), "values"),
+        convert.fromSexp(matrix.Matrix, &ctx, raw(&vector), "`values`"),
     );
     try std.testing.expectEqualStrings("rzig: `values` must be a numeric matrix; got a double vector without dimensions", es.take());
     try std.testing.expectError(
         es.Error.RZigError,
-        convert.fromSexp(matrix.Matrix, &ctx, raw(&malformed), "values"),
+        convert.fromSexp(matrix.Matrix, &ctx, raw(&malformed), "`values`"),
     );
     try std.testing.expectEqualStrings("rzig: `values` has dimensions 2 x 2 but contains 2 values", es.take());
 }

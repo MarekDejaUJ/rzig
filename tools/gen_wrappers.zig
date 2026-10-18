@@ -40,7 +40,7 @@ fn render(allocator: std.mem.Allocator) ![]u8 {
     while (n <= MAX_ARITY) : (n += 1) {
         try out.print(allocator,
             \\/// Build a C-ABI wrapper for a function with {d} R-visible arguments.
-            \\pub fn Arity{d}(comptime func: anytype, comptime name: []const u8) type {{
+            \\pub fn Arity{d}(comptime func: anytype, comptime name: []const u8, comptime parameters: anytype) type {{
             \\    return struct {{
             \\        pub fn call(
         , .{ n, n });
@@ -51,7 +51,7 @@ fn render(allocator: std.mem.Allocator) ![]u8 {
         }
         try out.appendSlice(allocator,
             \\) callconv(.c) c.SEXP {
-            \\            return boundary.invoke(func, name, .{
+            \\            return boundary.invoke(func, name, parameters, .{
         );
         i = 0;
         while (i < n) : (i += 1) {
@@ -74,20 +74,21 @@ fn render(allocator: std.mem.Allocator) ![]u8 {
         \\    comptime visible_arity: usize,
         \\    comptime func: anytype,
         \\    comptime name: []const u8,
+        \\    comptime parameters: anytype,
         \\) type {
         \\    return switch (visible_arity) {
         \\
     );
     n = 0;
     while (n <= MAX_ARITY) : (n += 1) {
-        try out.print(allocator, "        {d} => Arity{d}(func, name),\n", .{ n, n });
+        try out.print(allocator, "        {d} => Arity{d}(func, name, parameters),\n", .{ n, n });
     }
     try out.appendSlice(allocator,
         \\        else => @compileError(
         \\            "rzig: function `" ++ name ++ "` has " ++
         \\                std.fmt.comptimePrint("{d}", .{visible_arity}) ++
         \\                " R-visible parameters; the maximum is 32.\n" ++
-        \\                "  combine related inputs into one R list argument",
+        \\                "  pass related values together, for example as one vector or matrix",
         \\        ),
         \\    };
         \\}

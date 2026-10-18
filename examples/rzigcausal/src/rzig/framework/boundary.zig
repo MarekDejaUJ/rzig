@@ -34,11 +34,12 @@ const unwind = @import("unwind.zig");
 pub fn invoke(
     comptime func: anytype,
     comptime name: []const u8,
+    comptime parameters: anytype,
     sexps: anytype,
 ) c.SEXP {
     es.reset();
 
-    const State = InvocationState(func, name, @TypeOf(sexps));
+    const State = InvocationState(func, name, parameters, @TypeOf(sexps));
     var state = State{
         .ctx = Ctx.init(),
         .stack = protect.Stack.init(),
@@ -127,6 +128,7 @@ pub fn validateSignature(comptime func: anytype, comptime name: []const u8) void
 fn InvocationState(
     comptime func: anytype,
     comptime name: []const u8,
+    comptime parameters: anytype,
     comptime Sexps: type,
 ) type {
     return struct {
@@ -139,7 +141,7 @@ fn InvocationState(
         cleaned: bool = false,
 
         fn run(self: *Self) c.SEXP {
-            return callAndMarshal(func, name, self.sexps, &self.ctx, &self.stack) catch {
+            return callAndMarshal(func, name, parameters, self.sexps, &self.ctx, &self.stack) catch {
                 self.failed = true;
                 return c.R_NilValue;
             };
@@ -160,12 +162,13 @@ fn InvocationState(
 fn callAndMarshal(
     comptime func: anytype,
     comptime name: []const u8,
+    comptime parameters: anytype,
     sexps: anytype,
     ctx: *Ctx,
     stack: *protect.Stack,
 ) es.Error!c.SEXP {
     var mutable_result: ?c.SEXP = null;
-    const value = try callUser(func, name, sexps, ctx, stack, &mutable_result);
+    const value = try callUser(func, name, parameters, sexps, ctx, stack, &mutable_result);
     if (mutable_result) |result| return result;
     return convert.toSexp(stack, ctx, value);
 }
@@ -173,6 +176,7 @@ fn callAndMarshal(
 fn callUser(
     comptime func: anytype,
     comptime name: []const u8,
+    comptime parameters: anytype,
     sexps: anytype,
     ctx: *Ctx,
     stack: *protect.Stack,
@@ -199,10 +203,7 @@ fn callUser(
         const Parameter = compat.paramType(info, parameter_index) orelse @compileError(
             "rzig: function `" ++ name ++ "` has a generic parameter that cannot be exported",
         );
-        const parameter_name = std.fmt.comptimePrint(
-            "argument {d} of {s}",
-            .{ visible_index + 1, name },
-        );
+        const parameter_name = comptime argumentLabel(name, parameters, supplied, visible_index);
         args[parameter_index] = if (comptime convert.isMutableInput(Parameter))
             try convert.fromMutableSexp(
                 Parameter,
@@ -221,6 +222,20 @@ fn callUser(
     }
 
     return @call(.auto, func, args);
+}
+
+/// "argument `x` of f" when the manifest names every R argument, otherwise
+/// "argument 2 of f".
+fn argumentLabel(
+    comptime name: []const u8,
+    comptime parameters: anytype,
+    comptime supplied: usize,
+    comptime visible_index: usize,
+) []const u8 {
+    if (parameters.len == supplied) {
+        return std.fmt.comptimePrint("argument `{s}` of {s}", .{ parameters[visible_index], name });
+    }
+    return std.fmt.comptimePrint("argument {d} of {s}", .{ visible_index + 1, name });
 }
 
 fn functionInfo(comptime Func: type) compat.Type.Fn {
@@ -284,11 +299,11 @@ test "user calls accept plain and context-aware signatures" {
 
     try std.testing.expectEqual(
         @as(i32, 17),
-        try callUser(testPlain, "test_plain", .{}, &ctx, &stack, &mutable_result),
+        try callUser(testPlain, "test_plain", .{}, .{}, &ctx, &stack, &mutable_result),
     );
     try std.testing.expectEqual(
         @as(i32, 3),
-        try callUser(testWithContext, "test_ctx", .{}, &ctx, &stack, &mutable_result),
+        try callUser(testWithContext, "test_ctx", .{}, .{}, &ctx, &stack, &mutable_result),
     );
 }
 
@@ -298,11 +313,11 @@ test "signature validation accepts context, supported inputs, and optional outpu
 }
 
 test "the R unwind callback path instantiates" {
-    const State = InvocationState(testPlain, "test_plain", @TypeOf(.{}));
+    const State = InvocationState(testPlain, "test_plain", .{}, @TypeOf(.{}));
     std.testing.refAllDecls(State);
     const Wrapper = struct {
         fn call() c.SEXP {
-            return invoke(testPlain, "test_plain", .{});
+            return invoke(testPlain, "test_plain", .{}, .{});
         }
     };
     std.testing.refAllDecls(Wrapper);

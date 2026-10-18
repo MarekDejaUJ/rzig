@@ -1,3 +1,16 @@
+# rzig 0.13.0
+
+## Behavior changes
+
+- Errors of the boundary name the R argument: "argument `a` of add_vectors
+  must be a numeric vector; got integer; use as.numeric() in R" instead of
+  "`argument 1 of add_vectors` must be ...". The names come from the
+  manifest; a hand-written manifest without parameter names keeps the
+  position.
+- The compile error for more than 32 arguments suggests passing related
+  values together as one vector or matrix instead of a list argument, which
+  the boundary does not accept.
+
 # rzig 0.12.0
 
 ## New features

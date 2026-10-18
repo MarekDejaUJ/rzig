@@ -18,8 +18,15 @@ pub fn wrapperForArity(
     comptime visible_arity: usize,
     comptime func: anytype,
     comptime name: []const u8,
+    comptime parameters: anytype,
 ) type {
-    return arity.Wrapper(visible_arity, func, name);
+    return arity.Wrapper(visible_arity, func, name, parameters);
+}
+
+/// The R argument names of a manifest entry, or an empty tuple for a
+/// hand-written manifest without them.
+fn entryParameters(comptime entry: anytype) @TypeOf(if (@hasField(@TypeOf(entry), "parameters")) entry.parameters else .{}) {
+    return if (@hasField(@TypeOf(entry), "parameters")) entry.parameters else .{};
 }
 
 /// Scan a module's manifest and build one C-ABI wrapper per exported function,
@@ -73,7 +80,7 @@ fn buildCallMethods(comptime exports: anytype) [exports.len + 1]c.R_CallMethodDe
         definitions[index] = .{
             .name = entry.name,
             .fun = if (builtin.is_test) null else wrapper: {
-                const Wrapper = wrapperForArity(visible_arity, entry.func, entry.name);
+                const Wrapper = wrapperForArity(visible_arity, entry.func, entry.name, entryParameters(entry));
                 break :wrapper @ptrCast(&Wrapper.call);
             },
             .numArgs = @intCast(visible_arity),

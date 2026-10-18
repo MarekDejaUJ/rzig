@@ -46,7 +46,7 @@ pub fn fromMutableSexp(
     }
     if (c.TYPEOF(x) != c.REALSXP) {
         return es.raise(
-            "rzig: `{s}` must be a numeric vector for rzig.Mut([]f64); got {s}; use as.numeric() in R",
+            "rzig: {s} must be a numeric vector for rzig.Mut([]f64); got {s}; use as.numeric() in R",
             .{ name, typeName(x) },
         );
     }
@@ -88,34 +88,34 @@ pub fn fromSexp(
 fn matrixFromSexp(x: c.SEXP, comptime name: []const u8) es.Error!matrix.Matrix {
     if (c.Rf_isMatrix(x) == c.FALSE) {
         return es.raise(
-            "rzig: `{s}` must be a numeric matrix; got a {s} vector without dimensions",
+            "rzig: {s} must be a numeric matrix; got a {s} vector without dimensions",
             .{ name, typeName(x) },
         );
     }
     if (c.TYPEOF(x) != c.REALSXP) {
         return es.raise(
-            "rzig: `{s}` must store double values; got a {s} matrix; use storage.mode(x) <- \"double\" in R",
+            "rzig: {s} must store double values; got a {s} matrix; use storage.mode(x) <- \"double\" in R",
             .{ name, typeName(x) },
         );
     }
 
     const dimensions = c.Rf_getAttrib(x, c.R_DimSymbol);
     if (c.TYPEOF(dimensions) != c.INTSXP or c.Rf_xlength(dimensions) != 2) {
-        return es.raise("rzig: `{s}` has a malformed matrix dimension attribute", .{name});
+        return es.raise("rzig: {s} has a malformed matrix dimension attribute", .{name});
     }
     const raw_rows = c.INTEGER_ELT(dimensions, 0);
     const raw_columns = c.INTEGER_ELT(dimensions, 1);
     if (raw_rows < 0 or raw_columns < 0) {
-        return es.raise("rzig: `{s}` has negative matrix dimensions", .{name});
+        return es.raise("rzig: {s} has negative matrix dimensions", .{name});
     }
     const rows: usize = @intCast(raw_rows);
     const columns: usize = @intCast(raw_columns);
     const expected = std.math.mul(usize, rows, columns) catch
-        return es.raise("rzig: `{s}` matrix dimensions exceed Zig's size limit", .{name});
+        return es.raise("rzig: {s} matrix dimensions exceed Zig's size limit", .{name});
     const length = try vectorLength(x, name);
     if (expected != length) {
         return es.raise(
-            "rzig: `{s}` has dimensions {d} x {d} but contains {d} values",
+            "rzig: {s} has dimensions {d} x {d} but contains {d} values",
             .{ name, rows, columns, length },
         );
     }
@@ -159,17 +159,17 @@ pub fn validateReturnType(comptime T: type, comptime function_name: []const u8) 
 fn stringScalar(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const u8 {
     if (c.TYPEOF(x) != c.STRSXP) {
         return es.raise(
-            "rzig: `{s}` must be a character vector of length 1; got {s}",
+            "rzig: {s} must be a character vector of length 1; got {s}",
             .{ name, typeName(x) },
         );
     }
     const length = try vectorLength(x, name);
     if (length != 1) {
-        return es.raise("rzig: `{s}` must have length 1; got length {d}", .{ name, length });
+        return es.raise("rzig: {s} must have length 1; got length {d}", .{ name, length });
     }
 
     const element = c.STRING_ELT(x, 0);
-    if (element == c.R_NaString) return es.raise("rzig: `{s}` cannot be NA", .{name});
+    if (element == c.R_NaString) return es.raise("rzig: {s} cannot be NA", .{name});
 
     const mark = c.vmaxget();
     defer c.vmaxset(mark);
@@ -180,7 +180,7 @@ fn stringScalar(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]cons
 fn stringSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const []const u8 {
     if (c.TYPEOF(x) != c.STRSXP) {
         return es.raise(
-            "rzig: `{s}` must be a character vector; got {s}",
+            "rzig: {s} must be a character vector; got {s}",
             .{ name, typeName(x) },
         );
     }
@@ -188,7 +188,7 @@ fn stringSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const
     for (0..length) |index| {
         if (c.STRING_ELT(x, @intCast(index)) == c.R_NaString) {
             return es.raise(
-                "rzig: `{s}` cannot contain NA; found NA at position {d}",
+                "rzig: {s} cannot contain NA; found NA at position {d}",
                 .{ name, index + 1 },
             );
         }
@@ -208,7 +208,7 @@ fn stringSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const
 fn realSlice(x: c.SEXP, comptime name: []const u8) es.Error![]const f64 {
     if (c.TYPEOF(x) != c.REALSXP) {
         return es.raise(
-            "rzig: `{s}` must be a numeric vector; got {s}; use as.numeric() in R",
+            "rzig: {s} must be a numeric vector; got {s}; use as.numeric() in R",
             .{ name, typeName(x) },
         );
     }
@@ -219,7 +219,7 @@ fn realSlice(x: c.SEXP, comptime name: []const u8) es.Error![]const f64 {
 fn integerSlice(x: c.SEXP, comptime name: []const u8) es.Error![]const i32 {
     if (c.TYPEOF(x) != c.INTSXP) {
         return es.raise(
-            "rzig: `{s}` must be an integer vector; got {s}; use as.integer() in R",
+            "rzig: {s} must be an integer vector; got {s}; use as.integer() in R",
             .{ name, typeName(x) },
         );
     }
@@ -230,7 +230,7 @@ fn integerSlice(x: c.SEXP, comptime name: []const u8) es.Error![]const i32 {
 fn logicalSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const bool {
     if (c.TYPEOF(x) != c.LGLSXP) {
         return es.raise(
-            "rzig: `{s}` must be a logical vector; got {s}",
+            "rzig: {s} must be a logical vector; got {s}",
             .{ name, typeName(x) },
         );
     }
@@ -239,7 +239,7 @@ fn logicalSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]cons
     for (source, 0..) |value, index| {
         if (na.isNaLogical(value)) {
             return es.raise(
-                "rzig: `{s}` cannot contain NA; found NA at position {d}",
+                "rzig: {s} cannot contain NA; found NA at position {d}",
                 .{ name, index + 1 },
             );
         }
@@ -253,7 +253,7 @@ fn logicalSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]cons
 fn vectorLength(x: c.SEXP, comptime name: []const u8) es.Error!usize {
     const length = c.Rf_xlength(x);
     if (length < 0) {
-        return es.raise("rzig: `{s}` has an invalid negative length", .{name});
+        return es.raise("rzig: {s} has an invalid negative length", .{name});
     }
     return @intCast(length);
 }
@@ -278,10 +278,10 @@ fn scalarF64(x: c.SEXP, comptime name: []const u8) es.Error!f64 {
         c.REALSXP => c.REAL_ELT(x, 0),
         c.INTSXP => @as(f64, @floatFromInt(c.INTEGER_ELT(x, 0))),
         c.LGLSXP => @as(f64, @floatFromInt(c.LOGICAL_ELT(x, 0))),
-        else => return es.raise("rzig: internal scalar conversion error for `{s}`", .{name}),
+        else => return es.raise("rzig: internal scalar conversion error for {s}", .{name}),
     };
     if (scalarIsNa(x)) {
-        return es.raise("rzig: `{s}` cannot be NA; use ?f64 to accept missing values", .{name});
+        return es.raise("rzig: {s} cannot be NA; use ?f64 to accept missing values", .{name});
     }
     return value;
 }
@@ -294,7 +294,7 @@ fn scalarI32(
     try validateScalar(i32, x, name);
     if (scalarIsNa(x)) {
         return es.raise(
-            "rzig: `{s}` cannot be NA; use ?{s} to accept missing values",
+            "rzig: {s} cannot be NA; use ?{s} to accept missing values",
             .{ name, target_name },
         );
     }
@@ -303,7 +303,7 @@ fn scalarI32(
         c.INTSXP => @intCast(c.INTEGER_ELT(x, 0)),
         c.LGLSXP => @intCast(c.LOGICAL_ELT(x, 0)),
         c.REALSXP => realToI32(c.REAL_ELT(x, 0), name),
-        else => es.raise("rzig: internal scalar conversion error for `{s}`", .{name}),
+        else => es.raise("rzig: internal scalar conversion error for {s}", .{name}),
     };
 }
 
@@ -312,7 +312,7 @@ fn realToI32(value: f64, comptime name: []const u8) es.Error!i32 {
     const max: f64 = @floatFromInt(std.math.maxInt(i32));
     if (!std.math.isFinite(value) or @trunc(value) != value or value < min or value > max) {
         return es.raise(
-            "rzig: `{s}` must be a whole number representable as i32; got {d}",
+            "rzig: {s} must be a whole number representable as i32; got {d}",
             .{ name, value },
         );
     }
@@ -323,7 +323,7 @@ fn scalarBool(x: c.SEXP, comptime name: []const u8) es.Error!bool {
     try validateScalar(bool, x, name);
     const value = c.LOGICAL_ELT(x, 0);
     if (na.isNaLogical(value)) {
-        return es.raise("rzig: `{s}` cannot be NA; use ?bool to accept missing values", .{name});
+        return es.raise("rzig: {s} cannot be NA; use ?bool to accept missing values", .{name});
     }
     return value != c.FALSE;
 }
@@ -331,7 +331,7 @@ fn scalarBool(x: c.SEXP, comptime name: []const u8) es.Error!bool {
 fn scalarUsize(x: c.SEXP, comptime name: []const u8) es.Error!usize {
     try validateScalar(usize, x, name);
     if (scalarIsNa(x)) {
-        return es.raise("rzig: `{s}` cannot be NA; use ?usize to accept missing values", .{name});
+        return es.raise("rzig: {s} cannot be NA; use ?usize to accept missing values", .{name});
     }
 
     const kind: c.SEXPTYPE = @intCast(c.TYPEOF(x));
@@ -339,15 +339,15 @@ fn scalarUsize(x: c.SEXP, comptime name: []const u8) es.Error!usize {
         c.INTSXP => @floatFromInt(c.INTEGER_ELT(x, 0)),
         c.LGLSXP => @floatFromInt(c.LOGICAL_ELT(x, 0)),
         c.REALSXP => c.REAL_ELT(x, 0),
-        else => return es.raise("rzig: internal scalar conversion error for `{s}`", .{name}),
+        else => return es.raise("rzig: internal scalar conversion error for {s}", .{name}),
     };
     if (std.math.isFinite(value) and value < 0) {
-        return es.raise("rzig: `{s}` must be non-negative; got {d}", .{ name, value });
+        return es.raise("rzig: {s} must be non-negative; got {d}", .{ name, value });
     }
     const max: f64 = @floatFromInt(std.math.maxInt(i32));
     if (!std.math.isFinite(value) or @trunc(value) != value or value > max) {
         return es.raise(
-            "rzig: `{s}` must be a whole number from 0 to 2147483647; got {d}",
+            "rzig: {s} must be a whole number from 0 to 2147483647; got {d}",
             .{ name, value },
         );
     }
@@ -364,19 +364,19 @@ fn validateScalar(comptime T: type, x: c.SEXP, comptime name: []const u8) es.Err
     if (!valid_type) {
         if (comptime T == bool) {
             return es.raise(
-                "rzig: `{s}` must be a logical vector of length 1; got {s}",
+                "rzig: {s} must be a logical vector of length 1; got {s}",
                 .{ name, typeName(x) },
             );
         }
         return es.raise(
-            "rzig: `{s}` must be a double, integer, or logical vector of length 1; got {s}",
+            "rzig: {s} must be a double, integer, or logical vector of length 1; got {s}",
             .{ name, typeName(x) },
         );
     }
 
     const length = c.Rf_xlength(x);
     if (length != 1) {
-        return es.raise("rzig: `{s}` must have length 1; got length {d}", .{ name, length });
+        return es.raise("rzig: {s} must have length 1; got length {d}", .{ name, length });
     }
 }
 
