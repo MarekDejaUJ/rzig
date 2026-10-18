@@ -272,6 +272,36 @@ compiled into the importing package, so nothing is linked between packages
 at run time. A module can import `rzig` and the other imported modules;
 `test_zig()` passes the imports to the Zig tests as well.
 
+## C-callable functions between packages
+
+Compiled code of other packages, in C or in Zig, can call functions that a
+package registers with `R_RegisterCCallable()`. The root Zig file lists them,
+each with `callconv(.c)`, and may declare an interface version:
+
+```zig
+fn scaledSum(x: [*]const f64, n: usize, factor: f64) callconv(.c) f64 {
+    var total: f64 = 0;
+    for (x[0..n]) |value| total += value;
+    return factor * total;
+}
+
+pub const rzig_callables = .{ .scaled_sum = scaledSum };
+pub const rzig_interface_version: u32 = 2;
+```
+
+Another rzig package fetches one with `rzig.callable()`, which loads the
+namespace of the providing package and checks the interface version, because
+R checks neither the signature nor a version:
+
+```zig
+const ScaledSum = fn ([*]const f64, usize, f64) callconv(.c) f64;
+const scaled_sum = try rzig.callable(ctx, ScaledSum, "provpkg", "scaled_sum", .{ .interface = 2 });
+```
+
+C code calls `R_GetCCallable("provpkg", "scaled_sum")` after loading the
+namespace; the providing package can declare the C signatures in
+`inst/include`. The calling package lists the providing one in `Imports`.
+
 ## Compiling Zig from the R prompt
 
 `zig_function()` compiles Zig code into a small package in the session's

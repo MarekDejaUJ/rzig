@@ -404,6 +404,10 @@ pub extern fn R_registerRoutines(
     fortran_routines: ?[*]const R_FortranMethodDef,
     external_routines: ?[*]const R_ExternalMethodDef,
 ) c_int;
+/// Register a C-callable function for other packages; may allocate and longjmp.
+pub extern fn R_RegisterCCallable(package: [*:0]const u8, name: [*:0]const u8, function: DL_FUNC) void;
+/// A C-callable function of a package; loads its namespace and longjmps when absent.
+pub extern fn R_GetCCallable(package: [*:0]const u8, name: [*:0]const u8) ?DL_FUNC;
 /// Enable or disable lookup of unregistered native symbols.
 pub extern fn R_useDynamicSymbols(info: *DllInfo, value: Rboolean) Rboolean;
 /// Require callers to use registered native symbols rather than strings.

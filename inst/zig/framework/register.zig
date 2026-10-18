@@ -9,6 +9,7 @@ const builtin = @import("builtin");
 const c = @import("c/abi.zig");
 const arity = @import("generated/arity.zig");
 const manifest = @import("generated/manifest.zig");
+const callable_api = @import("callable.zig");
 const boundary = @import("boundary.zig");
 const Ctx = @import("alloc.zig").Ctx;
 
@@ -45,7 +46,7 @@ pub fn registerModule(comptime M: type) void {
         manifest.exports
     else
         @compileError("rzig: generated manifest must declare Bind(root) or exports");
-    const Registration = RegistrationFor(exports);
+    const Registration = RegistrationFor(exports, M);
 
     if (!builtin.is_test) {
         @export(&Registration.init, .{
@@ -61,7 +62,7 @@ pub fn registerModule(comptime M: type) void {
     }
 }
 
-fn RegistrationFor(comptime exports: anytype) type {
+fn RegistrationFor(comptime exports: anytype, comptime M: type) type {
     return struct {
         pub const call_methods = buildCallMethods(exports);
 
@@ -72,6 +73,31 @@ fn RegistrationFor(comptime exports: anytype) type {
             _ = c.R_registerRoutines(dll, null, &call_methods, null, null);
             _ = c.R_useDynamicSymbols(dll, c.FALSE);
             _ = c.R_forceSymbols(dll, c.TRUE);
+            registerCallables();
+        }
+
+        /// Register the functions of `rzig_callables` (and the interface
+        /// version) for R_GetCCallable under the package's name.
+        fn registerCallables() void {
+            if (comptime !@hasDecl(M, "rzig_callables")) return;
+            if (comptime !@hasDecl(manifest, "package")) {
+                @compileError("rzig: rzig_callables needs the package name in the generated manifest; run rzig::document()");
+            }
+            const callables = M.rzig_callables;
+            const names = comptime compat.fieldNames(@typeInfo(@TypeOf(callables)).@"struct");
+            inline for (names) |name| {
+                const function = @field(callables, name);
+                comptime callable_api.validate(@TypeOf(function), "rzig_callables." ++ name);
+                c.R_RegisterCCallable(manifest.package, name, @ptrCast(&function));
+            }
+            if (comptime @hasDecl(M, "rzig_interface_version")) {
+                const Version = struct {
+                    fn get() callconv(.c) c_int {
+                        return @intCast(@as(u32, M.rzig_interface_version));
+                    }
+                };
+                c.R_RegisterCCallable(manifest.package, callable_api.interface_version_name, @ptrCast(&Version.get));
+            }
         }
 
         /// Called from the package's own R_init_<pkg> in a package with C,
@@ -113,6 +139,7 @@ fn RegistrationFor(comptime exports: anytype) type {
             _ = c.R_useDynamicSymbols(dll, c.FALSE);
             // The R code of such a package may name its C routines by string.
             _ = c.R_forceSymbols(dll, c.FALSE);
+            registerCallables();
         }
 
         fn isZigRoutine(name: [*:0]const u8) bool {
@@ -174,7 +201,7 @@ test "registration table contains wrappers and a terminating sentinel" {
         .{ .name = "test_two", .func = testTwo, .doc = "Two arguments." },
         .{ .name = "test_context", .func = testWithContext, .doc = "Injected context." },
     };
-    const Registration = RegistrationFor(exports);
+    const Registration = RegistrationFor(exports, struct {});
 
     try std.testing.expectEqual(@as(usize, 4), Registration.call_methods.len);
     try std.testing.expectEqualStrings("test_zero", std.mem.span(Registration.call_methods[0].name.?));

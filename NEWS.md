@@ -1,3 +1,17 @@
+# rzig 0.38.0
+
+## New features
+
+- C-callable functions between packages: a package lists functions with
+  `callconv(.c)` in `pub const rzig_callables` of its root Zig file, which
+  rzig registers with `R_RegisterCCallable()` when the package loads,
+  together with `rzig_interface_version` when it is declared.
+  `rzig.callable(ctx, F, package, name, .{ .interface = n })` loads the
+  namespace of the providing package, fetches the function with
+  `R_GetCCallable()` and checks the interface version.
+- The generated manifest names the R package (`pub const package`);
+  `document()` regenerates it.
+
 # rzig 0.37.0
 
 ## New features

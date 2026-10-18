@@ -39,6 +39,16 @@ pub fn pointerIsAllowzero(comptime info: Type.Pointer) bool {
     return if (@hasField(Type.Pointer, "attrs")) info.attrs.@"allowzero" else info.is_allowzero;
 }
 
+/// Whether a function description has the C calling convention
+/// (`calling_convention` in Zig 0.16, `attrs.callconv` in Zig 0.17).
+pub fn hasCCallingConvention(comptime info: Type.Fn) bool {
+    const reference = @typeInfo(fn () callconv(.c) void).@"fn";
+    if (comptime @hasField(Type.Fn, "attrs")) {
+        return std.meta.activeTag(info.attrs.@"callconv") == std.meta.activeTag(reference.attrs.@"callconv");
+    }
+    return std.meta.activeTag(info.calling_convention) == std.meta.activeTag(reference.calling_convention);
+}
+
 /// Number of fields of a struct or union description.
 pub fn fieldCount(comptime info: anytype) usize {
     return if (@hasField(@TypeOf(info), "field_names")) info.field_names.len else info.fields.len;
