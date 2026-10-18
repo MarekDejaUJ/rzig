@@ -8,20 +8,25 @@
 set -eu
 
 ready=$(mktemp "${TMPDIR:-/tmp}/rzig-interrupt.XXXXXX")
-rm -f "$ready"
+ready_parallel=$(mktemp "${TMPDIR:-/tmp}/rzig-interrupt-parallel.XXXXXX")
+rm -f "$ready" "$ready_parallel"
 RZIG_INTERRUPT_READY=$ready
-export RZIG_INTERRUPT_READY
+RZIG_INTERRUPT_READY_PARALLEL=$ready_parallel
+export RZIG_INTERRUPT_READY RZIG_INTERRUPT_READY_PARALLEL
 
 r_process_id=$$
 (
-    waited=0
-    while test ! -e "$ready" && test "$waited" -lt 1200; do
-        sleep 0.05
-        waited=$((waited + 1))
+    # One SIGINT for the loop on the R thread, one for the parallel loop.
+    for marker in "$ready" "$ready_parallel"; do
+        waited=0
+        while test ! -e "$marker" && test "$waited" -lt 1200; do
+            sleep 0.05
+            waited=$((waited + 1))
+        done
+        sleep 0.3
+        kill -INT "$r_process_id"
+        rm -f "$marker"
     done
-    sleep 0.3
-    kill -INT "$r_process_id"
-    rm -f "$ready"
 ) &
 
 exec Rscript -e '
@@ -43,5 +48,21 @@ stopifnot(
   !inherits(condition, "error"),
   identical(interruptible_count(1L), 1L)
 )
-cat("real SIGINT preserved as interrupt and session recovered\n")
+caught <- FALSE
+condition <- tryCatch(
+  {
+    file.create(Sys.getenv("RZIG_INTERRUPT_READY_PARALLEL"))
+    parallel_count(1e15)
+  },
+  interrupt = function(value) {
+    caught <<- TRUE
+    value
+  }
+)
+stopifnot(
+  caught,
+  inherits(condition, "interrupt"),
+  identical(parallel_count(10), 10)
+)
+cat("real SIGINT preserved as interrupt and session recovered, also during a parallel loop\n")
 '

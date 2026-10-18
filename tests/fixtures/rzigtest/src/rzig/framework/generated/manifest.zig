@@ -465,6 +465,30 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{ "total", "show" },
             },
             .{
+                .name = "parallel_sum",
+                .func = bound_root.parallel_sum,
+                .doc = "Sum a numeric vector on worker threads with parallelReduce.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "parallel_uniforms",
+                .func = bound_root.parallel_uniforms,
+                .doc = "One uniform draw per index from the random stream of that index.",
+                .parameters = .{"count"},
+            },
+            .{
+                .name = "parallel_out_of_bounds",
+                .func = bound_root.parallel_out_of_bounds,
+                .doc = "A parallel loop whose middle index reads past the end of the input.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "parallel_count",
+                .func = bound_root.parallel_count,
+                .doc = "Count to `count` on worker threads; long counts are stopped by a user interrupt.",
+                .parameters = .{"count"},
+            },
+            .{
                 .name = "parallel_thread_count",
                 .func = bound_root.parallel_thread_count,
                 .doc = "Report how many worker threads parallelFor uses for `count` indices.",

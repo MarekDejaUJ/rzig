@@ -47,6 +47,10 @@
 \alias{optim_failing}
 \alias{integrate_gaussian}
 \alias{integrate_inverse}
+\alias{parallel_sum}
+\alias{parallel_uniforms}
+\alias{parallel_out_of_bounds}
+\alias{parallel_count}
 \title{Fixture Functions for the Types and Services of the Boundary}
 \usage{
 parallel_thread_count(count)
@@ -96,6 +100,10 @@ optim_rosenbrock(method, start, with_gradient, lower, upper)
 optim_failing(start)
 integrate_gaussian(mean, sd, lower, upper)
 integrate_inverse(lower, upper)
+parallel_sum(values)
+parallel_uniforms(count)
+parallel_out_of_bounds(values)
+parallel_count(count)
 }
 \arguments{
 \item{count}{A non-negative count.}

@@ -876,6 +876,81 @@ pub fn progress_steps(ctx: *rzig.Ctx, total: usize, show: bool) rzig.Error!i32 {
     return @intCast(step);
 }
 
+const Values = struct {
+    values: []const f64,
+
+    fn value(state: *const Values, index: usize) f64 {
+        return state.values[index];
+    }
+
+    fn add(left: f64, right: f64) f64 {
+        return left + right;
+    }
+};
+
+/// Sum a numeric vector on worker threads with parallelReduce.
+/// @export
+pub fn parallel_sum(ctx: *rzig.Ctx, values: []const f64) rzig.Error!f64 {
+    const state = Values{ .values = values };
+    return rzig.parallelReduce(ctx, f64, values.len, &state, 0, Values.value, Values.add);
+}
+
+const Draws = struct {
+    streams: rzig.RngStreams,
+    output: []f64,
+
+    fn draw(state: *Draws, index: usize) void {
+        var stream = state.streams.stream(index);
+        state.output[index] = stream.uniform();
+    }
+};
+
+/// One uniform draw per index from the random stream of that index.
+/// @export
+pub fn parallel_uniforms(ctx: *rzig.Ctx, count: usize) rzig.Error![]f64 {
+    const output = try ctx.alloc(f64, count);
+    var state = Draws{ .streams = try ctx.rngStreams(), .output = output };
+    try rzig.parallelFor(ctx, count, &state, Draws.draw);
+    return output;
+}
+
+const Broken = struct {
+    values: []const f64,
+    output: []f64,
+
+    fn copy(state: *Broken, index: usize) void {
+        // Index `values.len` does not exist: the bounds check fails on a worker.
+        const source = if (index == state.output.len / 2) state.values.len else index;
+        state.output[index] = state.values[source];
+    }
+};
+
+/// A parallel loop whose middle index reads past the end of the input.
+/// @export
+pub fn parallel_out_of_bounds(ctx: *rzig.Ctx, values: []const f64) rzig.Error![]f64 {
+    const output = try ctx.alloc(f64, values.len);
+    var state = Broken{ .values = values, .output = output };
+    try rzig.parallelFor(ctx, values.len, &state, Broken.copy);
+    return output;
+}
+
+const Counter64 = struct {
+    total: std.atomic.Value(u64) = .init(0),
+
+    fn count(state: *Counter64, index: usize) void {
+        _ = index;
+        _ = state.total.fetchAdd(1, .monotonic);
+    }
+};
+
+/// Count to `count` on worker threads; long counts are stopped by a user interrupt.
+/// @export
+pub fn parallel_count(ctx: *rzig.Ctx, count: f64) rzig.Error!f64 {
+    var state = Counter64{};
+    try rzig.parallelFor(ctx, @intFromFloat(count), &state, Counter64.count);
+    return @floatFromInt(state.total.load(.monotonic));
+}
+
 /// Report how many worker threads parallelFor uses for `count` indices.
 /// @export
 pub fn parallel_thread_count(count: usize) rzig.Error!i32 {

@@ -732,6 +732,17 @@ const rng = try ctx.rng();
 const draw = rng.draw(.poisson, .{ .lambda = 3 });
 ```
 
+## Reductions, random streams and interrupts in parallel loops
+
+`rzig.parallelReduce(ctx, T, count, &state, identity, map, combine)` reduces
+`map(state, i)` with `combine` in chunks fixed by `count`, so a parallel
+floating-point sum is the same for every number of threads.
+`ctx.rngStreams()` gives workers random streams seeded from R's stream:
+`streams.stream(i)` is the same for the same seed and index, so parallel
+draws follow `set.seed()`. A user interrupt stops the workers after their
+current index, and a panic on a worker (for example a failed bounds check)
+becomes an R error instead of ending the session.
+
 ## Linear algebra
 
 `rzig.Blas` (`gemm`, `gemv`, `syrk`, `trsm`) and `rzig.Lapack` (`potrf`,

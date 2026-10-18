@@ -13,6 +13,9 @@ const list = @import("list.zig");
 const matrix = @import("matrix.zig");
 const rng = @import("rng.zig");
 const sexp = @import("sexp.zig");
+const interrupt = @import("interrupt.zig");
+const panic = @import("panic.zig");
+const thread_identity = @import("thread_identity.zig");
 
 const max_worker_threads = 32;
 const max_state_depth = 8;
@@ -31,29 +34,115 @@ pub fn parallelFor(
     comptime worker: anytype,
 ) es.Error!void {
     comptime validateWorker(@TypeOf(state), worker);
+    return runIndexed(ctx, count, state, worker);
+}
 
+/// Reduce `map(state, index)` over `[0, count)` with `combine`, starting from
+/// `identity`. The indices are split into at most 1024 chunks that depend
+/// only on `count`; each chunk is reduced in index order on a worker, and the
+/// chunk results in chunk order on the calling thread, so the result is the
+/// same for every number of threads (also for floating-point sums).
+pub fn parallelReduce(
+    ctx: *Ctx,
+    comptime T: type,
+    count: usize,
+    state: anytype,
+    identity: T,
+    comptime map: anytype,
+    comptime combine: fn (T, T) T,
+) es.Error!T {
+    const StatePointer = @TypeOf(state);
+    comptime validateState(StatePointer, "rzig.parallelReduce");
+    comptime validatePlainType(T, 0);
+    if (count == 0) return identity;
+    const chunks = @min(count, 1024);
+    const results = try ctx.alloc(T, chunks);
+    const Chunks = struct {
+        state: StatePointer,
+        results: []T,
+        count: usize,
+        chunks: usize,
+        identity: T,
+
+        fn run(self: *const @This(), chunk: usize) void {
+            const start = chunk * self.count / self.chunks;
+            const end = (chunk + 1) * self.count / self.chunks;
+            var accumulated = self.identity;
+            var index = start;
+            while (index < end) : (index += 1) accumulated = combine(accumulated, map(self.state, index));
+            self.results[chunk] = accumulated;
+        }
+    };
+    const plan = Chunks{ .state = state, .results = results, .count = count, .chunks = chunks, .identity = identity };
+    try runIndexed(ctx, chunks, &plan, Chunks.run);
+    var total = identity;
+    for (results) |value| total = combine(total, value);
+    return total;
+}
+
+fn RunnerType(comptime Context: type, comptime body: anytype) type {
+    return struct {
+        next: std.atomic.Value(usize),
+        count: usize,
+        context: Context,
+        cancel: std.atomic.Value(bool) = .init(false),
+        finished: std.atomic.Value(usize) = .init(0),
+
+        fn run(self: *@This()) void {
+            defer _ = self.finished.fetchAdd(1, .release);
+            while (!self.cancel.load(.monotonic) and panic.workerPanicked() == null) {
+                const index = self.next.fetchAdd(1, .monotonic);
+                if (index >= self.count) return;
+                body(self.context, index);
+            }
+        }
+    };
+}
+
+/// Run `body(context, index)` for every index in `[0, count)` on worker
+/// threads. The calling thread waits, checks for a user interrupt between
+/// short pauses (and then lets the workers stop after their current index),
+/// and turns a panic of a worker into an R error.
+fn runIndexed(ctx: *Ctx, count: usize, context: anytype, comptime body: anytype) es.Error!void {
     if (count == 0) return;
     if (count == std.math.maxInt(usize)) {
         return es.raise("rzig: parallelFor item count exceeds its safe limit", .{});
     }
-
     const thread_count = try threadCount(count);
     const threads = try ctx.alloc(std.Thread, thread_count);
-    const Runner = RunnerType(@TypeOf(state), worker);
+    const Runner = RunnerType(@TypeOf(context), body);
     var runner = Runner{
         .next = std.atomic.Value(usize).init(0),
         .count = count,
-        .state = state,
+        .context = context,
     };
-
+    panic.beginWorkers();
     var spawned: usize = 0;
     while (spawned < thread_count) : (spawned += 1) {
         threads[spawned] = std.Thread.spawn(.{}, Runner.run, .{&runner}) catch {
+            runner.cancel.store(true, .monotonic);
             for (threads[0..spawned]) |thread| thread.join();
             return es.raise("rzig: unable to start a parallel worker", .{});
         };
     }
+    var interrupted = false;
+    var wait: u32 = 50;
+    // A worker that panicked ends without counting itself as finished.
+    while (runner.finished.load(.acquire) + panic.workerExits() < spawned) {
+        thread_identity.pause(wait);
+        wait = @min(wait * 2, 20_000);
+        if (!interrupted) {
+            interrupt.checkInterrupt() catch {
+                interrupted = true;
+                runner.cancel.store(true, .monotonic);
+            };
+        }
+    }
     for (threads[0..spawned]) |thread| thread.join();
+    if (panic.workerPanicked()) |message| {
+        return es.raise("rzig: a parallel worker failed and its work was abandoned: {s}", .{message});
+    }
+    if (interrupted) return es.Error.RZigError;
 }
 
 /// The number of worker threads `parallelFor` uses for `count` indices: one per
@@ -101,36 +190,9 @@ pub fn checkLimitsCores(text: []const u8) bool {
     return !std.ascii.eqlIgnoreCase(std.mem.trim(u8, text, " \t\r\n"), "false");
 }
 
-fn RunnerType(comptime StatePointer: type, comptime worker: anytype) type {
-    return struct {
-        next: std.atomic.Value(usize),
-        count: usize,
-        state: StatePointer,
-
-        fn run(self: *@This()) void {
-            while (true) {
-                const index = self.next.fetchAdd(1, .monotonic);
-                if (index >= self.count) return;
-                worker(self.state, index);
-            }
-        }
-    };
-}
-
 /// Validate the callback contract while state and function types are available.
 pub fn validateWorker(comptime StatePointer: type, comptime worker: anytype) void {
-    const state_pointer = switch (@typeInfo(StatePointer)) {
-        .pointer => |info| info,
-        else => @compileError(
-            "rzig.parallelFor: state must be a single-item pointer to plain Zig data",
-        ),
-    };
-    if (state_pointer.size != .one) {
-        @compileError(
-            "rzig.parallelFor: state must be a single-item pointer to plain Zig data",
-        );
-    }
-    validatePlainType(state_pointer.child, 0);
+    validateState(StatePointer, "rzig.parallelFor");
 
     const function = switch (@typeInfo(@TypeOf(worker))) {
         .@"fn" => |info| info,
@@ -149,6 +211,17 @@ pub fn validateWorker(comptime StatePointer: type, comptime worker: anytype) voi
                 @typeName(StatePointer) ++ ", usize) void",
         );
     }
+}
+
+fn validateState(comptime StatePointer: type, comptime what: []const u8) void {
+    const state_pointer = switch (@typeInfo(StatePointer)) {
+        .pointer => |info| info,
+        else => @compileError(what ++ ": state must be a single-item pointer to plain Zig data"),
+    };
+    if (state_pointer.size != .one) {
+        @compileError(what ++ ": state must be a single-item pointer to plain Zig data");
+    }
+    validatePlainType(state_pointer.child, 0);
 }
 
 fn validatePlainType(comptime T: type, comptime depth: usize) void {

@@ -97,6 +97,15 @@ pub const Ctx = struct {
             es.raise("out of memory copying {d} elements", .{src.len});
     }
 
+    /// Random streams for `rzig.parallelFor` workers, seeded with two draws
+    /// from R's stream, so they follow `set.seed()`.
+    pub fn rngStreams(self: *Ctx) es.Error!rng_api.Streams {
+        const generator = try self.rng();
+        const high: u64 = @intFromFloat(@floor(generator.uniform() * 4294967296.0));
+        const low: u64 = @intFromFloat(@floor(generator.uniform() * 4294967296.0));
+        return .{ .seed = (high << 32) | low };
+    }
+
     /// Enter R's random-number stream for reproducible draws under `set.seed()`.
     /// Repeated calls during one exported invocation reuse the same RNG state.
     pub fn rng(self: *Ctx) es.Error!rng_api.Rng {

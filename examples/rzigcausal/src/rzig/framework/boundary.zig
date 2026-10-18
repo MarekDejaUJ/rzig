@@ -22,6 +22,7 @@ const compat = @import("compat.zig");
 const c = @import("c/abi.zig");
 const protect = @import("protect.zig");
 const convert = @import("convert.zig");
+const panic_api = @import("panic.zig");
 const es = @import("error_state.zig");
 const Ctx = @import("alloc.zig").Ctx;
 const rng = @import("rng.zig");
@@ -38,6 +39,7 @@ pub fn invoke(
     sexps: anytype,
 ) c.SEXP {
     es.reset();
+    panic_api.noteRThread();
 
     const State = InvocationState(func, name, parameters, @TypeOf(sexps));
     var state = State{

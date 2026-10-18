@@ -16,6 +16,11 @@ pub const warn = @import("error_state.zig").warn;
 pub const checkInterrupt = @import("interrupt.zig").checkInterrupt;
 /// Run a pure Zig indexed loop on worker threads without exposing R capabilities.
 pub const parallelFor = @import("parallel.zig").parallelFor;
+/// Reduce over indices on worker threads in an order fixed by the count alone.
+pub const parallelReduce = @import("parallel.zig").parallelReduce;
+/// Random streams for workers, from `ctx.rngStreams()`.
+pub const RngStreams = @import("rng.zig").Streams;
+pub const RngStream = @import("rng.zig").Stream;
 /// The number of worker threads `parallelFor` uses for `count` indices (see
 /// `parallel.threadCount`: RZIG_NUM_THREADS, OMP_THREAD_LIMIT, R CMD check).
 pub const parallelThreadCount = @import("parallel.zig").threadCount;

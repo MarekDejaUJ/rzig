@@ -253,6 +253,22 @@ progress_steps <- function(total, show) {
   .Call(C_progress_steps, total, show)
 }
 
+parallel_sum <- function(values) {
+  .Call(C_parallel_sum, values)
+}
+
+parallel_uniforms <- function(count) {
+  .Call(C_parallel_uniforms, count)
+}
+
+parallel_out_of_bounds <- function(values) {
+  .Call(C_parallel_out_of_bounds, values)
+}
+
+parallel_count <- function(count) {
+  .Call(C_parallel_count, count)
+}
+
 parallel_thread_count <- function(count) {
   .Call(C_parallel_thread_count, count)
 }

@@ -1,3 +1,23 @@
+# rzig 0.33.0
+
+## New features
+
+- `rzig.parallelReduce()` reduces over indices on worker threads in chunks
+  fixed by the count alone, so the result (also a floating-point sum) is the
+  same for every number of threads.
+- `ctx.rngStreams()` gives random streams for workers, seeded from R's
+  stream: index `i` always gets the same stream (`stream(i)`, with
+  `uniform()`, `normal()`, `exponential()`), so parallel draws follow
+  `set.seed()` and not the number of threads.
+- A user interrupt while `parallelFor` runs stops the workers after their
+  current index and is delivered as an R interrupt.
+
+## Bug fixes
+
+- A panic on a worker thread (for example a failed bounds check) used to call
+  R from that thread, which could crash the session. The worker now records
+  the message and ends, and the call raises it as an R error.
+
 # rzig 0.32.0
 
 ## New features
