@@ -4,16 +4,22 @@
 \alias{use_rzig}
 \title{Add RZig to a package}
 \usage{
-use_rzig(path, overwrite = FALSE)
+use_rzig(path, overwrite = FALSE, force = FALSE)
 }
 \arguments{
 \item{path}{Path to the package root; the directory must contain a
 \code{DESCRIPTION} file.}
 
-\item{overwrite}{Replace files previously managed by RZig. The package
-author's Zig sources in \code{src/rzig/src} are kept, so
-\code{use_rzig(path, overwrite = TRUE)} updates the framework sources and build
-files of a package to the installed version of rzig.}
+\item{overwrite}{Allow \code{use_rzig()} on a package that already has RZig
+files. The framework sources and every build file that still matches an
+rzig template are then replaced, as with \code{\link[=update_rzig]{update_rzig()}}; the package
+author's Zig sources in \code{src/rzig/src} and files rzig does not know are
+kept. A build file the package author changed stops the call unless
+\code{force = TRUE}. \code{\link[=update_rzig]{update_rzig()}} is the usual way to update a package: it
+keeps customized build files and lists them.}
+
+\item{force}{With \code{overwrite = TRUE}, also replace customized build files
+with the templates.}
 }
 \value{
 An object of class \code{rzig_scaffold}: a list with \code{path} (the

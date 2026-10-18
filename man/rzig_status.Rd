@@ -4,13 +4,16 @@
 \alias{rzig_status}
 \title{Report the state of a Zig-backed package}
 \usage{
-rzig_status(path, build = FALSE)
+rzig_status(path, build = FALSE, lib = NULL)
 }
 \arguments{
 \item{path}{Path to the package root.}
 
 \item{build}{If \code{TRUE}, also compile and install the package with
 \code{\link[=build_zig]{build_zig()}} when every other check passes.}
+
+\item{lib}{With \code{build = TRUE}, the library to install into; see
+\code{\link[=build_zig]{build_zig()}}.}
 }
 \value{
 An object of class \code{rzig_status}: a data frame with the columns

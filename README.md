@@ -188,6 +188,27 @@ The same workflow applies to an existing package: run `use_rzig()` once, edit
 `src/rzig/src/main.zig`, and run `document()` whenever exported Zig signatures
 or comments change. The scaffolded `cleanup` and `cleanup.win` scripts remove
 generated Makevars and Zig build caches after package installation and checks.
+`use_rzig()` stops when `src/` already holds C, C++ or Fortran sources or a
+hand-written `src/Makevars`, because the generated build compiles only the Zig
+sources and `src/entry.c`.
+
+## Updating rzig in a package
+
+After installing a new version of rzig, bring a package up to date with
+
+```r
+rzig::update_rzig(pkg)
+```
+
+`update_rzig()` replaces the framework sources under `src/rzig/framework`,
+updates every build file that is still an unmodified rzig template, adds
+missing ones and regenerates the bindings. It never changes `src/rzig/src` or
+files rzig does not know, and it keeps build files the package author edited
+(for example a `configure` that downloads Zig, or a `build.zig` with an extra
+test step) and lists them, so their differences from the new templates can be
+reviewed. `update_rzig(pkg, force = TRUE)` replaces those as well.
+`rzig_status()` reports framework sources that do not match the installed
+rzig.
 
 If roxygen2 manages the rest of the package documentation and `NAMESPACE`, use
 this order after changing a Zig export:

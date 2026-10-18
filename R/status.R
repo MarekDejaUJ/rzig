@@ -28,6 +28,8 @@
 #' @param path Path to the package root.
 #' @param build If `TRUE`, also compile and install the package with
 #'   [build_zig()] when every other check passes.
+#' @param lib With `build = TRUE`, the library to install into; see
+#'   [build_zig()].
 #'
 #' @return An object of class `rzig_status`: a data frame with the columns
 #'   `step`, `ok` and `detail`, one row per check, with the attributes
@@ -46,7 +48,7 @@
 #' rzig_status(package_path)
 #' unlink(package_path, recursive = TRUE)
 #' @export
-rzig_status <- function(path, build = FALSE) {
+rzig_status <- function(path, build = FALSE, lib = NULL) {
   if (length(build) != 1L || is.na(build)) {
     stop("`build` must be TRUE or FALSE", call. = FALSE)
   }
@@ -148,7 +150,7 @@ rzig_status <- function(path, build = FALSE) {
   built <- NULL
   if (isTRUE(build)) {
     if (all(result$ok)) {
-      built <- build_zig(path, preflight = FALSE)
+      built <- build_zig(path, lib = lib, preflight = FALSE)
       problems <- if (built$ok) character() else .rzig_build_summary(built)
       extra <- data.frame(
         step = "Build", ok = built$ok,

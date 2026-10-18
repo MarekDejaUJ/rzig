@@ -1,3 +1,28 @@
+# rzig 0.4.0
+
+## New features
+
+- `update_rzig()` brings a package to the installed version of rzig: it
+  replaces the framework sources, updates every build file that is still an
+  unmodified template of some rzig version (recognized by the MD5 sums of all
+  templates rzig has shipped), adds missing build files, removes the Zig
+  scanner that rzig 0.2 copied into `src/rzig/tools/`, and regenerates the
+  bindings. Build files the package author changed are kept and listed;
+  `force = TRUE` replaces them. The package author's Zig sources and files
+  rzig does not know are never changed or removed.
+- `rzig_status(build = TRUE)` takes `lib`, the library `build_zig()` installs
+  into.
+
+## Behavior changes
+
+- `use_rzig(overwrite = TRUE)` no longer deletes the files under `src/rzig`
+  that rzig does not know, and stops before changing anything when a build
+  file differs from every rzig template; `force = TRUE` replaces such files.
+  Before, it replaced customized build files and removed other files without
+  a message.
+- `rzig_status()` recommends `update_rzig()` for framework sources from
+  another rzig version.
+
 # rzig 0.3.9
 
 ## Bug fixes

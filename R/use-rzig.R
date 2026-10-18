@@ -18,10 +18,15 @@
 #'
 #' @param path Path to the package root; the directory must contain a
 #'   `DESCRIPTION` file.
-#' @param overwrite Replace files previously managed by RZig. The package
-#'   author's Zig sources in `src/rzig/src` are kept, so
-#'   `use_rzig(path, overwrite = TRUE)` updates the framework sources and build
-#'   files of a package to the installed version of rzig.
+#' @param overwrite Allow `use_rzig()` on a package that already has RZig
+#'   files. The framework sources and every build file that still matches an
+#'   rzig template are then replaced, as with [update_rzig()]; the package
+#'   author's Zig sources in `src/rzig/src` and files rzig does not know are
+#'   kept. A build file the package author changed stops the call unless
+#'   `force = TRUE`. [update_rzig()] is the usual way to update a package: it
+#'   keeps customized build files and lists them.
+#' @param force With `overwrite = TRUE`, also replace customized build files
+#'   with the templates.
 #'
 #' @return An object of class `rzig_scaffold`: a list with `path` (the
 #'   normalized package root), `package`, `files` (the paths written,
@@ -37,9 +42,12 @@
 #' file.exists(file.path(package_path, "src", "rzig", "src", "main.zig"))
 #' unlink(package_path, recursive = TRUE)
 #' @export
-use_rzig <- function(path, overwrite = FALSE) {
+use_rzig <- function(path, overwrite = FALSE, force = FALSE) {
   if (length(overwrite) != 1L || is.na(overwrite)) {
     stop("`overwrite` must be TRUE or FALSE", call. = FALSE)
+  }
+  if (length(force) != 1L || is.na(force)) {
+    stop("`force` must be TRUE or FALSE", call. = FALSE)
   }
   overwrite <- isTRUE(overwrite)
   package_info <- .rzig_package_info(path)
@@ -51,78 +59,60 @@ use_rzig <- function(path, overwrite = FALSE) {
   if (!nzchar(zig_assets) || !nzchar(templates)) {
     stop("the installed rzig package is missing its scaffold assets", call. = FALSE)
   }
-
-  makevars <- .rzig_foreign_makevars(path)
-  if (length(makevars)) {
-    stop(
-      paste(makevars, collapse = " and "), " exists. rzig writes src/Makevars and src/Makevars.win ",
-      "from src/Makevars.in and src/Makevars.win.in during installation and removes them in ",
-      "cleanup. Delete ", paste(makevars, collapse = " and "), ", run use_rzig() again, and move ",
-      "its settings (for example PKG_LIBS) into src/Makevars.in and src/Makevars.win.in",
-      call. = FALSE
-    )
-  }
-  foreign <- .rzig_foreign_sources(path)
-  if (length(foreign)) {
-    stop(
-      "src/ contains compiled sources that the rzig build does not compile: ",
-      paste(foreign, collapse = ", "), ". The generated Makevars build the Zig sources and ",
-      "src/entry.c only; keep those sources in another package, or port them to Zig",
-      call. = FALSE
-    )
-  }
+  .rzig_guard_compiled_code(path)
 
   managed <- .rzig_managed_files
   conflicts <- managed[file.exists(file.path(path, managed))]
   if (length(conflicts) && !overwrite) {
     stop(
-      "RZig-managed files already exist; rerun with `overwrite = TRUE`: ",
-      paste(conflicts, collapse = ", "),
+      "RZig-managed files already exist: ", paste(conflicts, collapse = ", "),
+      ". Update them with update_rzig(path), or rerun with `overwrite = TRUE`",
       call. = FALSE
     )
   }
 
-  author_source <- file.path(path, "src", "rzig", "src")
-  keep_source <- file.exists(file.path(author_source, "main.zig"))
-  if (overwrite) {
-    managed_zig <- list.files(file.path(path, "src", "rzig"), all.files = TRUE, no.. = TRUE)
-    managed_zig <- managed_zig[managed_zig != "src"]
-    unlink(file.path(path, "src", "rzig", managed_zig), recursive = TRUE, force = TRUE)
-  }
   dir.create(file.path(path, "src"), recursive = TRUE, showWarnings = FALSE)
   dir.create(file.path(path, "R"), recursive = TRUE, showWarnings = FALSE)
-  .rzig_copy_tree(
-    zig_assets, file.path(path, "src", "rzig"),
-    skip = if (keep_source) "^src/" else NULL
-  )
+  if (dir.exists(file.path(path, "src", "rzig", "framework"))) {
+    # An existing scaffold: refresh it without removing anything rzig does not
+    # own. Customized build files stop the call (before any change) unless
+    # force = TRUE.
+    plan <- .rzig_refresh_plan(path, package)
+    kept <- plan$file[plan$action == "kept"]
+    if (length(kept) && !isTRUE(force)) {
+      stop(
+        "these build files differ from every rzig template: ", paste(kept, collapse = ", "),
+        ". update_rzig(path) keeps them; use_rzig(path, overwrite = TRUE, force = TRUE) replaces them",
+        call. = FALSE
+      )
+    }
+    .rzig_refresh_apply(path, package, plan, force = TRUE)
+    starter <- file.path(path, "src", "rzig", "src", "main.zig")
+    if (!file.exists(starter)) {
+      dir.create(dirname(starter), recursive = TRUE, showWarnings = FALSE)
+      file.copy(file.path(zig_assets, "src", "main.zig"), starter)
+    }
+  } else {
+    keep_source <- file.exists(file.path(path, "src", "rzig", "src", "main.zig"))
+    .rzig_copy_tree(
+      zig_assets, file.path(path, "src", "rzig"),
+      skip = if (keep_source) "^src/" else NULL
+    )
+    for (pair in list(c("Makevars", "src/Makevars.in"), c("Makevars.win", "src/Makevars.win.in"))) {
+      file.copy(file.path(templates, pair[[1L]]), file.path(path, pair[[2L]]),
+        overwrite = TRUE, copy.mode = TRUE)
+    }
+    for (script in c("configure", "configure.win", "cleanup", "cleanup.win")) {
+      file.copy(file.path(templates, script), file.path(path, script),
+        overwrite = TRUE, copy.mode = TRUE)
+      Sys.chmod(file.path(path, script), mode = "0755")
+    }
+    entry <- readLines(file.path(templates, "entry.c"), warn = FALSE)
+    entry <- gsub("@PKG@", .rzig_c_identifier(package), entry, fixed = TRUE)
+    writeLines(entry, file.path(path, "src", "entry.c"), useBytes = TRUE)
+  }
   .rzig_add_buildignore(path)
   description_changed <- .rzig_add_extra_sources(path)
-
-  file.copy(
-    file.path(templates, "Makevars"),
-    file.path(path, "src", "Makevars.in"),
-    overwrite = overwrite,
-    copy.mode = TRUE
-  )
-  file.copy(
-    file.path(templates, "Makevars.win"),
-    file.path(path, "src", "Makevars.win.in"),
-    overwrite = overwrite,
-    copy.mode = TRUE
-  )
-  for (script in c("configure", "configure.win", "cleanup", "cleanup.win")) {
-    file.copy(
-      file.path(templates, script),
-      file.path(path, script),
-      overwrite = overwrite,
-      copy.mode = TRUE
-    )
-    Sys.chmod(file.path(path, script), mode = "0755")
-  }
-
-  entry <- readLines(file.path(templates, "entry.c"), warn = FALSE)
-  entry <- gsub("@PKG@", .rzig_c_identifier(package), entry, fixed = TRUE)
-  writeLines(entry, file.path(path, "src", "entry.c"), useBytes = TRUE)
 
   bindings <- document(path)
 

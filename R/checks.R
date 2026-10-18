@@ -311,12 +311,12 @@
     problems <- c(problems, paste0(
       "missing: ",
       paste(file.path("src", "rzig", c(missing_framework, missing_templates)), collapse = ", "),
-      "; run use_rzig(path, overwrite = TRUE)"
+      "; run update_rzig(path)"
     ))
   }
   if (length(outdated)) {
     problems <- c(problems, sprintf(
-      "%d framework file%s differ%s from rzig %s (%s); run use_rzig(path, overwrite = TRUE), which keeps src/rzig/src and replaces the build files with the templates",
+      "%d framework file%s differ%s from rzig %s (%s); run update_rzig(path), which keeps src/rzig/src and customized build files",
       length(outdated), if (length(outdated) == 1L) "" else "s",
       if (length(outdated) == 1L) "s" else "",
       as.character(utils::packageVersion("rzig")),
