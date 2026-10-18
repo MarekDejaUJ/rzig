@@ -98,27 +98,39 @@ else
             done
         fi
     fi
-    # With RZIG_DOWNLOAD_ZIG=true, a missing compiler is downloaded, verified
-    # against the pinned SHA-256 and kept in the install_zig() folder.
+    # With RZIG_DOWNLOAD_ZIG=true (the user's request), a missing compiler is
+    # downloaded, verified against the pinned SHA-256 and kept in the
+    # install_zig() folder. Config/rzig/download-zig: true in DESCRIPTION (the
+    # package author's request, for GitHub and r-universe; CRAN requires its
+    # consent) downloads into the build folder of the package instead.
     if test -z "$zig_path"; then
+        download_reason=
         case "${RZIG_DOWNLOAD_ZIG:-}" in
-            true | TRUE | yes | 1)
-                download_version=${RZIG_ZIG_VERSION:-0.16.0}
-                download_dir=${zig_home:-$(pwd)/src/rzig/.zig-download}
-                if test ! -f src/rzig/tools/fetch_zig.R; then
-                    printf '%s\n' 'RZIG_DOWNLOAD_ZIG is set, but src/rzig/tools/fetch_zig.R is missing; update the package with rzig::update_rzig().' >&2
-                    exit 1
-                fi
-                printf 'downloading Zig %s into %s (RZIG_DOWNLOAD_ZIG)\n' "$download_version" "$download_dir"
-                downloaded=$("$r_bin" --no-echo --vanilla -f src/rzig/tools/fetch_zig.R --args "$download_version" "$download_dir") || downloaded=
-                # The path of the executable is the last line of the output.
-                downloaded=$(printf '%s\n' "$downloaded" | sed -n '$p')
-                if test -z "$downloaded" || ! try_candidate "$downloaded"; then
-                    printf 'could not download a verified Zig %s; see the messages above.\n' "$download_version" >&2
-                    exit 1
-                fi
-                ;;
+            true | TRUE | yes | 1) download_reason=RZIG_DOWNLOAD_ZIG ;;
         esac
+        if test -z "$download_reason" && grep -Eiq '^Config/rzig/download-zig:[[:space:]]*(true|yes)[[:space:]]*$' DESCRIPTION 2>/dev/null; then
+            download_reason=Config/rzig/download-zig
+        fi
+        if test -n "$download_reason"; then
+            download_version=${RZIG_ZIG_VERSION:-0.16.0}
+            if test "$download_reason" = RZIG_DOWNLOAD_ZIG; then
+                download_dir=${zig_home:-$(pwd)/src/rzig/.zig-download}
+            else
+                download_dir=$(pwd)/src/rzig/.zig-download
+            fi
+            if test ! -f src/rzig/tools/fetch_zig.R; then
+                printf '%s is set, but src/rzig/tools/fetch_zig.R is missing; update the package with rzig::update_rzig().\n' "$download_reason" >&2
+                exit 1
+            fi
+            printf 'downloading Zig %s into %s (%s)\n' "$download_version" "$download_dir" "$download_reason"
+            downloaded=$("$r_bin" --no-echo --vanilla -f src/rzig/tools/fetch_zig.R --args "$download_version" "$download_dir") || downloaded=
+            # The path of the executable is the last line of the output.
+            downloaded=$(printf '%s\n' "$downloaded" | sed -n '$p')
+            if test -z "$downloaded" || ! try_candidate "$downloaded"; then
+                printf 'could not download a verified Zig %s; see the messages above.\n' "$download_version" >&2
+                exit 1
+            fi
+        fi
     fi
     if test -z "$zig_path"; then
         if test -n "$first_path"; then

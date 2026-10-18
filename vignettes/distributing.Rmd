@@ -1,0 +1,94 @@
+---
+title: "Distributing a package that uses RZig"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Distributing a package that uses RZig}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(rzig)
+```
+
+A package that uses RZig is a source package with compiled code: whoever
+installs it from source needs R's build tools and a Zig compiler of the
+supported series (0.16 or 0.17). rzig itself is pure R and needs no compiler.
+This vignette describes what a package states about Zig, how users obtain the
+compiler, and the channels through which such a package reaches its users.
+The code is plain R.
+
+## What the package states
+
+`create_rzig_package()` and `use_rzig()` write the field that names the
+compiler, and `rzig_status()` notes a `DESCRIPTION` without it:
+
+```{r fields}
+path <- file.path(tempdir(), "distpkg")
+create_rzig_package(path, tests = FALSE)
+read.dcf(file.path(path, "DESCRIPTION"), fields = "SystemRequirements")
+```
+
+`configure` reports the compiler it uses in the installation log and rejects
+other versions with a message that names the version it found, and the Zig
+build uses at most two jobs, as CRAN's policy for compiled code asks.
+
+## How users get Zig
+
+`find_zig()` reports the compiler that an installation would use. A user
+without one installs a verified release with `install_zig()`, which asks for
+permission, downloads the archive of a pinned release, checks its SHA-256
+checksum and keeps it in the user cache folder of rzig, where `configure`
+finds it:
+
+```{r find}
+find_zig(required = FALSE)
+```
+
+Alternatives are a download from <https://ziglang.org/download/>, with the
+compiler on `PATH` or named by `ZIG`, or `RZIG_DOWNLOAD_ZIG=true` in the
+environment of the installation, with which `configure` downloads and checks
+the same pinned release itself when it finds no compiler.
+
+## GitHub and r-universe
+
+`remotes::install_github()` and `pak::pak()` build the package from source on
+the user's machine, so the user needs Zig as above. r-universe builds binary
+packages for Windows and macOS on its own machines, which have no Zig; a
+package for r-universe or GitHub can ask `configure` to download the pinned
+release into its build folder when no compiler is found:
+
+```{r download}
+cat("Config/rzig/download-zig: true\n", file = file.path(path, "DESCRIPTION"), append = TRUE)
+status <- rzig_status(path)
+status[status$step == "DESCRIPTION", ]
+```
+
+The download goes to `src/rzig/.zig-download`, which the build excludes from
+the package and `cleanup` removes. Users of binary packages need no compiler
+at all.
+
+## CRAN
+
+CRAN's build machines have no Zig compiler, and CRAN's policy forbids
+downloading a compiler during the installation without the agreement of the
+CRAN team, so `Config/rzig/download-zig` is not for packages on CRAN. A
+package for CRAN states Zig in `SystemRequirements`, as packages with Rust
+code state Cargo; whether CRAN builds such packages depends on CRAN providing
+the compiler. rzig itself is on CRAN because its checks compile no Zig code.
+
+## Continuous integration
+
+`use_rzig_ci()` writes a GitHub Actions workflow that installs Zig 0.16 and
+0.17 and runs `R CMD check` with the settings that CRAN applies to compiled
+code on Linux, macOS and Windows:
+
+```{r ci}
+use_rzig_ci(path)
+file.exists(file.path(path, ".github", "workflows", "rzig-check.yaml"))
+```
+
+```{r cleanup, include = FALSE}
+unlink(path, recursive = TRUE)
+```

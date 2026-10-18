@@ -472,6 +472,12 @@
     ))
   }
   problems <- c(problems, .rzig_check_imports(path))
+  if (isTRUE(tolower(trimws(.rzig_field(fields, "Config/rzig/download-zig") %||% "")) %in% c("true", "yes"))) {
+    notes <- c(notes, paste0(
+      "Config/rzig/download-zig: configure downloads a verified Zig when it finds none; ",
+      "CRAN does not allow that without its consent, so a package for CRAN leaves the field out"
+    ))
+  }
   sources <- list.files(file.path(path, "src", "rzig", "src"), pattern = "\\.zig$", recursive = TRUE, full.names = TRUE)
   uses_lapack <- any(vapply(sources, function(source) {
     grepl("rzig\\.(Blas|Lapack)\\.", .rzig_read_text(source) %||% "")

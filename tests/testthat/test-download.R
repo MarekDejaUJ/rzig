@@ -104,3 +104,23 @@ test_that("configure downloads a real Zig release when RZIG_TEST_DOWNLOAD is set
   expect_null(attr(log, "status"))
   expect_true(any(grepl("using Zig 0.16.0 at", log, fixed = TRUE)))
 })
+
+test_that("Config/rzig/download-zig downloads into the build folder of the package", {
+  skip_on_cran()
+  skip_on_os("windows")
+  compiler <- find_zig(required = FALSE)
+  skip_if_not(isTRUE(compiler$supported), "no supported Zig compiler")
+  package <- local_package("zigdescdownload")
+  suppressMessages(use_rzig(package))
+  cat("Config/rzig/download-zig: true\n", file = file.path(package, "DESCRIPTION"), append = TRUE)
+  expect_true(any(grepl("Config/rzig/download-zig", rzig:::.rzig_check_description(package)$notes, fixed = TRUE)))
+  record <- file.path(local_tempdir(), "arguments")
+  stub_fetch(package, normalizePath(compiler$path), record)
+  env <- c(paste0("PATH=", shQuote(without_zig_path())), paste0("HOME=", shQuote(local_tempdir())),
+    paste0("R_USER_CACHE_DIR=", shQuote(local_tempdir())), "ZIG=", "RZIG_ZIG_HOME=", "RZIG_DOWNLOAD_ZIG=")
+  log <- install_log(package, local_tempdir(), env)
+  expect_null(attr(log, "status"), info = paste(log, collapse = "\n"))
+  arguments <- readLines(record)
+  expect_identical(normalizePath(arguments[[2L]]), normalizePath(file.path(package, "src", "rzig", ".zig-download")))
+  expect_true(any(grepl("(Config/rzig/download-zig)", log, fixed = TRUE)))
+})

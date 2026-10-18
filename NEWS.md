@@ -1,3 +1,18 @@
+# rzig 0.41.0
+
+## New features
+
+- Seven vignettes with code that runs: getting started, updating rzig in a
+  package, exports and classes, threads and random numbers, numerical
+  routines of R, code shared between packages, and distribution. The steps
+  that need Zig run when a supported compiler is found.
+- `Config/rzig/download-zig: true` in `DESCRIPTION` lets `configure` download
+  the pinned Zig release into the build folder of the package when it finds
+  no compiler, for packages distributed through GitHub or r-universe;
+  `rzig_status()` notes that CRAN does not allow it without its consent.
+- Methods of `/// @class` structs that return nothing return `NULL`
+  invisibly, so `m$add(x)` prints nothing.
+
 # rzig 0.40.0
 
 ## New features

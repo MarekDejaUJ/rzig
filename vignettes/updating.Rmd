@@ -1,0 +1,98 @@
+---
+title: "Updating rzig in a package"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Updating rzig in a package}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(rzig)
+```
+
+A package created with `use_rzig()` contains a copy of the rzig framework
+(`src/rzig/framework`) and build files made from rzig's templates
+(`configure`, `src/Makevars.in`, `src/entry.c`, `src/rzig/build.zig` and
+others). The framework and the R side of rzig must come from the same
+version, because the generated bindings rely on both. After an update of rzig,
+`update_rzig()` brings the package to the installed version. Every step of
+this vignette is plain R and needs no Zig compiler.
+
+## A package to update
+
+```{r create}
+path <- file.path(tempdir(), "updatedpkg")
+create_rzig_package(path, tests = FALSE)
+```
+
+## What the update does
+
+`update_rzig()` replaces the framework sources, replaces each build file that
+is identical to a template of some rzig version (the package author has not
+changed it), adds missing files and regenerates the bindings. The package
+author's Zig sources in `src/rzig/src`, the list of C libraries
+`src/rzig/c_libraries.zon` and every file rzig does not know stay as they are.
+On a package that is current, the result lists no file:
+
+```{r current}
+result <- update_rzig(path)
+result
+```
+
+## Customized build files are kept
+
+A build file that the package author changed is kept, because the change may
+matter, and listed, so that it can be compared with the new template. Here
+`src/Makevars.in` gets an extra comment:
+
+```{r customize}
+makevars <- file.path(path, "src", "Makevars.in")
+cat("# Built with a custom flag.\n", file = makevars, append = TRUE)
+result <- update_rzig(path)
+result
+```
+
+`rzig_status()` notes the difference without failing, because a customized
+build file is allowed:
+
+```{r status}
+status <- rzig_status(path)
+status[status$step == "Scaffold", ]
+```
+
+With `force = TRUE`, `update_rzig()` replaces customized build files with the
+templates as well:
+
+```{r force}
+result <- update_rzig(path, force = TRUE)
+result
+```
+
+## A framework from another version
+
+When the framework files differ from those of the installed rzig, for example
+after `install.packages("rzig")` in a project that was not updated,
+`rzig_status()` fails the scaffold step and names `update_rzig()`. A changed
+framework file shows the check:
+
+```{r stale}
+framework_file <- file.path(path, "src", "rzig", "framework", "rzig.zig")
+cat("// local change\n", file = framework_file, append = TRUE)
+status <- rzig_status(path)
+status[status$step == "Scaffold", ]
+result <- update_rzig(path)
+result
+```
+
+## Recommended routine
+
+After updating rzig: run `update_rzig(path)`, read the list of kept files,
+run `rzig_status(path)`, rebuild with `build_zig(path)` and run the tests of
+the package. The NEWS file of rzig lists the changes of each version that
+affect packages.
+
+```{r cleanup, include = FALSE}
+unlink(path, recursive = TRUE)
+```

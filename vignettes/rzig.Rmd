@@ -1,0 +1,181 @@
+---
+title: "Getting started with RZig"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with RZig}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(rzig)
+compiler <- find_zig(required = FALSE)
+has_zig <- isTRUE(compiler$supported)
+```
+
+RZig lets an R package implement functions in Zig. The package author writes
+ordinary Zig functions and marks the exported ones; RZig generates the
+registration, the R wrappers and the conversion of every argument and result,
+and runs the Zig build when the package is installed. This vignette goes
+through the workflow one step at a time. Every step up to the installation is
+plain R and runs without Zig; the steps that compile run when a supported Zig
+compiler is found, and this copy of the vignette
+`r if (has_zig) "ran" else "skipped"` them.
+
+## Find the compiler
+
+`find_zig()` looks for a Zig release of the supported series (0.16 and 0.17)
+in `ZIG`, on `PATH`, in the folder of `install_zig()` and in the usual install
+locations. With `required = FALSE`, a missing compiler is a result and not an
+error:
+
+```{r find}
+compiler
+```
+
+A user without Zig can install a verified release with `install_zig()`, which
+downloads it into the user cache folder of rzig after asking for permission.
+
+## Create a package
+
+`create_rzig_package()` creates a new package with the RZig scaffold, a
+starter function and a test; `use_rzig()` adds the same scaffold to an
+existing package. The package here lives in R's temporary directory:
+
+```{r create}
+path <- file.path(tempdir(), "hellozig")
+create_rzig_package(path, fields = list(
+  Title = "Greetings from Zig",
+  Description = "Shows the workflow of 'rzig'."
+))
+```
+
+The Zig code lives in `src/rzig/src/main.zig`. The starter function shows the
+three parts of an export: documentation comments, which become the help page,
+the marker `/// @export`, and a public function with supported types:
+
+```{r starter, comment = ""}
+main_zig <- file.path(path, "src", "rzig", "src", "main.zig")
+cat(readLines(main_zig), sep = "\n")
+```
+
+## Add a function
+
+A second export takes a numeric vector, which Zig reads as a borrowed slice,
+and returns a numeric vector that Zig allocates in the call context `ctx`:
+
+```{r add, comment = ""}
+cat(
+  "",
+  "/// The cumulative sum of a numeric vector.",
+  "/// @param x A numeric vector.",
+  "/// @return A numeric vector of the same length.",
+  "/// @examples",
+  "/// cumulative(c(1, 2, 3))",
+  "/// @export",
+  "pub fn cumulative(ctx: *rzig.Ctx, x: []const f64) rzig.Error![]f64 {",
+  "    const out = try ctx.alloc(f64, x.len);",
+  "    var total: f64 = 0;",
+  "    for (x, out) |value, *slot| {",
+  "        total += value;",
+  "        slot.* = total;",
+  "    }",
+  "    return out;",
+  "}",
+  sep = "\n", file = main_zig, append = TRUE
+)
+```
+
+## Scan, generate and check
+
+`scan_exports()` lists the exported functions with their R arguments and the
+R values they accept and return:
+
+```{r scan}
+scan_exports(path)
+```
+
+`document()` writes the generated files: the Zig manifest, the R wrappers, the
+`NAMESPACE` lines and the help pages. Run it after every change of an exported
+signature or its documentation:
+
+```{r document}
+bindings <- document(path)
+cat(bindings$wrappers)
+```
+
+`rzig_status()` runs the checks that `build_zig()` runs before it compiles:
+the `DESCRIPTION`, the scaffold, the Zig source, the types of the exports, the
+generated files and the toolchain:
+
+```{r status}
+rzig_status(path)
+```
+
+## Build and call
+
+`build_zig()` installs the package from a copy, so that the source folder
+stays clean, and reports compiler errors by file and line:
+
+```{r build, eval = has_zig}
+build <- build_zig(path)
+build
+library(hellozig, lib.loc = build$library)
+hello_zig("R")
+cumulative(c(1, 2, 3, 4))
+```
+
+Arguments of the wrong type are R errors that name the argument; the R
+session continues:
+
+```{r errors, eval = has_zig}
+try(cumulative("a"))
+```
+
+## Test the Zig code
+
+Functions that do not use the `rzig` module can be tested with Zig's own test
+runner, without R. `test_zig()` runs the `test` blocks reached from
+`src/rzig/src/tests.zig`:
+
+```{r zig-tests, comment = ""}
+writeLines(c(
+  "const std = @import(\"std\");",
+  "",
+  "fn add(a: f64, b: f64) f64 {",
+  "    return a + b;",
+  "}",
+  "",
+  "test \"add\" {",
+  "    try std.testing.expectEqual(@as(f64, 3), add(1, 2));",
+  "}"
+), file.path(path, "src", "rzig", "src", "tests.zig"))
+```
+
+```{r run-zig-tests, eval = has_zig}
+tests <- test_zig(path)
+tests
+```
+
+## Try Zig from the R prompt
+
+`zig_function()` compiles one Zig function into a temporary package and
+returns an R function, which suits experiments before code moves into a
+package:
+
+```{r zig-function, eval = has_zig}
+twice <- zig_function("pub fn twice(x: f64) f64 { return 2 * x; }")
+twice(21)
+```
+
+```{r cleanup, include = FALSE}
+if (has_zig) unloadNamespace("hellozig")
+unlink(path, recursive = TRUE)
+```
+
+## Next steps
+
+The README of rzig lists the supported types. The other vignettes describe
+updating the scaffold, exports and classes, threads and random numbers,
+numerical routines from R, packages that share code, and distribution.

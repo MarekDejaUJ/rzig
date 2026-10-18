@@ -239,7 +239,8 @@
 .rzig_buildignore_entries <- c(
   "^src/rzig/\\.zig-cache$",
   "^src/rzig/\\.zig-global-cache$",
-  "^src/rzig/zig-out$"
+  "^src/rzig/zig-out$",
+  "^src/rzig/\\.zig-download$"
 )
 
 .rzig_add_buildignore <- function(path, entries = .rzig_buildignore_entries) {

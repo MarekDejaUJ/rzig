@@ -498,7 +498,9 @@ scan_exports <- function(path) {
         parameters = c("self", method$parameters),
         parameter_types = c(sprintf("rzig.External(%s)", class$name), method$parameter_types),
         return_type = method$return_type, doc = method$doc, line = method$line,
-        internal = TRUE, invisible = FALSE, defaults = method$defaults,
+        # A method that returns nothing returns NULL invisibly in R.
+        internal = TRUE, invisible = identical(sub("^Error!", "", .rzig_type_key(method$return_type)), "void"),
+        defaults = method$defaults,
         class = list(name = class$name, role = "method", member = method$name)
       )
     }
