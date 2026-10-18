@@ -1,3 +1,16 @@
+# rzig 0.32.0
+
+## New features
+
+- `rzig.Optimize.minimize()` runs the optimizers of `optim()` (BFGS,
+  Nelder-Mead, conjugate gradients, L-BFGS-B with bounds) on Zig objectives,
+  with an optional analytic gradient and otherwise the central differences of
+  `optim()`; the results and counts match `optim()`.
+- `rzig.Integrate.integrate()` integrates a Zig function as `integrate()`
+  does, on finite and infinite ranges, with QUADPACK's failures as errors.
+- Errors in objectives and integrands are recorded and reported when the
+  routine finishes; the routines run guarded against R errors.
+
 # rzig 0.31.0
 
 ## New features

@@ -358,6 +358,123 @@ pub fn sexp_element_kinds(ctx: *rzig.Ctx, value: rzig.Sexp) rzig.Error![]const [
     return result;
 }
 
+const Rosenbrock = struct {
+    pub fn value(self: *const Rosenbrock, x: []const f64) f64 {
+        _ = self;
+        const a = x[1] - x[0] * x[0];
+        const b = 1 - x[0];
+        return 100 * (a * a) + b * b;
+    }
+};
+
+const RosenbrockWithGradient = struct {
+    pub fn value(self: *const RosenbrockWithGradient, x: []const f64) f64 {
+        _ = self;
+        const a = x[1] - x[0] * x[0];
+        const b = 1 - x[0];
+        return 100 * (a * a) + b * b;
+    }
+
+    pub fn gradient(self: *const RosenbrockWithGradient, x: []const f64, g: []f64) void {
+        _ = self;
+        g[0] = -400 * x[0] * (x[1] - x[0] * x[0]) - 2 * (1 - x[0]);
+        g[1] = 200 * (x[1] - x[0] * x[0]);
+    }
+};
+
+const FailingObjective = struct {
+    pub fn value(self: *const FailingObjective, x: []const f64) rzig.Error!f64 {
+        _ = self;
+        if (x[0] > 0.5) return rzig.raise("the objective failed at x = {d}", .{x[0]});
+        return (x[0] - 2) * (x[0] - 2);
+    }
+};
+
+const OptimResult = struct {
+    par: []f64,
+    value: f64,
+    fn_count: i32,
+    gr_count: i32,
+    convergence: i32,
+};
+
+fn minimizeBy(ctx: *rzig.Ctx, method: []const u8, problem: anytype, x: []f64, options: rzig.Optimize.Options) rzig.Error!rzig.Optimize.Result {
+    if (std.mem.eql(u8, method, "BFGS")) return rzig.Optimize.minimize(ctx, .bfgs, problem, x, options);
+    if (std.mem.eql(u8, method, "Nelder-Mead")) return rzig.Optimize.minimize(ctx, .nelder_mead, problem, x, options);
+    if (std.mem.eql(u8, method, "CG")) return rzig.Optimize.minimize(ctx, .conjugate_gradient, problem, x, options);
+    if (std.mem.eql(u8, method, "L-BFGS-B")) return rzig.Optimize.minimize(ctx, .lbfgsb, problem, x, options);
+    return rzig.raise("unknown method {s}", .{method});
+}
+
+/// Minimize the Rosenbrock function with an optim() method.
+/// @export
+pub fn optim_rosenbrock(
+    ctx: *rzig.Ctx,
+    method: []const u8,
+    start: []const f64,
+    with_gradient: bool,
+    lower: ?[]const f64,
+    upper: ?[]const f64,
+) rzig.Error!rzig.Record(OptimResult) {
+    const x = try ctx.dupe(f64, start);
+    const options = rzig.Optimize.Options{ .lower = lower, .upper = upper };
+    const result = if (with_gradient)
+        try minimizeBy(ctx, method, &RosenbrockWithGradient{}, x, options)
+    else
+        try minimizeBy(ctx, method, &Rosenbrock{}, x, options);
+    return .{ .value = .{
+        .par = x,
+        .value = result.value,
+        .fn_count = result.value_count,
+        .gr_count = result.gradient_count,
+        .convergence = result.code,
+    } };
+}
+
+/// Minimize an objective that fails for x > 0.5.
+/// @export
+pub fn optim_failing(ctx: *rzig.Ctx, start: f64) rzig.Error!f64 {
+    const x = try ctx.dupe(f64, &.{start});
+    const result = try rzig.Optimize.minimize(ctx, .bfgs, &FailingObjective{}, x, .{});
+    return result.value;
+}
+
+const Gaussian = struct {
+    mean: f64,
+    sd: f64,
+
+    pub fn value(self: *const Gaussian, x: f64) f64 {
+        const z = (x - self.mean) / self.sd;
+        return @exp(-0.5 * z * z) / (self.sd * @sqrt(2 * std.math.pi));
+    }
+};
+
+const Inverse = struct {
+    pub fn value(self: *const Inverse, x: f64) f64 {
+        _ = self;
+        return 1 / x;
+    }
+};
+
+const IntegrateResult = struct {
+    value: f64,
+    abs_error: f64,
+    evaluations: i32,
+};
+
+/// Integrate a normal density from `lower` to `upper`.
+/// @export
+pub fn integrate_gaussian(ctx: *rzig.Ctx, mean: f64, sd: f64, lower: f64, upper: f64) rzig.Error!rzig.Record(IntegrateResult) {
+    const result = try rzig.Integrate.integrate(ctx, &Gaussian{ .mean = mean, .sd = sd }, lower, upper, .{});
+    return .{ .value = .{ .value = result.value, .abs_error = result.abs_error, .evaluations = result.evaluations } };
+}
+
+/// Integrate 1 / x, which diverges at 0.
+/// @export
+pub fn integrate_inverse(ctx: *rzig.Ctx, lower: f64, upper: f64) rzig.Error!f64 {
+    return (try rzig.Integrate.integrate(ctx, &Inverse{}, lower, upper, .{})).value;
+}
+
 /// The sum of each column of a sparse matrix.
 /// @export
 pub fn csc_column_sums(ctx: *rzig.Ctx, values: rzig.CscMatrix) rzig.Error![]f64 {

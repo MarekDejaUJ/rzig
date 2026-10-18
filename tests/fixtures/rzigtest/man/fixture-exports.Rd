@@ -43,6 +43,10 @@
 \alias{rmath_draws}
 \alias{csc_column_sums}
 \alias{csc_times_vector}
+\alias{optim_rosenbrock}
+\alias{optim_failing}
+\alias{integrate_gaussian}
+\alias{integrate_inverse}
 \title{Fixture Functions for the Types and Services of the Boundary}
 \usage{
 parallel_thread_count(count)
@@ -88,6 +92,10 @@ rmath_eval(kind, name, x, values, lower, log)
 rmath_draws(name, count, values)
 csc_column_sums(values)
 csc_times_vector(values, x)
+optim_rosenbrock(method, start, with_gradient, lower, upper)
+optim_failing(start)
+integrate_gaussian(mean, sd, lower, upper)
+integrate_inverse(lower, upper)
 }
 \arguments{
 \item{count}{A non-negative count.}
@@ -111,7 +119,13 @@ of a distribution.}
 \item{counter}{A counter made by \code{counter_new()}.}
 \item{kind}{\code{"d"}, \code{"p"} or \code{"q"}.}
 \item{x}{The value or probability.}
-\item{lower, log}{The tail and the scale of probabilities.}
+\item{lower, log}{The tail and the scale of probabilities; \code{lower} is also a
+bound.}
+\item{method}{The name of an \code{optim()} method.}
+\item{start}{Starting values.}
+\item{with_gradient}{Whether the objective has an analytic gradient.}
+\item{upper}{Upper bounds or limits.}
+\item{mean, sd}{Parameters of a normal density.}
 }
 \value{
 The value each function computes; the tests of the package describe them.

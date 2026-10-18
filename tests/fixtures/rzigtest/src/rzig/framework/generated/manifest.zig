@@ -213,6 +213,30 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{"value"},
             },
             .{
+                .name = "optim_rosenbrock",
+                .func = bound_root.optim_rosenbrock,
+                .doc = "Minimize the Rosenbrock function with an optim() method.",
+                .parameters = .{ "method", "start", "with_gradient", "lower", "upper" },
+            },
+            .{
+                .name = "optim_failing",
+                .func = bound_root.optim_failing,
+                .doc = "Minimize an objective that fails for x > 0.5.",
+                .parameters = .{"start"},
+            },
+            .{
+                .name = "integrate_gaussian",
+                .func = bound_root.integrate_gaussian,
+                .doc = "Integrate a normal density from `lower` to `upper`.",
+                .parameters = .{ "mean", "sd", "lower", "upper" },
+            },
+            .{
+                .name = "integrate_inverse",
+                .func = bound_root.integrate_inverse,
+                .doc = "Integrate 1 / x, which diverges at 0.",
+                .parameters = .{ "lower", "upper" },
+            },
+            .{
                 .name = "csc_column_sums",
                 .func = bound_root.csc_column_sums,
                 .doc = "The sum of each column of a sparse matrix.",

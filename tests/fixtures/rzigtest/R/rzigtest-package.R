@@ -85,6 +85,22 @@ sexp_element_kinds <- function(value) {
   .Call(C_sexp_element_kinds, value)
 }
 
+optim_rosenbrock <- function(method, start, with_gradient, lower, upper) {
+  .Call(C_optim_rosenbrock, method, start, with_gradient, lower, upper)
+}
+
+optim_failing <- function(start) {
+  .Call(C_optim_failing, start)
+}
+
+integrate_gaussian <- function(mean, sd, lower, upper) {
+  .Call(C_integrate_gaussian, mean, sd, lower, upper)
+}
+
+integrate_inverse <- function(lower, upper) {
+  .Call(C_integrate_inverse, lower, upper)
+}
+
 csc_column_sums <- function(values) {
   .Call(C_csc_column_sums, values)
 }

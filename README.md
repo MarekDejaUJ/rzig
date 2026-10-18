@@ -755,6 +755,30 @@ pub fn crossprod(ctx: *rzig.Ctx, x: rzig.Matrix) rzig.Error!rzig.Attributed([]f6
 }
 ```
 
+## Optimization and integration
+
+`rzig.Optimize.minimize(ctx, method, &problem, x, options)` runs the
+optimizers of `optim()` (`.bfgs`, `.nelder_mead`, `.conjugate_gradient`,
+`.lbfgsb` with bounds) on a Zig objective: `problem` has `value(x)` and,
+optionally, `gradient(x, g)`; without one, central differences use the
+step of `optim()`. `rzig.Integrate.integrate(ctx, &f, lower, upper, .{})`
+integrates `f.value(x)` as `integrate()` does, with infinite limits allowed.
+Errors of the callbacks are reported when the routine finishes.
+
+```zig
+const Problem = struct {
+    data: []const f64,
+    pub fn value(self: *const Problem, x: []const f64) f64 {
+        var total: f64 = 0;
+        for (self.data) |y| total += (y - x[0]) * (y - x[0]);
+        return total;
+    }
+};
+
+const x = try ctx.dupe(f64, &.{0.0});
+const result = try rzig.Optimize.minimize(ctx, .bfgs, &Problem{ .data = data }, x, .{});
+```
+
 ## Pure Zig parallel loops
 
 `rzig.parallelFor` distributes an indexed computation across Zig worker threads.
