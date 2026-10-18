@@ -42,6 +42,8 @@ pub const Logical = enum(i32) {
 pub const real: f64 = @bitCast(@as(u64, 0x7FF0_0000_0000_07A2));
 /// R's missing integer (`NA_integer_`), `std.math.minInt(i32)`.
 pub const integer: i32 = std.math.minInt(i32);
+/// The missing value of bit64::integer64 vectors, `std.math.minInt(i64)`.
+pub const integer64: i64 = std.math.minInt(i64);
 /// R's missing logical (`NA`).
 pub const logical: Logical = .NA;
 

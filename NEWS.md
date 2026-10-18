@@ -1,3 +1,22 @@
+# rzig 0.24.0
+
+## New features
+
+- `i64` and `[]const i64` read `bit64::integer64` values (the 64-bit integers
+  stored in the bits of a double vector of class `integer64`), and `i64`
+  also accepts integers and whole doubles up to 2^53 - 1 in absolute value.
+  `?i64` maps NA and NULL to `null`; `rzig.NA.integer64` is the missing
+  value. `i64` and `[]i64` return `integer64` vectors.
+- Counts and indices of long vectors (beyond 2^31 - 1) reach Zig as `i64`;
+  `usize` keeps the range of R's integers, and its error message points to
+  `i64`.
+
+## Behavior changes
+
+- `f64`, `i32`, `usize`, `[]const f64` and `rzig.Mut([]f64)` reject
+  `bit64::integer64` values, whose bits are not doubles, instead of reading
+  them as wrong numbers.
+
 # rzig 0.23.0
 
 ## New features

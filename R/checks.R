@@ -10,7 +10,7 @@
 # Types of exported functions
 
 .rzig_input_types <- c(
-  "f64", "i32", "bool", "usize", "?f64", "?i32", "?bool", "?usize",
+  "f64", "i32", "bool", "usize", "i64", "?f64", "?i32", "?bool", "?usize", "?i64", "[]consti64",
   "[]constf64", "[]consti32", "[]constbool", "[]constu8", "[]const[]constu8",
   "[]constLogical", "[]const?[]constu8", "?[]constu8", "Complex", "[]constComplex", "Raw",
   "Matrix", "IntMatrix", "BoolMatrix", "Sexp",
@@ -24,7 +24,7 @@
 )
 
 .rzig_plain_returns <- c(
-  "void", "f64", "i32", "bool", .rzig_vector_returns, "[]constu8", "Complex", "Raw", "List", "Sexp"
+  "void", "f64", "i32", "i64", "[]i64", "[]consti64", "bool", .rzig_vector_returns, "[]constu8", "Complex", "Raw", "List", "Sexp"
 )
 
 # The prefix `rzig.` goes first: removing the spaces of "[]const rzig.Logical"
@@ -63,7 +63,7 @@
     return("rzig.Mut([]f64), rzig.Mut([]i32), rzig.Mut(rzig.Matrix) or rzig.Mut(rzig.IntMatrix)")
   }
   if (grepl("[iu](8|16|64|128)|u32|isize", key) && !grepl("u8", key)) {
-    return("i32, or f64 for integers beyond 32 bits")
+    return("i32, i64 (a bit64::integer64 in R), or f64")
   }
   "a supported type (see ?scan_exports)"
 }

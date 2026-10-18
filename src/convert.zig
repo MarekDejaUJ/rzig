@@ -54,6 +54,12 @@ pub fn fromMutableSexp(
     }
     const Inner = T.rzig_mut_inner;
     if (comptime Inner == []f64) {
+        if (isInteger64(x)) {
+            return es.raise(
+                "rzig: {s} is a bit64::integer64 vector, whose values are not doubles; use as.numeric() in R",
+                .{name},
+            );
+        }
         if (c.TYPEOF(x) != c.REALSXP) {
             return es.raise(
                 "rzig: {s} must be a numeric vector for rzig.Mut([]f64); got {s}; use as.numeric() in R",
@@ -97,6 +103,8 @@ pub fn fromSexp(
     if (comptime T == i32) return scalarI32(x, name, "i32");
     if (comptime T == bool) return scalarBool(x, name);
     if (comptime T == usize) return scalarUsize(x, name);
+    if (comptime T == i64) return scalarI64(x, name);
+    if (comptime T == []const i64) return integer64Slice(x, name);
     if (comptime T == []const f64) return realSlice(x, name);
     if (comptime T == []const i32) return integerSlice(x, name);
     if (comptime T == []const bool) return logicalSlice(ctx, x, name);
@@ -386,6 +394,12 @@ fn optionalString(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error!?[]c
 }
 
 fn realSlice(x: c.SEXP, comptime name: []const u8) es.Error![]const f64 {
+    if (isInteger64(x)) {
+        return es.raise(
+            "rzig: {s} is a bit64::integer64 vector, whose values are not doubles; use []const i64 in Zig or as.numeric() in R",
+            .{name},
+        );
+    }
     if (c.TYPEOF(x) != c.REALSXP) {
         return es.raise(
             "rzig: {s} must be a numeric vector; got {s}; use as.numeric() in R",
@@ -524,10 +538,12 @@ fn scalarUsize(x: c.SEXP, comptime name: []const u8) es.Error!usize {
     if (std.math.isFinite(value) and value < 0) {
         return es.raise("rzig: {s} must be non-negative; got {d}", .{ name, value });
     }
+    // The range of R's integers, so package code can store the value in an
+    // i32; counts beyond it use i64.
     const max: f64 = @floatFromInt(std.math.maxInt(i32));
     if (!std.math.isFinite(value) or @trunc(value) != value or value > max) {
         return es.raise(
-            "rzig: {s} must be a whole number from 0 to 2147483647; got {d}",
+            "rzig: {s} must be a whole number from 0 to 2147483647; got {d}; use i64 for larger counts",
             .{ name, value },
         );
     }
@@ -536,6 +552,14 @@ fn scalarUsize(x: c.SEXP, comptime name: []const u8) es.Error!usize {
 
 fn validateScalar(comptime T: type, x: c.SEXP, comptime name: []const u8) es.Error!void {
     const kind: c.SEXPTYPE = @intCast(c.TYPEOF(x));
+    if (comptime T != i64) {
+        if (isInteger64(x)) {
+            return es.raise(
+                "rzig: {s} is a bit64::integer64 value, whose bits are not a double; use i64 in Zig or as.numeric() in R",
+                .{name},
+            );
+        }
+    }
     const valid_type = if (comptime T == bool)
         kind == c.LGLSXP
     else
@@ -563,7 +587,10 @@ fn validateScalar(comptime T: type, x: c.SEXP, comptime name: []const u8) es.Err
 fn scalarIsNa(x: c.SEXP) bool {
     const kind: c.SEXPTYPE = @intCast(c.TYPEOF(x));
     return switch (kind) {
-        c.REALSXP => na.isNaReal(c.REAL_ELT(x, 0)),
+        c.REALSXP => if (isInteger64(x))
+            @as(i64, @bitCast(c.REAL_ELT(x, 0))) == std.math.minInt(i64)
+        else
+            na.isNaReal(c.REAL_ELT(x, 0)),
         c.INTSXP => na.isNaInt(c.INTEGER_ELT(x, 0)),
         c.LGLSXP => na.isNaLogical(c.LOGICAL_ELT(x, 0)),
         else => false,
@@ -571,7 +598,54 @@ fn scalarIsNa(x: c.SEXP) bool {
 }
 
 fn isScalar(comptime T: type) bool {
-    return T == f64 or T == i32 or T == bool or T == usize;
+    return T == f64 or T == i32 or T == bool or T == usize or T == i64;
+}
+
+/// A double vector with class `integer64` (package bit64): each element holds
+/// the bits of a 64-bit integer, and the smallest one is NA.
+fn isInteger64(x: c.SEXP) bool {
+    return c.TYPEOF(x) == c.REALSXP and c.Rf_inherits(x, "integer64") != c.FALSE;
+}
+
+fn scalarI64(x: c.SEXP, comptime name: []const u8) es.Error!i64 {
+    try validateScalar(i64, x, name);
+    if (scalarIsNa(x)) {
+        return es.raise("rzig: {s} cannot be NA; use ?i64 to accept missing values", .{name});
+    }
+    const kind: c.SEXPTYPE = @intCast(c.TYPEOF(x));
+    switch (kind) {
+        c.INTSXP => return c.INTEGER_ELT(x, 0),
+        c.LGLSXP => return c.LOGICAL_ELT(x, 0),
+        c.REALSXP => {
+            if (isInteger64(x)) return @bitCast(c.REAL_ELT(x, 0));
+            const value = c.REAL_ELT(x, 0);
+            if (!std.math.isFinite(value) or @trunc(value) != value or @abs(value) > max_exact_double) {
+                return es.raise(
+                    "rzig: {s} must be a whole number from -9007199254740991 to 9007199254740991, " ++
+                        "or a bit64::integer64; got {d}",
+                    .{ name, value },
+                );
+            }
+            return @intFromFloat(value);
+        },
+        else => return es.raise("rzig: internal scalar conversion error for {s}", .{name}),
+    }
+}
+
+/// 2^53 - 1, the largest integer a double holds exactly.
+const max_exact_double: f64 = 9007199254740991;
+
+/// A borrowed bit64::integer64 vector; NA is `std.math.minInt(i64)`.
+fn integer64Slice(x: c.SEXP, comptime name: []const u8) es.Error![]const i64 {
+    if (!isInteger64(x)) {
+        return es.raise(
+            "rzig: {s} must be a bit64::integer64 vector; got {s}; use bit64::as.integer64() in R",
+            .{ name, typeName(x) },
+        );
+    }
+    const length = try vectorLength(x, name);
+    const data: [*]const i64 = @ptrCast(@alignCast(c.REAL_RO(x)));
+    return data[0..length];
 }
 
 fn isSupportedInput(comptime T: type) bool {
@@ -579,6 +653,7 @@ fn isSupportedInput(comptime T: type) bool {
     if (isScalar(T) or
         T == []const f64 or
         T == []const i32 or
+        T == []const i64 or
         T == []const bool or
         T == []const u8 or
         T == []const []const u8 or
@@ -612,6 +687,9 @@ fn isSupportedReturn(comptime T: type) bool {
     if (T == void or
         T == f64 or
         T == i32 or
+        T == i64 or
+        T == []const i64 or
+        T == []i64 or
         T == bool or
         T == []const f64 or
         T == []f64 or
@@ -681,15 +759,19 @@ fn nearestInputAlternative(comptime T: type) []const u8 {
 
     return switch (@typeInfo(T)) {
         .float => "f64 for an R numeric scalar",
-        .int => |info| if (info.signedness == .signed)
+        .int => |info| if (info.bits > 32)
+            "i64 for an R integer64 or whole-number scalar"
+        else if (info.signedness == .signed)
             "i32 for an R integer scalar"
         else
             "usize for a non-negative R integer scalar",
         .pointer => |info| switch (@typeInfo(info.child)) {
             .bool => "[]const bool for an R logical vector",
             .float => "[]const f64 for an R numeric vector",
-            .int => if (info.child == u8)
+            .int => |child| if (info.child == u8)
                 "[]const u8 for a UTF-8 string"
+            else if (child.bits > 32)
+                "[]const i64 for a bit64::integer64 vector"
             else
                 "[]const i32 for an R integer vector",
             else => "rzig.Sexp for explicit low-level handling",
@@ -737,6 +819,8 @@ pub fn toSexp(
     if (comptime T == void) return c.R_NilValue;
     if (comptime T == f64) return realScalarToSexp(stack, value);
     if (comptime T == i32) return integerScalarToSexp(stack, value);
+    if (comptime T == i64) return integer64ToSexp(stack, &.{value});
+    if (comptime T == []const i64 or T == []i64) return integer64ToSexp(stack, value);
     if (comptime T == bool) return logicalScalarToSexp(stack, value);
     if (comptime T == []const f64 or T == []f64) return realSliceToSexp(stack, value);
     if (comptime T == []const i32 or T == []i32) return integerSliceToSexp(stack, value);
@@ -898,6 +982,18 @@ fn attachStringAttribute(
     }
     _ = c.Rf_setAttrib(result, symbol, attribute);
     stack.pop(1);
+}
+
+/// A double vector with class `integer64` holding the bits of `value`.
+fn integer64ToSexp(stack: *protect.Stack, value: []const i64) es.Error!c.SEXP {
+    const length = try returnLength(value.len);
+    const result = stack.push(c.Rf_allocVector(c.REALSXP, length));
+    const target: [*]i64 = @ptrCast(@alignCast(c.REAL(result)));
+    if (value.len > 0) @memcpy(target[0..value.len], value);
+    const class = stack.push(c.Rf_mkString("integer64"));
+    _ = c.Rf_setAttrib(result, c.R_ClassSymbol, class);
+    stack.pop(1);
+    return result;
 }
 
 fn realScalarToSexp(stack: *protect.Stack, value: f64) c.SEXP {

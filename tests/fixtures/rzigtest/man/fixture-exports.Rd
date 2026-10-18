@@ -21,6 +21,10 @@
 \alias{complex_conjugate}
 \alias{complex_product}
 \alias{raw_xor}
+\alias{int64_sum}
+\alias{int64_double}
+\alias{int64_or_default}
+\alias{long_count}
 \title{Fixture Functions for the Types and Services of the Boundary}
 \usage{
 parallel_thread_count(count)
@@ -44,6 +48,10 @@ complex_modulus(values)
 complex_conjugate(values)
 complex_product(a, b)
 raw_xor(bytes, key)
+int64_sum(values)
+int64_double(values)
+int64_or_default(value)
+long_count(count)
 }
 \arguments{
 \item{count}{A non-negative count.}
@@ -58,6 +66,7 @@ raw_xor(bytes, key)
 \item{a, b}{Complex scalars.}
 \item{bytes}{A raw vector.}
 \item{key}{A byte value from 0 to 255.}
+\item{value}{A 64-bit integer, \code{NA}, or \code{NULL}.}
 }
 \value{
 The value each function computes; the tests of the package describe them.

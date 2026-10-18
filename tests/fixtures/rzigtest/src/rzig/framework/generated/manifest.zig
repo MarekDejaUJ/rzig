@@ -189,6 +189,30 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{},
             },
             .{
+                .name = "int64_sum",
+                .func = bound_root.int64_sum,
+                .doc = "Sum a bit64::integer64 vector, stopping on overflow; NA is skipped.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "int64_double",
+                .func = bound_root.int64_double,
+                .doc = "Double every element of a bit64::integer64 vector.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "int64_or_default",
+                .func = bound_root.int64_or_default,
+                .doc = "Return an i64 scalar unchanged, or -1 for NA and NULL.",
+                .parameters = .{"value"},
+            },
+            .{
+                .name = "long_count",
+                .func = bound_root.long_count,
+                .doc = "Return `count` as a double, for counts beyond 2^31 - 1.",
+                .parameters = .{"count"},
+            },
+            .{
                 .name = "complex_modulus",
                 .func = bound_root.complex_modulus,
                 .doc = "The modulus of each element of a complex vector.",

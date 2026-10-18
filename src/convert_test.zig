@@ -245,6 +245,23 @@ export fn Rf_getAttrib(value: c.SEXP, symbol: c.SEXP) c.SEXP {
     return R_NilValue;
 }
 
+export fn Rf_inherits(value: c.SEXP, name: [*:0]const u8) c.Rboolean {
+    const classes = mutableFake(value).class orelse return c.FALSE;
+    for (classes.strings[0..@intCast(classes.length)]) |entry| {
+        const text = entry orelse continue;
+        if (std.mem.eql(u8, std.mem.span(text.text.?), std.mem.span(name))) return c.TRUE;
+    }
+    return c.FALSE;
+}
+
+export fn Rf_mkString(text: [*:0]const u8) c.SEXP {
+    const result = nextObject(c.STRSXP, 1);
+    const element = nextObject(c.CHARSXP, 1);
+    element.text = text;
+    result.strings[0] = element;
+    return raw(result);
+}
+
 export fn Rf_isMatrix(value: c.SEXP) c.Rboolean {
     return if (mutableFake(value).dim != null) c.TRUE else c.FALSE;
 }
@@ -322,7 +339,7 @@ test "usize rejects negative scalar values" {
     var too_large = FakeSexp{ .kind = c.REALSXP, .length = 1, .reals = .{ 2147483648.0, 0 } };
     try expectConversion(usize, &positive, 17);
     try expectConversionError(usize, &negative, "rzig: `x` must be non-negative; got -1");
-    try expectConversionError(usize, &too_large, "rzig: `x` must be a whole number from 0 to 2147483647; got 2147483648");
+    try expectConversionError(usize, &too_large, "rzig: `x` must be a whole number from 0 to 2147483647; got 2147483648; use i64 for larger counts");
 }
 
 test "required scalars reject NA while optionals map NULL and NA to null" {
@@ -1202,5 +1219,60 @@ test "raw vectors are borrowed and returned as raw" {
     const scalar = try convert.toSexp(&stack, &ctx, complex.Complex{ .re = 1, .im = 2 });
     try std.testing.expectEqual(@as(c_int, c.CPLXSXP), TYPEOF(scalar));
     try std.testing.expectEqual(@as(f64, 2), mutableFake(scalar).complexes[0].i);
+    stack.unwindAll();
+}
+
+test "integer64 values are read from their bits and other scalars reject them" {
+    resetOutputMock();
+    es.reset();
+    var class_text = FakeSexp{ .kind = c.CHARSXP, .length = 1, .text = "integer64" };
+    var class = FakeSexp{ .kind = c.STRSXP, .length = 1 };
+    class.strings = .{ &class_text, null };
+    var values = FakeSexp{ .kind = c.REALSXP, .length = 2, .class = &class };
+    values.reals = .{ @bitCast(@as(i64, 9007199254740993)), @bitCast(@as(i64, std.math.minInt(i64))) };
+    var one = FakeSexp{ .kind = c.REALSXP, .length = 1, .class = &class };
+    one.reals = .{ @bitCast(@as(i64, -5)), 0 };
+    var plain = FakeSexp{ .kind = c.REALSXP, .length = 1, .reals = .{ 4e15, 0 } };
+    var fraction = FakeSexp{ .kind = c.REALSXP, .length = 1, .reals = .{ 1.5, 0 } };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+
+    const slice = try convert.fromSexp([]const i64, &ctx, raw(&values), "`x`");
+    try std.testing.expectEqual(@as(i64, 9007199254740993), slice[0]);
+    try std.testing.expectEqual(@as(i64, std.math.minInt(i64)), slice[1]);
+    try std.testing.expectEqual(@as(i64, -5), try convert.fromSexp(i64, &ctx, raw(&one), "`x`"));
+    try std.testing.expectEqual(@as(i64, 4_000_000_000_000_000), try convert.fromSexp(i64, &ctx, raw(&plain), "`x`"));
+    var missing = FakeSexp{ .kind = c.REALSXP, .length = 1, .class = &class };
+    missing.reals = .{ @bitCast(@as(i64, std.math.minInt(i64))), 0 };
+    try std.testing.expect((try convert.fromSexp(?i64, &ctx, raw(&missing), "`x`")) == null);
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp(i64, &ctx, raw(&missing), "`x`"));
+    try std.testing.expectEqualStrings("rzig: `x` cannot be NA; use ?i64 to accept missing values", es.take());
+
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp(i64, &ctx, raw(&fraction), "`x`"));
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp(f64, &ctx, raw(&one), "`x`"));
+    try std.testing.expectEqualStrings(
+        "rzig: `x` is a bit64::integer64 value, whose bits are not a double; use i64 in Zig or as.numeric() in R",
+        es.take(),
+    );
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp([]const f64, &ctx, raw(&values), "`x`"));
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp([]const i64, &ctx, raw(&plain), "`x`"));
+    try std.testing.expectEqualStrings(
+        "rzig: `x` must be a bit64::integer64 vector; got double; use bit64::as.integer64() in R",
+        es.take(),
+    );
+}
+
+test "integer64 results carry the integer64 class" {
+    resetOutputMock();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    var stack = protect.Stack.init();
+    defer stack.deinit();
+    const values: []const i64 = &.{ std.math.maxInt(i64), -1 };
+    const result = try convert.toSexp(&stack, &ctx, values);
+    const fake = mutableFake(result);
+    try std.testing.expectEqual(@as(c_int, c.REALSXP), TYPEOF(result));
+    try std.testing.expectEqual(@as(i64, std.math.maxInt(i64)), @as(i64, @bitCast(fake.reals[0])));
+    try std.testing.expectEqualStrings("integer64", std.mem.span(fake.class.?.strings[0].?.text.?));
     stack.unwindAll();
 }

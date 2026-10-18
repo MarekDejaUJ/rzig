@@ -423,3 +423,16 @@ test_that("hostile complex and raw inputs fail cleanly", {
   for (case in cases) expect_error_live(case[[1L]], case[[2L]])
   expect_identical(complex_product(1i, 1i), -1+0i)
 })
+
+test_that("integer64 values never reach double or integer parameters", {
+  value <- structure(readBin(as.raw(c(5, 0, 0, 0, 0, 0, 0, 0)), "double", size = 8L, endian = "little"),
+    class = "integer64")
+  cases <- list(
+    list(function() echo_f64(value), c("bit64::integer64")),
+    list(function() echo_i32(value), c("bit64::integer64")),
+    list(function() echo_reals(value), c("bit64::integer64")),
+    list(function() echo_usize(value), c("bit64::integer64")),
+    list(function() int64_sum("1"), c("bit64::as.integer64()"))
+  )
+  for (case in cases) expect_error_live(case[[1L]], case[[2L]])
+})

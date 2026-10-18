@@ -196,6 +196,10 @@ pub extern fn Rf_getAttrib(x: SEXP, symbol: SEXP) SEXP;
 pub extern fn Rf_setAttrib(x: SEXP, symbol: SEXP, value: SEXP) SEXP;
 /// Install a NUL-terminated symbol name; may allocate and longjmp.
 pub extern fn Rf_install(name: [*:0]const u8) SEXP;
+/// Whether the class attribute of `x` contains `name`.
+pub extern fn Rf_inherits(x: SEXP, name: [*:0]const u8) Rboolean;
+/// A character vector of length 1.
+pub extern fn Rf_mkString(text: [*:0]const u8) SEXP;
 /// Construct a zero-argument R call; may allocate and longjmp.
 pub extern fn Rf_lang1(function: SEXP) SEXP;
 /// Evaluate an expression in an environment; may allocate and longjmp.

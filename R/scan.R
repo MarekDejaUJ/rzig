@@ -645,7 +645,8 @@ print.rzig_exports <- function(x, ...) {
     f64 = "double, length 1",
     i32 = "integer, length 1",
     bool = "logical, length 1",
-    usize = "whole number, length 1"
+    usize = "whole number, length 1",
+    i64 = "integer64, integer or whole double, length 1"
   )
   if (key %in% names(scalar)) return(scalar[[key]])
   if (grepl("^\\?", key, useBytes = TRUE) && substring(key, 2L) %in% names(scalar)) {
@@ -655,6 +656,7 @@ print.rzig_exports <- function(x, ...) {
     key,
     "[]constf64" = "double vector, borrowed",
     "[]consti32" = "integer vector, borrowed",
+    "[]consti64" = "bit64::integer64 vector, borrowed",
     "[]constbool" = "logical vector, copied",
     "[]constLogical" = "logical vector with NA, borrowed",
     "[]const?[]constu8" = "character vector with NA, copied",
@@ -694,8 +696,10 @@ print.rzig_exports <- function(x, ...) {
     "void" = "NULL",
     "f64" = "double, length 1",
     "i32" = "integer, length 1",
+    "i64" = "bit64::integer64, length 1",
     "bool" = "logical, length 1",
     "[]f64" = , "[]constf64" = "double vector",
+    "[]i64" = , "[]consti64" = "bit64::integer64 vector",
     "[]i32" = , "[]consti32" = "integer vector",
     "[]bool" = , "[]constbool" = "logical vector",
     "[]Logical" = , "[]constLogical" = "logical vector with NA",

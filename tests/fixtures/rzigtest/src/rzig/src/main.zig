@@ -318,6 +318,40 @@ pub fn simulate_interrupt(ctx: *rzig.Ctx) rzig.Error!void {
     return rzig.internal.interrupt.request();
 }
 
+/// Sum a bit64::integer64 vector, stopping on overflow; NA is skipped.
+/// @export
+pub fn int64_sum(values: []const i64) rzig.Error!i64 {
+    var total: i64 = 0;
+    for (values) |value| {
+        if (value == rzig.NA.integer64) continue;
+        total = std.math.add(i64, total, value) catch return rzig.raise("integer64 overflow", .{});
+    }
+    return total;
+}
+
+/// Double every element of a bit64::integer64 vector.
+/// @export
+pub fn int64_double(ctx: *rzig.Ctx, values: []const i64) rzig.Error![]i64 {
+    const result = try ctx.alloc(i64, values.len);
+    for (values, result) |value, *slot| {
+        slot.* = if (value == rzig.NA.integer64) value else std.math.mul(i64, value, 2) catch
+            return rzig.raise("integer64 overflow", .{});
+    }
+    return result;
+}
+
+/// Return an i64 scalar unchanged, or -1 for NA and NULL.
+/// @export
+pub fn int64_or_default(value: ?i64) i64 {
+    return value orelse -1;
+}
+
+/// Return `count` as a double, for counts beyond 2^31 - 1.
+/// @export
+pub fn long_count(count: i64) f64 {
+    return @floatFromInt(count);
+}
+
 /// The modulus of each element of a complex vector.
 /// @export
 pub fn complex_modulus(ctx: *rzig.Ctx, values: []const rzig.Complex) rzig.Error![]f64 {

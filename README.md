@@ -435,9 +435,11 @@ function. The complete input surface is:
 | `i32` | length-one double, integer, or logical | checked whole number |
 | `bool` | length-one logical | checked scalar |
 | `usize` | length-one double, integer, or logical | checked whole number from 0 to 2147483647 |
-| `?f64`, `?i32`, `?bool`, `?usize` | corresponding scalar, `NA`, or `NULL` | missing values become `null` |
+| `i64` | length-one `bit64::integer64`, double, or integer | checked whole number; doubles up to 2^53 - 1 in absolute value |
+| `?f64`, `?i32`, `?bool`, `?usize`, `?i64` | corresponding scalar, `NA`, or `NULL` | missing values become `null` |
 | `[]const f64` | double vector | borrowed, read-only |
 | `[]const i32` | integer vector | borrowed, read-only |
+| `[]const i64` | `bit64::integer64` vector | borrowed, read-only; `NA` is `rzig.NA.integer64` |
 | `[]const bool` | logical vector without `NA` | copied into the call arena |
 | `[]const rzig.Logical` | logical vector | borrowed, read-only; elements `.TRUE`, `.FALSE`, `.NA` |
 | `[]const u8` | one non-`NA` character value | copied as UTF-8 |
@@ -460,6 +462,7 @@ Supported return values are:
 | --- | --- |
 | `void` | `NULL` |
 | `f64`, `i32`, `bool` | length-one double, integer, or logical |
+| `i64`, `[]const i64` / `[]i64` | `bit64::integer64` value or vector |
 | `[]const f64` / `[]f64` | double vector |
 | `[]const i32` / `[]i32` | integer vector |
 | `[]const bool` / `[]bool` | logical vector |

@@ -69,6 +69,22 @@ interruptible_count <- function(iterations) {
 #' @param x A numeric vector.
 #' @return The elementwise squares.
 #' @export
+int64_sum <- function(values) {
+  .Call(C_int64_sum, values)
+}
+
+int64_double <- function(values) {
+  .Call(C_int64_double, values)
+}
+
+int64_or_default <- function(value) {
+  .Call(C_int64_or_default, value)
+}
+
+long_count <- function(count) {
+  .Call(C_long_count, count)
+}
+
 complex_modulus <- function(values) {
   .Call(C_complex_modulus, values)
 }
