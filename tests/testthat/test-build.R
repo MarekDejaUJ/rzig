@@ -40,6 +40,25 @@ test_that("a Zig syntax error is located in main.zig", {
   expect_identical(parsed$errors$column, 16L)
 })
 
+test_that("duplicate symbols are reported at the link step", {
+  log <- c(
+    "* installing *source* package 'dup' ...",
+    "duplicate symbol '_R_init_dup' in:",
+    "    dup/src/entry.o",
+    "    dup/src/extra.o",
+    "ld: 1 duplicate symbols",
+    "clang: error: linker command failed with exit code 1 (use -v to see invocation)",
+    "ERROR: compilation failed for package 'dup'"
+  )
+  parsed <- rzig:::.rzig_parse_build_log(log, "dup")
+  expect_identical(parsed$step, "link")
+  expect_match(parsed$errors$message[[1L]], "duplicate symbol", fixed = TRUE)
+  gnu <- c("/usr/bin/ld: extra.o: in function `R_init_dup':",
+    "extra.c:(.text+0x0): multiple definition of `R_init_dup'; entry.o:entry.c:(.text+0x0): first defined here",
+    "collect2: error: ld returned 1 exit status")
+  expect_identical(rzig:::.rzig_parse_build_log(gnu, "dup")$step, "link")
+})
+
 test_that("compiler paths map to package paths", {
   map <- rzig:::.rzig_package_file
   expect_identical(map("framework/boundary.zig", "p"), "src/rzig/framework/boundary.zig")

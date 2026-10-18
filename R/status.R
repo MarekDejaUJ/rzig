@@ -170,6 +170,11 @@ rzig_status <- function(path, build = FALSE) {
 
 #' @export
 print.rzig_status <- function(x, ...) {
+  if (!all(c("step", "ok", "detail") %in% names(x))) {
+    # A column subset is printed as the data frame it is.
+    print(as.data.frame(unclass(x), stringsAsFactors = FALSE), ...)
+    return(invisible(x))
+  }
   cat(sprintf("RZig status of package %s\n", attr(x, "package", exact = TRUE)))
   width <- max(40L, getOption("width", 80L) - 2L)
   for (index in seq_len(nrow(x))) {

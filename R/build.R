@@ -200,7 +200,10 @@ build_zig <- function(path, lib = NULL, preflight = TRUE) {
     return(list(step = "compile", errors = errors))
   }
 
-  linker <- grep("undefined reference to|Undefined symbols for architecture|^ld(\\.lld)?: (error|symbol)|unresolved external", log)
+  linker <- grep(paste0(
+    "undefined reference to|Undefined symbols for architecture|^ld(\\.lld)?: (error|symbol)|",
+    "unresolved external|duplicate symbol|multiple definition of|^ld: [0-9]+ duplicate symbols?"
+  ), log)
   if (length(linker)) {
     for (index in utils::head(linker, 5L)) add(NA_character_, NA_integer_, NA_integer_, clean(log[[index]]))
     return(list(step = "link", errors = errors))

@@ -148,3 +148,11 @@ test_that("generated files use LF and CRLF sources are scanned", {
     expect_false(grepl("\r", read_bytes(file.path(path, file)), fixed = TRUE), info = file)
   }
 })
+
+test_that("a column subset of a status prints as a data frame", {
+  path <- local_package("subsetpkg")
+  use_rzig(path)
+  status <- rzig_status(path)
+  expect_output(print(status[, c("step", "ok")]), "Scaffold")
+  expect_output(print(status[status$ok, ]), "RZig status of package subsetpkg")
+})

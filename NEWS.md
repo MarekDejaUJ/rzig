@@ -1,3 +1,14 @@
+# rzig 0.3.7
+
+## Bug fixes
+
+- Printing a column subset of a `rzig_status` object (for example
+  `status[, c("step", "ok")]`) shows the data frame instead of failing with
+  "non-character argument".
+- `build_zig()` reports a duplicate-symbol error of the linker (`duplicate
+  symbol`, `multiple definition of`) at the link step instead of the
+  install step.
+
 # rzig 0.3.6
 
 ## Compiler search
