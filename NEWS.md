@@ -1,3 +1,16 @@
+# rzig 0.28.0
+
+## New features
+
+- Classes: a struct marked `/// @class` becomes an R class. `init` is the
+  constructor, exported under the struct's name (its arguments take
+  `/// @default`), and each public function whose first parameter is the
+  struct is a method, called as `x$method(...)`. `document()` generates the
+  `$`, `print` and `.DollarNames` methods, registers them in `NAMESPACE` (or
+  through roxygen2 tags), and writes a help page with a Methods section.
+  Methods may take `ctx: *rzig.Ctx` after the receiver. The objects are
+  `rzig.External` values, so `deinit` runs when R collects them.
+
 # rzig 0.27.0
 
 ## New features

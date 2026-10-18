@@ -548,6 +548,48 @@ the levels of a factor. All three are also return types: a record becomes a
 named list, a data frame gets compact row names, and a factor's codes are
 checked against its levels.
 
+## Classes
+
+A struct marked `/// @class` becomes an R class: `init` is the constructor,
+exported under the struct's name, and every public function that takes the
+struct as its first parameter is a method, called with `$`:
+
+```zig
+/// A running mean.
+/// @class
+pub const RunningMean = struct {
+    total: f64 = 0,
+    count: usize = 0,
+
+    /// Create an empty running mean.
+    pub fn init() RunningMean {
+        return .{};
+    }
+
+    /// Add values.
+    pub fn add(self: *RunningMean, values: []const f64) void {
+        for (values) |value| self.total += value;
+        self.count += values.len;
+    }
+
+    /// The mean of the values added so far.
+    pub fn mean(self: *const RunningMean) f64 {
+        return self.total / @as(f64, @floatFromInt(self.count));
+    }
+};
+```
+
+```r
+m <- RunningMean()
+m$add(c(1, 2, 3))
+m$mean()
+#> [1] 2
+```
+
+`document()` generates the constructor, a `$` method, a `print` method that
+lists the methods, completion of method names, and a help page with a Methods
+section; the object is an `rzig.External(RunningMean)`.
+
 ## Values that live across calls
 
 `rzig.External(T)` keeps a Zig value between calls in an R object (an

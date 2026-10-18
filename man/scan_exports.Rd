@@ -48,6 +48,14 @@ package's own R code calls. The scan is pure
 R and needs no Zig compiler; the Zig compiler checks the parameter and
 return types when the package is installed.
 
+A struct whose documentation comment contains \verb{/// @class} becomes an R
+class: its \verb{pub fn init} is the constructor, exported under the name of
+the struct, and every public function whose first parameter is the struct
+(\verb{self: *T}, \verb{self: *const T} or \code{self: T}) is a method, registered as the
+internal routine \code{T_method} and called as \code{x$method(...)} on an object
+\code{x}. Objects are \link[=scan_exports]{rzig.External} values (see the README);
+\code{deinit}, when declared, runs when R collects the object.
+
 A function is found when its declaration starts at the beginning of a line
 with \verb{pub fn} and the lines directly above it are \verb{///} documentation
 comments (blank lines and ordinary \verb{//} comments between the comment block

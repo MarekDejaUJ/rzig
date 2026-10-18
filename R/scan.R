@@ -23,6 +23,14 @@
 #' R and needs no Zig compiler; the Zig compiler checks the parameter and
 #' return types when the package is installed.
 #'
+#' A struct whose documentation comment contains `/// @class` becomes an R
+#' class: its `pub fn init` is the constructor, exported under the name of
+#' the struct, and every public function whose first parameter is the struct
+#' (`self: *T`, `self: *const T` or `self: T`) is a method, registered as the
+#' internal routine `T_method` and called as `x$method(...)` on an object
+#' `x`. Objects are [rzig.External][scan_exports()] values (see the README);
+#' `deinit`, when declared, runs when R collects the object.
+#'
 #' A function is found when its declaration starts at the beginning of a line
 #' with `pub fn` and the lines directly above it are `///` documentation
 #' comments (blank lines and ordinary `//` comments between the comment block
@@ -136,7 +144,19 @@ scan_exports <- function(path) {
       "and `name=<R name>`"
     ), where, token), call. = FALSE)
   }
-  # `@default <argument> <R expression>` lines give default arguments.
+  defaults <- .rzig_default_lines(trimmed, where)
+  list(
+    internal = "internal" %in% tokens,
+    invisible = "invisible" %in% tokens,
+    name = name,
+    defaults = defaults$defaults,
+    doc = paste(bodies[!marker & !defaults$lines], collapse = "\n")
+  )
+}
+
+# `@default <argument> <R expression>` lines give default arguments: the
+# defaults and which lines they are.
+.rzig_default_lines <- function(trimmed, where) {
   default_lines <- grepl("^@default([[:space:]]|$)", trimmed)
   defaults <- character()
   for (line in trimmed[default_lines]) {
@@ -152,13 +172,7 @@ scan_exports <- function(path) {
     }
     defaults[[parts[[2L]]]] <- expression
   }
-  list(
-    internal = "internal" %in% tokens,
-    invisible = "invisible" %in% tokens,
-    name = name,
-    defaults = defaults,
-    doc = paste(bodies[!marker & !default_lines], collapse = "\n")
-  )
+  list(defaults = defaults, lines = default_lines)
 }
 
 # Apply the marker options to an export record and check the defaults.
@@ -348,7 +362,148 @@ scan_exports <- function(path) {
       line = index
     ), marker, source_path, index)
   }
-  exports
+  c(exports, .rzig_class_exports(.rzig_scan_classes(lines, source_path)))
+}
+
+# ---------------------------------------------------------------------------
+# Classes: `/// @class` above `pub const Name = struct {`
+
+.rzig_class_pattern <- paste0(
+  "^pub[[:space:]]+const[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*",
+  "struct[[:space:]]*\\{"
+)
+
+.rzig_member_pattern <- paste0(
+  "^[[:space:]]+pub[[:space:]]+((inline)[[:space:]]+)?fn[[:space:]]+",
+  "([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*\\("
+)
+
+# The doc comment of a struct member: the indented `///` lines above it.
+.rzig_member_doc <- function(lines, index) {
+  bodies <- character()
+  position <- index - 1L
+  while (position >= 1L && grepl("^[[:space:]]*///($|[^/])", lines[[position]], perl = TRUE)) {
+    bodies <- c(sub("^[[:space:]]*/// ?", "", lines[[position]]), bodies)
+    position <- position - 1L
+  }
+  bodies
+}
+
+# A line without its string and character literals and its comment.
+.rzig_code_part <- function(line) {
+  line <- gsub("'(\\\\.|[^'\\\\])+'", "''", line, perl = TRUE)
+  line <- gsub('"(\\\\.|[^"\\\\])*"', '""', line, perl = TRUE)
+  sub("//.*$", "", line)
+}
+
+.rzig_scan_classes <- function(lines, source_path) {
+  classes <- list()
+  for (index in seq_along(lines)) {
+    match <- regmatches(lines[[index]], regexec(.rzig_class_pattern, lines[[index]]))[[1L]]
+    if (length(match) != 2L) next
+    doc_lines <- .rzig_doc_block(lines, index)
+    if (is.null(doc_lines)) next
+    bodies <- .rzig_doc_bodies(doc_lines)
+    trimmed <- trimws(bodies, whitespace = "[ \t\r]")
+    marker <- grepl("^@class([[:space:]]|$)", trimmed)
+    if (!any(marker)) next
+    name <- match[[2L]]
+    where <- sprintf("%s:%d", source_path, index)
+    members <- .rzig_class_members(lines, index, name, source_path)
+    init <- Filter(function(member) identical(member$name, "init"), members)
+    if (!length(init)) {
+      stop(sprintf("%s: class `%s` has no `pub fn init`, which creates its objects", where, name), call. = FALSE)
+    }
+    methods <- Filter(function(member) member$receiver && !member$name %in% c("init", "deinit"), members)
+    classes[[length(classes) + 1L]] <- list(
+      name = name, doc = paste(bodies[!marker], collapse = "\n"), line = index,
+      init = init[[1L]], methods = methods
+    )
+  }
+  classes
+}
+
+# The public functions declared directly in the body of the struct that
+# starts on line `start`.
+.rzig_class_members <- function(lines, start, class_name, source_path) {
+  receivers <- c(class_name, "Self", "@This()")
+  receivers <- c(receivers, paste0("*", receivers), paste0("*const", receivers))
+  members <- list()
+  depth <- 0L
+  for (index in seq.int(start, length(lines))) {
+    line <- lines[[index]]
+    if (depth == 1L) {
+      match <- regmatches(line, regexec(.rzig_member_pattern, line))[[1L]]
+      if (length(match) == 4L) {
+        member <- match[[4L]]
+        open <- regexpr("\\(", line, useBytes = TRUE)
+        signature <- .rzig_signature(paste(lines[index:length(lines)], collapse = "\n"), open,
+          member, source_path, index)
+        parameters <- lapply(seq_along(signature$parameters), function(position) {
+          .rzig_parameter(signature$parameters[[position]], member, position)
+        })
+        keys <- vapply(parameters, function(parameter) gsub("[[:space:]]+", "", parameter$type), character(1L))
+        receiver <- length(keys) > 0L && keys[[1L]] %in% receivers
+        skip <- if (receiver) 1L else 0L
+        if (length(keys) > skip && keys[[skip + 1L]] %in% c("*Ctx", "*rzig.Ctx")) skip <- skip + 1L
+        kept <- if (length(parameters) > skip) parameters[seq.int(skip + 1L, length(parameters))] else list()
+        bodies <- .rzig_member_doc(lines, index)
+        defaults <- .rzig_default_lines(trimws(bodies, whitespace = "[ \t\r]"),
+          sprintf("%s:%d", source_path, index))
+        members[[length(members) + 1L]] <- list(
+          name = member,
+          receiver = receiver,
+          parameters = vapply(kept, function(parameter) .rzig_identifier_name(parameter$token), character(1L)),
+          parameter_types = vapply(kept, function(parameter) parameter$type, character(1L)),
+          return_type = signature$return_type,
+          doc = paste(bodies[!defaults$lines], collapse = "\n"),
+          defaults = defaults$defaults,
+          line = index
+        )
+      }
+    }
+    if (grepl("^[[:space:]]*\\\\\\\\", line)) next
+    code <- strsplit(.rzig_code_part(line), "", fixed = TRUE)[[1L]]
+    depth <- depth + sum(code == "{") - sum(code == "}")
+    if (index > start && depth <= 0L) return(members)
+  }
+  stop(sprintf("%s:%d: the struct `%s` does not end", source_path, start, class_name), call. = FALSE)
+}
+
+# Export records for classes: the constructor `Name` and one internal
+# routine `Name_method` per method.
+.rzig_class_exports <- function(classes) {
+  out <- list()
+  for (class in classes) {
+    init <- class$init
+    unknown <- setdiff(names(init$defaults), init$parameters)
+    if (length(unknown)) {
+      stop(sprintf("@default names `%s`, which is not an argument of `%s.init`", unknown[[1L]], class$name),
+        call. = FALSE)
+    }
+    summaries <- lapply(class$methods, function(method) {
+      list(name = method$name, parameters = method$parameters, doc = method$doc)
+    })
+    doc <- paste(Filter(nzchar, c(class$doc, init$doc)), collapse = "\n\n")
+    out[[length(out) + 1L]] <- list(
+      name = class$name, identifier = class$name,
+      parameters = init$parameters, parameter_types = init$parameter_types,
+      return_type = sprintf("rzig.Error!rzig.External(%s)", class$name),
+      doc = doc, line = class$line, internal = FALSE, invisible = FALSE, defaults = init$defaults,
+      class = list(name = class$name, role = "constructor", methods = summaries)
+    )
+    for (method in class$methods) {
+      out[[length(out) + 1L]] <- list(
+        name = paste0(class$name, "_", method$name), identifier = class$name,
+        parameters = c("self", method$parameters),
+        parameter_types = c(sprintf("rzig.External(%s)", class$name), method$parameter_types),
+        return_type = method$return_type, doc = method$doc, line = method$line,
+        internal = TRUE, invisible = FALSE, defaults = method$defaults,
+        class = list(name = class$name, role = "method", member = method$name)
+      )
+    }
+  }
+  out
 }
 
 .rzig_doc_block <- function(lines, index) {

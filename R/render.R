@@ -74,7 +74,8 @@ render_bindings <- function(exports, package = attr(exports, "package", exact = 
 
 .rzig_render_roxygen_namespace <- function(exports, dynlib) {
   exported <- Filter(function(item) !.rzig_is_internal(item), exports)
-  lines <- c(dynlib, vapply(exported, function(item) .rzig_roxygen_export_line(item$name), character(1L)))
+  lines <- c(dynlib, vapply(exported, function(item) .rzig_roxygen_export_line(item$name), character(1L)),
+    .rzig_class_namespace_lines(exports, roxygen = TRUE))
   paste0(paste(lines, collapse = "\n"), "\n")
 }
 
@@ -113,6 +114,9 @@ print.rzig_bindings <- function(x, ...) {
   if (!length(exports)) {
     return(paste0(header, "        pub const exports = .{};\n    };\n}\n"))
   }
+  if (any(vapply(exports, function(item) !is.null(item$class), logical(1L)))) {
+    header <- sub("/// Bind", "const rzig_class = @import(\"../class.zig\");\n\n/// Bind", header, fixed = TRUE)
+  }
   entries <- vapply(exports, function(item) {
     quoted <- vapply(item$parameters, .rzig_zig_string, character(1L))
     list_text <- if (length(quoted) == 0L) {
@@ -125,7 +129,7 @@ print.rzig_bindings <- function(x, ...) {
     paste0(
       "            .{\n",
       "                .name = ", .rzig_zig_string(item$name), ",\n",
-      "                .func = bound_root.", item$identifier, ",\n",
+      "                .func = ", .rzig_manifest_function(item), ",\n",
       "                .doc = ", .rzig_zig_string(item$doc), ",\n",
       "                .parameters = ", list_text, ",\n",
       "            },\n"
@@ -139,6 +143,16 @@ print.rzig_bindings <- function(x, ...) {
     "    };\n",
     "}\n"
   )
+}
+
+# The Zig expression of the function a manifest entry registers.
+.rzig_manifest_function <- function(item) {
+  role <- item$class$role
+  if (is.null(role)) return(paste0("bound_root.", item$identifier))
+  if (identical(role, "constructor")) {
+    return(paste0("rzig_class.Constructor(bound_root.", item$identifier, ").call"))
+  }
+  paste0("rzig_class.Method(bound_root.", item$identifier, ", ", .rzig_zig_string(item$class$member), ").call")
 }
 
 .rzig_zig_string <- function(value) {
@@ -232,7 +246,62 @@ print.rzig_bindings <- function(x, ...) {
       ") {\n  ", call, "\n}\n"
     )
   }
+  for (item in exports) {
+    if (identical(item$class$role, "constructor")) out <- paste0(out, .rzig_render_class_methods(item, !is.null(dynlib)))
+  }
   out
+}
+
+# The S3 methods of a class: `$` returns a method bound to the object,
+# `print` lists the methods, and `.DollarNames` completes their names.
+.rzig_render_class_methods <- function(item, roxygen) {
+  class <- item$class$name
+  methods <- item$class$methods
+  names <- vapply(methods, function(method) method$name, character(1L))
+  routines <- vapply(names, function(name) .rzig_r_identifier(paste0(class, "_", name)), character(1L))
+  entries <- if (length(names)) paste0(vapply(names, .rzig_r_string, character(1L)), " = ", routines) else character()
+  usage <- vapply(methods, function(method) {
+    sprintf("  $%s(%s)\n", method$name, paste(method$parameters, collapse = ", "))
+  }, character(1L))
+  quoted_names <- if (length(names)) paste(vapply(names, .rzig_r_string, character(1L)), collapse = ", ") else ""
+  tag <- function(text) if (roxygen) paste0(text, "#' @noRd\n") else "#' @noRd\n"
+  paste0(
+    "\n", tag("#' @export\n"),
+    "`$.", class, "` <- function(x, name) {\n",
+    "  methods <- list(", paste(entries, collapse = ", "), ")\n",
+    "  method <- methods[[name]]\n",
+    "  if (is.null(method)) {\n",
+    "    stop(sprintf(\"a ", class, " has no method `%s`; its methods are: %s\", name,\n",
+    "      paste(names(methods), collapse = \", \")), call. = FALSE)\n",
+    "  }\n",
+    "  function(...) method(x, ...)\n",
+    "}\n",
+    "\n", tag("#' @export\n"),
+    "print.", class, " <- function(x, ...) {\n",
+    "  cat(", .rzig_r_string(paste0("<", class, "> with the methods:\n", paste(usage, collapse = ""))), ")\n",
+    "  invisible(x)\n",
+    "}\n",
+    "\n", tag("#' @exportS3Method utils::.DollarNames\n"),
+    ".DollarNames.", class, " <- function(x, pattern = \"\") {\n",
+    "  grep(pattern, c(", quoted_names, "), value = TRUE)\n",
+    "}\n"
+  )
+}
+
+# NAMESPACE lines that register the S3 methods of each class.
+.rzig_class_namespace_lines <- function(exports, roxygen) {
+  classes <- unlist(lapply(exports, function(item) {
+    if (identical(item$class$role, "constructor")) item$class$name
+  }))
+  unlist(lapply(classes, function(class) {
+    if (roxygen) {
+      c(sprintf('S3method("$",%s)', class), sprintf("S3method(print,%s)", class),
+        sprintf("S3method(utils::.DollarNames,%s)", class))
+    } else {
+      c(sprintf('S3method("$", %s)', class), sprintf("S3method(print, %s)", class),
+        sprintf("S3method(utils::.DollarNames, %s)", class))
+    }
+  }))
 }
 
 # The formal arguments of a wrapper, with the defaults of `/// @default`.
@@ -278,8 +347,22 @@ print.rzig_bindings <- function(x, ...) {
       " A value passed to the Zig implementation.\n"
     )
   }
+  constructor <- identical(item$class$role, "constructor")
   if (!.rzig_doc_has_tag(trimmed, "@return")) {
-    out <- paste0(out, "#' @return The value returned by the Zig implementation.\n")
+    out <- paste0(out, if (constructor) {
+      sprintf("#' @return An object of class `%s`: an external pointer to a Zig value.\n", item$class$name)
+    } else {
+      "#' @return The value returned by the Zig implementation.\n"
+    })
+  }
+  if (constructor && length(item$class$methods)) {
+    out <- paste0(out, "#' @section Methods:\n#' For an object `x` made by `", item$name, "()`:\n")
+    for (method in item$class$methods) {
+      text <- strsplit(trimws(.rzig_parse_doc(method$doc)$text), "\n[[:space:]]*\n")[[1L]]
+      text <- if (length(text) && nzchar(text[[1L]])) gsub("[[:space:]]*\n[[:space:]]*", " ", text[[1L]]) else
+        "A method implemented in Zig."
+      out <- paste0(out, "#' * `x$", method$name, "(", paste(method$parameters, collapse = ", "), ")`: ", text, "\n")
+    }
   }
   paste0(out, "#' @export\n")
 }
@@ -329,5 +412,6 @@ print.rzig_bindings <- function(x, ...) {
     if (.rzig_is_internal(item)) next
     out <- paste0(out, "export(", .rzig_r_string(item$name), ")\n")
   }
+  for (line in .rzig_class_namespace_lines(exports, roxygen = FALSE)) out <- paste0(out, line, "\n")
   paste0(out, "# Generated by rzig::document(): end\n")
 }

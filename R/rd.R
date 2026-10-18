@@ -92,7 +92,11 @@
     if (is.null(text) || !nzchar(trimws(text))) text <- "A value passed to the Zig implementation."
     sprintf("\\item{%s}{%s}", .rzig_rd_text(parameter), .rzig_rd_text(text))
   }, character(1L))
-  value <- parsed$sections$value %||% "The value returned by the Zig implementation."
+  value <- parsed$sections$value %||% if (identical(item$class$role, "constructor")) {
+    sprintf("An object of class `%s`: an external pointer to a Zig value.", item$class$name)
+  } else {
+    "The value returned by the Zig implementation."
+  }
   lines <- c(
     .rzig_rd_header,
     sprintf("\\name{%s}", .rzig_rd_text(item$name)),
@@ -107,6 +111,18 @@
     if (!is.null(parsed$sections[[section]])) {
       lines <- c(lines, sprintf("\\%s{", section), .rzig_rd_text(parsed$sections[[section]]), "}")
     }
+  }
+  methods <- item$class$methods
+  if (identical(item$class$role, "constructor") && length(methods)) {
+    entries <- vapply(methods, function(method) {
+      text <- strsplit(trimws(.rzig_parse_doc(method$doc)$text), "\n[[:space:]]*\n")[[1L]]
+      text <- if (length(text) && nzchar(text[[1L]])) gsub("[[:space:]]*\n[[:space:]]*", " ", text[[1L]]) else
+        "A method implemented in Zig."
+      sprintf("\\item{\\code{x$%s(%s)}}{%s}", .rzig_rd_text(method$name),
+        .rzig_rd_text(paste(method$parameters, collapse = ", ")), .rzig_rd_text(text))
+    }, character(1L))
+    lines <- c(lines, "\\section{Methods}{", paste0("For an object \\code{x} made by \\code{",
+      .rzig_rd_text(item$name), "()}:"), "\\describe{", entries, "}", "}")
   }
   examples <- parsed$sections$examples
   if (length(examples) && any(nzchar(trimws(examples)))) {

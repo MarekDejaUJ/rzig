@@ -4,6 +4,10 @@
 const std = @import("std");
 const c = @import("../c/abi.zig");
 const boundary = @import("../boundary.zig");
+const class = @import("../class.zig");
+const es = @import("../error_state.zig");
+const Ctx = @import("../alloc.zig").Ctx;
+const External = @import("../external.zig").External;
 
 /// Build a C-ABI wrapper for a function with 0 R-visible arguments.
 pub fn Arity0(comptime func: anytype, comptime name: []const u8, comptime parameters: anytype) type {
@@ -349,5 +353,1059 @@ pub fn Wrapper(
                 " R-visible parameters; the maximum is 32.\n" ++
                 "  pass related values together, for example as one vector or matrix",
         ),
+    };
+}
+
+/// Select the adapter of a method with `count` R arguments besides the object.
+pub fn Method(comptime count: usize, comptime T: type, comptime name: []const u8) type {
+    return switch (count) {
+        0 => MethodAdapter0(T, name),
+        1 => MethodAdapter1(T, name),
+        2 => MethodAdapter2(T, name),
+        3 => MethodAdapter3(T, name),
+        4 => MethodAdapter4(T, name),
+        5 => MethodAdapter5(T, name),
+        6 => MethodAdapter6(T, name),
+        7 => MethodAdapter7(T, name),
+        8 => MethodAdapter8(T, name),
+        9 => MethodAdapter9(T, name),
+        10 => MethodAdapter10(T, name),
+        11 => MethodAdapter11(T, name),
+        12 => MethodAdapter12(T, name),
+        13 => MethodAdapter13(T, name),
+        14 => MethodAdapter14(T, name),
+        15 => MethodAdapter15(T, name),
+        16 => MethodAdapter16(T, name),
+        17 => MethodAdapter17(T, name),
+        18 => MethodAdapter18(T, name),
+        19 => MethodAdapter19(T, name),
+        20 => MethodAdapter20(T, name),
+        21 => MethodAdapter21(T, name),
+        22 => MethodAdapter22(T, name),
+        23 => MethodAdapter23(T, name),
+        24 => MethodAdapter24(T, name),
+        25 => MethodAdapter25(T, name),
+        26 => MethodAdapter26(T, name),
+        27 => MethodAdapter27(T, name),
+        28 => MethodAdapter28(T, name),
+        29 => MethodAdapter29(T, name),
+        30 => MethodAdapter30(T, name),
+        31 => MethodAdapter31(T, name),
+        else => @compileError("rzig: method `" ++ name ++ "` has more than 31 R arguments besides the object"),
+    };
+}
+
+/// Select the adapter of a constructor whose `init` has `count` R arguments.
+pub fn Constructor(comptime count: usize, comptime T: type) type {
+    return switch (count) {
+        0 => ConstructorAdapter0(T),
+        1 => ConstructorAdapter1(T),
+        2 => ConstructorAdapter2(T),
+        3 => ConstructorAdapter3(T),
+        4 => ConstructorAdapter4(T),
+        5 => ConstructorAdapter5(T),
+        6 => ConstructorAdapter6(T),
+        7 => ConstructorAdapter7(T),
+        8 => ConstructorAdapter8(T),
+        9 => ConstructorAdapter9(T),
+        10 => ConstructorAdapter10(T),
+        11 => ConstructorAdapter11(T),
+        12 => ConstructorAdapter12(T),
+        13 => ConstructorAdapter13(T),
+        14 => ConstructorAdapter14(T),
+        15 => ConstructorAdapter15(T),
+        16 => ConstructorAdapter16(T),
+        17 => ConstructorAdapter17(T),
+        18 => ConstructorAdapter18(T),
+        19 => ConstructorAdapter19(T),
+        20 => ConstructorAdapter20(T),
+        21 => ConstructorAdapter21(T),
+        22 => ConstructorAdapter22(T),
+        23 => ConstructorAdapter23(T),
+        24 => ConstructorAdapter24(T),
+        25 => ConstructorAdapter25(T),
+        26 => ConstructorAdapter26(T),
+        27 => ConstructorAdapter27(T),
+        28 => ConstructorAdapter28(T),
+        29 => ConstructorAdapter29(T),
+        30 => ConstructorAdapter30(T),
+        31 => ConstructorAdapter31(T),
+        32 => ConstructorAdapter32(T),
+        else => @compileError("rzig: `init` of a class has more than 32 R arguments"),
+    };
+}
+
+fn MethodAdapter0(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx);
+            } else {
+                return method(class.receiver(T, info, object));
+            }
+        }
+    };
+}
+
+fn MethodAdapter1(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0);
+            } else {
+                return method(class.receiver(T, info, object), a0);
+            }
+        }
+    };
+}
+
+fn MethodAdapter2(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1);
+            }
+        }
+    };
+}
+
+fn MethodAdapter3(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2);
+            }
+        }
+    };
+}
+
+fn MethodAdapter4(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3);
+            }
+        }
+    };
+}
+
+fn MethodAdapter5(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4);
+            }
+        }
+    };
+}
+
+fn MethodAdapter6(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5);
+            }
+        }
+    };
+}
+
+fn MethodAdapter7(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6);
+            }
+        }
+    };
+}
+
+fn MethodAdapter8(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7);
+            }
+        }
+    };
+}
+
+fn MethodAdapter9(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8);
+            }
+        }
+    };
+}
+
+fn MethodAdapter10(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            }
+        }
+    };
+}
+
+fn MethodAdapter11(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
+            }
+        }
+    };
+}
+
+fn MethodAdapter12(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
+            }
+        }
+    };
+}
+
+fn MethodAdapter13(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12);
+            }
+        }
+    };
+}
+
+fn MethodAdapter14(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13);
+            }
+        }
+    };
+}
+
+fn MethodAdapter15(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14);
+            }
+        }
+    };
+}
+
+fn MethodAdapter16(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15);
+            }
+        }
+    };
+}
+
+fn MethodAdapter17(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16);
+            }
+        }
+    };
+}
+
+fn MethodAdapter18(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17);
+            }
+        }
+    };
+}
+
+fn MethodAdapter19(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18);
+            }
+        }
+    };
+}
+
+fn MethodAdapter20(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19);
+            }
+        }
+    };
+}
+
+fn MethodAdapter21(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20);
+            }
+        }
+    };
+}
+
+fn MethodAdapter22(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21);
+            }
+        }
+    };
+}
+
+fn MethodAdapter23(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22);
+            }
+        }
+    };
+}
+
+fn MethodAdapter24(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23);
+            }
+        }
+    };
+}
+
+fn MethodAdapter25(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24);
+            }
+        }
+    };
+}
+
+fn MethodAdapter26(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24), a25: class.Param(info, offset + 25)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25);
+            }
+        }
+    };
+}
+
+fn MethodAdapter27(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24), a25: class.Param(info, offset + 25), a26: class.Param(info, offset + 26)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26);
+            }
+        }
+    };
+}
+
+fn MethodAdapter28(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24), a25: class.Param(info, offset + 25), a26: class.Param(info, offset + 26), a27: class.Param(info, offset + 27)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27);
+            }
+        }
+    };
+}
+
+fn MethodAdapter29(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24), a25: class.Param(info, offset + 25), a26: class.Param(info, offset + 26), a27: class.Param(info, offset + 27), a28: class.Param(info, offset + 28)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28);
+            }
+        }
+    };
+}
+
+fn MethodAdapter30(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24), a25: class.Param(info, offset + 25), a26: class.Param(info, offset + 26), a27: class.Param(info, offset + 27), a28: class.Param(info, offset + 28), a29: class.Param(info, offset + 29)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29);
+            }
+        }
+    };
+}
+
+fn MethodAdapter31(comptime T: type, comptime name: []const u8) type {
+    const method = @field(T, name);
+    const info = class.fnInfo(@TypeOf(method), name);
+    const offset = class.methodOffset(T, info, name);
+    return struct {
+        pub fn call(ctx: *Ctx, object: External(T), a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24), a25: class.Param(info, offset + 25), a26: class.Param(info, offset + 26), a27: class.Param(info, offset + 27), a28: class.Param(info, offset + 28), a29: class.Param(info, offset + 29), a30: class.Param(info, offset + 30)) class.Return(info) {
+            if (comptime offset == 2) {
+                return method(class.receiver(T, info, object), ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30);
+            } else {
+                return method(class.receiver(T, info, object), a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30);
+            }
+        }
+    };
+}
+
+fn ConstructorAdapter0(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx))
+            else
+                try class.initialized(T, init());
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter1(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0))
+            else
+                try class.initialized(T, init(a0));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter2(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1))
+            else
+                try class.initialized(T, init(a0, a1));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter3(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2))
+            else
+                try class.initialized(T, init(a0, a1, a2));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter4(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter5(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter6(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter7(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter8(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter9(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter10(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter11(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter12(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter13(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter14(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter15(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter16(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter17(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter18(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter19(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter20(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter21(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter22(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter23(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter24(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter25(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter26(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24), a25: class.Param(info, offset + 25)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter27(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24), a25: class.Param(info, offset + 25), a26: class.Param(info, offset + 26)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter28(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24), a25: class.Param(info, offset + 25), a26: class.Param(info, offset + 26), a27: class.Param(info, offset + 27)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter29(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24), a25: class.Param(info, offset + 25), a26: class.Param(info, offset + 26), a27: class.Param(info, offset + 27), a28: class.Param(info, offset + 28)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter30(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24), a25: class.Param(info, offset + 25), a26: class.Param(info, offset + 26), a27: class.Param(info, offset + 27), a28: class.Param(info, offset + 28), a29: class.Param(info, offset + 29)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter31(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24), a25: class.Param(info, offset + 25), a26: class.Param(info, offset + 26), a27: class.Param(info, offset + 27), a28: class.Param(info, offset + 28), a29: class.Param(info, offset + 29), a30: class.Param(info, offset + 30)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30));
+            return External(T).create(ctx, value);
+        }
+    };
+}
+
+fn ConstructorAdapter32(comptime T: type) type {
+    const init = T.init;
+    const info = class.fnInfo(@TypeOf(init), "init");
+    const offset = class.constructorOffset(info);
+    return struct {
+        pub fn call(ctx: *Ctx, a0: class.Param(info, offset + 0), a1: class.Param(info, offset + 1), a2: class.Param(info, offset + 2), a3: class.Param(info, offset + 3), a4: class.Param(info, offset + 4), a5: class.Param(info, offset + 5), a6: class.Param(info, offset + 6), a7: class.Param(info, offset + 7), a8: class.Param(info, offset + 8), a9: class.Param(info, offset + 9), a10: class.Param(info, offset + 10), a11: class.Param(info, offset + 11), a12: class.Param(info, offset + 12), a13: class.Param(info, offset + 13), a14: class.Param(info, offset + 14), a15: class.Param(info, offset + 15), a16: class.Param(info, offset + 16), a17: class.Param(info, offset + 17), a18: class.Param(info, offset + 18), a19: class.Param(info, offset + 19), a20: class.Param(info, offset + 20), a21: class.Param(info, offset + 21), a22: class.Param(info, offset + 22), a23: class.Param(info, offset + 23), a24: class.Param(info, offset + 24), a25: class.Param(info, offset + 25), a26: class.Param(info, offset + 26), a27: class.Param(info, offset + 27), a28: class.Param(info, offset + 28), a29: class.Param(info, offset + 29), a30: class.Param(info, offset + 30), a31: class.Param(info, offset + 31)) es.Error!External(T) {
+            const value = if (comptime offset == 1)
+                try class.initialized(T, init(ctx, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31))
+            else
+                try class.initialized(T, init(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31));
+            return External(T).create(ctx, value);
+        }
     };
 }
