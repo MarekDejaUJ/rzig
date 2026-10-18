@@ -1,3 +1,17 @@
+# rzig 0.3.1
+
+## Bug fixes
+
+- The generated `.Call` wrappers are no longer symbols of the client
+  package's shared object. Each wrapper was exported under the R name of its
+  function, so an export named like a C library function (`exp`, `log`,
+  `free`) replaced that function inside the package and crashed R at the
+  first call. The wrappers are reached through the registration table only,
+  and `rzig_init` has hidden visibility; the shared object exports only
+  `R_init_<pkg>` and `R_unload_<pkg>`.
+- `rzig_status()` notes an export that masks a function of base R or of the
+  attached base packages, for example `log`.
+
 # rzig 0.3.0
 
 ## Step-wise workflow

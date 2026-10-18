@@ -22,8 +22,15 @@ pub fn wrapperForArity(
     return arity.Wrapper(visible_arity, func, name);
 }
 
-/// Scan a module's manifest and emit one C-ABI wrapper per exported function,
+/// Scan a module's manifest and build one C-ABI wrapper per exported function,
 /// plus the registration table.
+///
+/// The wrappers are reached only through the registration table, so none of
+/// them becomes a symbol of the shared object. A wrapper exported under its R
+/// name would replace a C function of the same name inside the package (an
+/// export named `exp`, `log` or `free` would intercept the calls the framework
+/// and the C runtime make to those functions). `rzig_init` is called from the
+/// generated `entry.c` of the same package and is therefore hidden as well.
 pub fn registerModule(comptime M: type) void {
     const exports = if (@hasDecl(manifest, "Bind"))
         manifest.Bind(M).exports
@@ -34,12 +41,11 @@ pub fn registerModule(comptime M: type) void {
     const Registration = RegistrationFor(exports);
 
     if (!builtin.is_test) {
-        @setEvalBranchQuota(100_000);
-        inline for (exports) |entry| {
-            const Wrapper = wrapperForArity(visibleArity(entry.func), entry.func, entry.name);
-            @export(&Wrapper.call, .{ .name = entry.name, .linkage = .strong });
-        }
-        @export(&Registration.init, .{ .name = "rzig_init", .linkage = .strong });
+        @export(&Registration.init, .{
+            .name = "rzig_init",
+            .linkage = .strong,
+            .visibility = .hidden,
+        });
     }
 }
 

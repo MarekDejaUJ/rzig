@@ -45,7 +45,7 @@
 #' [document()] are pure R. A Zig compiler of the supported release series is
 #' needed to install a package created with [use_rzig()].
 #'
-#' rzig 0.3.0 supports the Zig 0.16 and 0.17 release series (versions
+#' rzig supports the Zig 0.16 and 0.17 release series (versions
 #' `0.16.x` and `0.17.x`). Zig changes its language and standard library
 #' between release series, so a newer or older compiler is reported as
 #' unsupported.

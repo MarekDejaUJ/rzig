@@ -12,7 +12,8 @@
 #' * **Exports**: the exported functions found by [scan_exports()], with
 #'   every argument and return type that the boundary rejects, more than 32
 #'   arguments, misuse of `rzig.Mut([]f64)`, error sets other than
-#'   `rzig.Error`, and R functions of the same name elsewhere in `R/`.
+#'   `rzig.Error`, and R functions of the same name elsewhere in `R/`. An
+#'   export that masks a function of base R (for example `log`) is noted.
 #' * **Bindings**: whether the files written by [document()] match the
 #'   exports.
 #' * **Zig compiler**: a compiler of a supported release series
@@ -92,6 +93,7 @@ rzig_status <- function(path, build = FALSE) {
       exports <- scanned
       types <- .rzig_check_exports(exports)
       conflicts <- .rzig_check_r_conflicts(path, exports)
+      masking <- .rzig_check_masking(exports)
       names <- vapply(exports, function(item) item$name, character(1L))
       add(
         "Exports", c(types$problems, conflicts$problems),
@@ -99,7 +101,7 @@ rzig_status <- function(path, build = FALSE) {
           length(exports), " function", if (length(exports) == 1L) "" else "s", ": ",
           paste(names, collapse = ", ")
         ),
-        types$notes
+        c(types$notes, masking$notes)
       )
     }
   }

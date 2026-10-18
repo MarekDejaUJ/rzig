@@ -97,6 +97,19 @@ test_that("use_rzig(overwrite = TRUE) keeps the package author's Zig source", {
   expect_identical(sum(readLines(file.path(path, ".Rbuildignore")) == "^src/rzig/zig-out$"), 1L)
 })
 
+test_that("an export that masks a base R function is noted", {
+  masking <- rzig:::.rzig_check_masking(list(
+    export_record("log", "x", "f64", "f64"),
+    export_record("sd", "x", "[]const f64", "f64"),
+    export_record("add_vectors", c("a", "b"), c("[]const f64", "[]const f64"), "[]f64")
+  ))
+  expect_length(masking$problems, 0L)
+  expect_identical(masking$notes, c(
+    "`log` masks base::log when the package is attached",
+    "`sd` masks stats::sd when the package is attached"
+  ))
+})
+
 test_that("the DESCRIPTION check separates failures from notes", {
   path <- local_package("descpkg")
   expect_length(rzig:::.rzig_check_description(path)$problems, 0L)

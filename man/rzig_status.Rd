@@ -32,7 +32,8 @@ present, what is missing and what would make the installation fail:
 * **Exports**: the exported functions found by [scan_exports()], with
   every argument and return type that the boundary rejects, more than 32
   arguments, misuse of `rzig.Mut([]f64)`, error sets other than
-  `rzig.Error`, and R functions of the same name elsewhere in `R/`.
+  `rzig.Error`, and R functions of the same name elsewhere in `R/`. An
+  export that masks a function of base R (for example `log`) is noted.
 * **Bindings**: whether the files written by [document()] match the
   exports.
 * **Zig compiler**: a compiler of a supported release series

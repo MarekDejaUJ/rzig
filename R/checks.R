@@ -225,6 +225,31 @@
   .rzig_check_result(problems)
 }
 
+.rzig_masking_packages <- c("base", "stats", "utils", "methods", "graphics", "grDevices")
+
+# Exported functions that mask a function of a base or recommended-attached
+# package when the client package is attached. This is legitimate (a package
+# may provide its own `log`), so it is reported as a note.
+.rzig_check_masking <- function(exports) {
+  notes <- character()
+  for (item in exports) {
+    for (package in .rzig_masking_packages) {
+      names <- if (identical(package, "base")) {
+        ls(baseenv(), all.names = TRUE)
+      } else {
+        tryCatch(getNamespaceExports(package), error = function(error) character())
+      }
+      if (item$name %in% names) {
+        notes <- c(notes, sprintf(
+          "`%s` masks %s::%s when the package is attached", item$name, package, item$name
+        ))
+        break
+      }
+    }
+  }
+  .rzig_check_result(notes = notes)
+}
+
 # ---------------------------------------------------------------------------
 # Files managed by rzig
 

@@ -96,6 +96,57 @@ test_that("build_zig reports the compiler error of an unsupported type", {
   expect_output(print(result), "unsupported type")
 })
 
+test_that("exports named like C library functions do not replace them", {
+  skip_on_cran()
+  skip_if_not(isTRUE(find_zig(required = FALSE)$supported), "no supported Zig compiler")
+  path <- local_package("clashpkg")
+  writeLines(c(
+    "Package: clashpkg", "Version: 0.0.1", "Title: Symbol Names", "License: GPL-3",
+    "Description: Exports named like C library functions.",
+    "Authors@R: person('A', 'B', email = 'a@example.org', role = c('aut', 'cre'))"
+  ), file.path(path, "DESCRIPTION"))
+  use_rzig(path)
+  main <- file.path(path, "src", "rzig", "src", "main.zig")
+  text <- readLines(main)
+  exports <- c(
+    "/// @export", "pub fn exp(x: f64) f64 {", "    return @exp(x);", "}",
+    "/// @export", "pub fn log(x: f64) f64 {", "    return @log(x);", "}",
+    "/// @export", "pub fn sqrt(x: f64) f64 {", "    return @sqrt(x);", "}",
+    "/// @export", "pub fn free(x: f64) f64 {", "    return x;", "}",
+    "/// @export", "pub fn malloc(x: f64) f64 {", "    return x + 1;", "}",
+    "/// @export", "pub fn memcpy(x: f64) f64 {", "    return x + 2;", "}", ""
+  )
+  writeLines(append(text, exports, after = grep("^comptime", text) - 1L), main)
+  document(path)
+  status <- rzig_status(path)
+  expect_match(status$detail[status$step == "Exports"], "`log` masks base::log", fixed = TRUE)
+  result <- build_zig(path)
+  expect_true(result$ok)
+  script <- paste(
+    sprintf("library(clashpkg, lib.loc = '%s', warn.conflicts = FALSE)", result$library),
+    "stopifnot(all.equal(clashpkg::exp(1), base::exp(1)), all.equal(clashpkg::log(2), base::log(2)))",
+    "stopifnot(clashpkg::sqrt(4) == 2, clashpkg::free(3) == 3, clashpkg::malloc(1) == 2)",
+    "stopifnot(clashpkg::memcpy(1) == 3, identical(hello_zig('R'), 'Hello, R!'))",
+    "cat('calls ok')",
+    sep = "; "
+  )
+  output <- suppressWarnings(system2(
+    file.path(R.home("bin"), "Rscript"), c("--vanilla", "-e", shQuote(script)),
+    stdout = TRUE, stderr = TRUE
+  ))
+  expect_null(attr(output, "status"))
+  expect_match(paste(output, collapse = "\n"), "calls ok", fixed = TRUE)
+  nm <- Sys.which("nm")
+  skip_if(!nzchar(nm) || .Platform$OS.type == "windows", "no nm on this platform")
+  library_file <- list.files(file.path(result$library, "clashpkg", "libs"),
+    pattern = "\\.(so|dylib)$", full.names = TRUE)
+  arguments <- if (identical(Sys.info()[["sysname"]], "Darwin")) "-gU" else c("-D", "--defined-only")
+  symbols <- system2(nm, c(arguments, shQuote(library_file)), stdout = TRUE)
+  defined <- sub("^_", "", sub("^.*[[:space:]]", "", symbols))
+  expect_false(any(c("exp", "log", "sqrt", "free", "malloc", "memcpy", "rzig_init") %in% defined))
+  expect_true("R_init_clashpkg" %in% defined)
+})
+
 test_that("printing a build warns about a package loaded in the session", {
   result <- structure(list(
     ok = TRUE, package = "stats", seconds = 1, library = tempdir(),
