@@ -1,0 +1,52 @@
+template:
+  bootstrap: 5
+
+reference:
+  - title: Create and update a package
+    contents:
+      - create_rzig_package
+      - use_rzig
+      - update_rzig
+      - use_rzig_ci
+  - title: Generate the bindings
+    desc: Each step of the workflow is a function; document() runs them in order.
+    contents:
+      - scan_exports
+      - render_bindings
+      - document
+      - rzig_status
+  - title: Build and test
+    contents:
+      - find_zig
+      - install_zig
+      - build_zig
+      - test_zig
+  - title: Zig from the R prompt
+    contents:
+      - zig_function
+      - eng_zig
+  - title: Package features
+    contents:
+      - use_rzig_lapack
+      - use_rzig_mixed
+      - use_rzig_import
+  - title: About
+    contents:
+      - rzig-package
+
+articles:
+  - title: Getting started
+    navbar: ~
+    contents:
+      - rzig
+      - updating
+  - title: Writing Zig for R
+    contents:
+      - exports
+      - parallel
+      - numerics
+      - sharing
+  - title: Porting and distribution
+    contents:
+      - porting-rcpp
+      - distributing

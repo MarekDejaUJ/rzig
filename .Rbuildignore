@@ -31,3 +31,6 @@
 ^rzigcausal.*$
 ^tests/testthat/_problems$
 ^tests/testthat/testthat-problems\.rds$
+^_pkgdown\.yml$
+^pkgdown$
+^CONTRIBUTING\.md$

@@ -999,6 +999,15 @@ R CMD build tests/fixtures/rzigtest
 Continuous integration builds and checks the fixture package on Linux, macOS,
 and Windows, and runs GC-stress and memory-analysis profiles where available.
 
+## Packages using rzig
+
+- [pnsbib](https://github.com/MarekDejaUJ/pnsbib): probabilities of
+  causation with partial information, bounded from observational and
+  interventional distributions.
+
+The vignettes and `inst/examples/poclp` (the case study of the article on
+rzig) show further packages.
+
 ## License
 
 GPL-3. See [COPYING](COPYING) for the full license text. RZig 0.2.3 and

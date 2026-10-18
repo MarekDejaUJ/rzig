@@ -1,3 +1,15 @@
+# rzig 0.42.0
+
+## Documentation
+
+- `inst/examples/poclp` ships the case-study package of the article on rzig
+  (sharp bounds on probabilities of causation by an exact linear program);
+  a test assembles, builds and checks it.
+- A pkgdown configuration groups the reference and the vignettes, and a
+  workflow publishes the site from the main branch.
+- A contribution guide and issue templates; the README lists packages that
+  use rzig.
+
 # rzig 0.41.0
 
 ## New features
