@@ -29,6 +29,12 @@ pub fn noteRThread() void {
     r_thread.store(thread_identity.current(), .monotonic);
 }
 
+/// Whether the calling thread is the one that entered R (true before any call).
+pub fn onRThread() bool {
+    const r_id = r_thread.load(.monotonic);
+    return r_id == 0 or thread_identity.current() == r_id;
+}
+
 /// Forget earlier worker panics; called before workers start.
 pub fn beginWorkers() void {
     worker_exits.store(0, .monotonic);

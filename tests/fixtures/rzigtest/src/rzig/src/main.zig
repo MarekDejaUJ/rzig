@@ -475,6 +475,153 @@ pub fn integrate_inverse(ctx: *rzig.Ctx, lower: f64, upper: f64) rzig.Error!f64 
     return (try rzig.Integrate.integrate(ctx, &Inverse{}, lower, upper, .{})).value;
 }
 
+/// Call `f` with `x` and return its numeric result.
+/// @export
+pub fn call_numeric(ctx: *rzig.Ctx, f: rzig.Function, x: []const f64) rzig.Error![]const f64 {
+    return f.call(ctx, []const f64, .{x});
+}
+
+/// Call `f` with named arguments `x` and `na.rm`.
+/// @export
+pub fn call_named(ctx: *rzig.Ctx, f: rzig.Function, x: []const f64) rzig.Error!f64 {
+    return f.call(ctx, f64, .{ .x = x, .@"na.rm" = true });
+}
+
+/// Call `f` with literal arguments and return its result as it is.
+/// @export
+pub fn call_literals(ctx: *rzig.Ctx, f: rzig.Function) rzig.Error!rzig.Sexp {
+    return f.call(ctx, rzig.Sexp, .{ 2, 2.5, "text", true });
+}
+
+/// Call `f` with an R object, which reaches `f` unevaluated.
+/// @export
+pub fn call_with_object(ctx: *rzig.Ctx, f: rzig.Function, object: rzig.Sexp) rzig.Error!rzig.Sexp {
+    return f.call(ctx, rzig.Sexp, .{object});
+}
+
+/// Call `outer` with the function `inner` as its argument.
+/// @export
+pub fn call_with_function(ctx: *rzig.Ctx, outer: rzig.Function, inner: rzig.Function) rzig.Error!f64 {
+    return outer.call(ctx, f64, .{inner});
+}
+
+/// Call `f` when it is given; -1 for NULL.
+/// @export
+pub fn call_optional(ctx: *rzig.Ctx, f: ?rzig.Function) rzig.Error!f64 {
+    const function = f orelse return -1;
+    return function.call(ctx, f64, .{});
+}
+
+var cleanups: f64 = 0;
+
+/// Call `f` for its effect; a deferred statement counts the calls that ended.
+/// @export
+pub fn call_with_cleanup(ctx: *rzig.Ctx, f: rzig.Function) rzig.Error!f64 {
+    defer cleanups += 1;
+    try f.call(ctx, void, .{});
+    return 1;
+}
+
+/// The number of calls of `call_with_cleanup` that ended.
+/// @export
+pub fn call_cleanups() f64 {
+    return cleanups;
+}
+
+/// Call `f`; `fallback` when `f` fails.
+/// @export
+pub fn call_or_default(ctx: *rzig.Ctx, f: rzig.Function, fallback: f64) f64 {
+    return f.call(ctx, f64, .{}) catch fallback;
+}
+
+/// Call `f`; a failure of `f` is replaced by another error.
+/// @export
+pub fn call_or_raise(ctx: *rzig.Ctx, f: rzig.Function) rzig.Error!f64 {
+    return f.call(ctx, f64, .{}) catch rzig.raise("replaced the error of f", .{});
+}
+
+/// Queue a warning, call `f`, and queue another warning.
+/// @export
+pub fn warn_then_call(ctx: *rzig.Ctx, f: rzig.Function) rzig.Error!void {
+    rzig.warn("queued before the call", .{});
+    try f.call(ctx, void, .{});
+    rzig.warn("queued after the call", .{});
+}
+
+/// Draw from R's stream, call `f`, which draws as well, and draw again.
+/// @export
+pub fn rng_around_call(ctx: *rzig.Ctx, f: rzig.Function) rzig.Error![]f64 {
+    const generator = try ctx.rng();
+    const output = try ctx.alloc(f64, 3);
+    output[0] = generator.uniform();
+    output[1] = try f.call(ctx, f64, .{});
+    output[2] = generator.uniform();
+    return output;
+}
+
+const RObjective = struct {
+    ctx: *rzig.Ctx,
+    objective: rzig.Function,
+
+    pub fn value(self: *const RObjective, x: []const f64) rzig.Error!f64 {
+        return self.objective.call(self.ctx, f64, .{x});
+    }
+};
+
+const RObjectiveWithGradient = struct {
+    ctx: *rzig.Ctx,
+    objective: rzig.Function,
+    derivative: rzig.Function,
+
+    pub fn value(self: *const RObjectiveWithGradient, x: []const f64) rzig.Error!f64 {
+        return self.objective.call(self.ctx, f64, .{x});
+    }
+
+    pub fn gradient(self: *const RObjectiveWithGradient, x: []const f64, g: []f64) rzig.Error!void {
+        const result = try self.derivative.call(self.ctx, []const f64, .{x});
+        if (result.len != g.len) return rzig.raise("the gradient has {d} values for {d} parameters", .{ result.len, g.len });
+        @memcpy(g, result);
+    }
+};
+
+/// Minimize the R function `f` (with the R gradient `gr`, or NULL) by an optim() method.
+/// @export
+pub fn optim_r(
+    ctx: *rzig.Ctx,
+    f: rzig.Function,
+    gr: ?rzig.Function,
+    start: []const f64,
+    method: []const u8,
+) rzig.Error!rzig.Record(OptimResult) {
+    const x = try ctx.dupe(f64, start);
+    const result = if (gr) |derivative|
+        try minimizeBy(ctx, method, &RObjectiveWithGradient{ .ctx = ctx, .objective = f, .derivative = derivative }, x, .{})
+    else
+        try minimizeBy(ctx, method, &RObjective{ .ctx = ctx, .objective = f }, x, .{});
+    return .{ .value = .{
+        .par = x,
+        .value = result.value,
+        .fn_count = result.value_count,
+        .gr_count = result.gradient_count,
+        .convergence = result.code,
+    } };
+}
+
+const RIntegrand = struct {
+    ctx: *rzig.Ctx,
+    integrand: rzig.Function,
+
+    pub fn value(self: *const RIntegrand, x: f64) rzig.Error!f64 {
+        return self.integrand.call(self.ctx, f64, .{x});
+    }
+};
+
+/// Integrate the R function `f` from `lower` to `upper`.
+/// @export
+pub fn integrate_r(ctx: *rzig.Ctx, f: rzig.Function, lower: f64, upper: f64) rzig.Error!f64 {
+    return (try rzig.Integrate.integrate(ctx, &RIntegrand{ .ctx = ctx, .integrand = f }, lower, upper, .{})).value;
+}
+
 /// The sum of each column of a sparse matrix.
 /// @export
 pub fn csc_column_sums(ctx: *rzig.Ctx, values: rzig.CscMatrix) rzig.Error![]f64 {

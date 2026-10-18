@@ -86,6 +86,19 @@ for pair in "Makevars:src/Makevars.in" "Makevars.win:src/Makevars.win.in" \
     fi
 done
 
+# src/entry.c of the fixture and the example: the template with the package name.
+for pair in "tests/fixtures/rzigtest:rzigtest" "examples/rzigcausal:rzigcausal"; do
+    package_dir=${pair%%:*}
+    package=${pair#*:}
+    entry_file="$repo_dir/$package_dir/src/entry.c"
+    if test "$mode" = "--write"; then
+        sed "s/@PKG@/$package/g" "$repo_dir/inst/templates/entry.c" > "$entry_file"
+    elif ! sed "s/@PKG@/$package/g" "$repo_dir/inst/templates/entry.c" | cmp -s - "$entry_file"; then
+        printf 'copy is stale: %s\n' "$entry_file" >&2
+        failed=1
+    fi
+done
+
 abuse_source="$repo_dir/tests/abuse.R"
 abuse_fixture="$repo_dir/tests/fixtures/rzigtest/tests/testthat/test-abuse.R"
 if test "$mode" = "--write"; then

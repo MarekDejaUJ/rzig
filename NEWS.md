@@ -1,3 +1,21 @@
+# rzig 0.34.0
+
+## New features
+
+- `rzig.Function` receives an R function, and `f.call(ctx, T, args)` calls it
+  from Zig with positional or named arguments and converts the result to `T`.
+  An R error, an interrupt, or the exit of a condition handler or a restart
+  outside the call returns `rzig.Error`; after the Zig frames have returned,
+  R continues the error or the exit unchanged, so conditions keep their class
+  and call and handlers outside the call run. Queued warnings come first, R's
+  random-number state passes to R and back, and R functions may call rzig
+  packages again.
+- The objectives and integrands of `rzig.Optimize` and `rzig.Integrate` may
+  call R functions; an R error of the routines themselves now reaches R as it
+  is, without an additional rzig error.
+- `src/entry.c` contains `rzig_unwind_run()`, which stops R's jumps with
+  `setjmp()`; `update_rzig()` replaces an unmodified `entry.c`.
+
 # rzig 0.33.0
 
 ## New features

@@ -834,6 +834,7 @@ print.rzig_exports <- function(x, ...) {
     "Mut(Matrix)" = "double matrix, writable duplicate",
     "Mut(IntMatrix)" = "integer matrix, writable duplicate",
     "Sexp" = "R object, borrowed",
+    "Function" = "function, called from Zig",
     "not supported; the Zig compiler rejects the signature"
   )
 }
@@ -875,6 +876,7 @@ print.rzig_exports <- function(x, ...) {
     "[]?[]constu8" = , "[]const?[]constu8" = "character vector with NA",
     "List" = "named list",
     "Sexp" = "the supplied R object",
+    "Function" = "the supplied function",
     "not supported; the Zig compiler rejects the signature"
   )
   if (optional) paste0(base, ", or NULL") else base

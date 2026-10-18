@@ -165,6 +165,7 @@ jobs:
           mkdir -p "$gc_library"
           R CMD INSTALL --library="$gc_library" rzigtest_*.tar.gz
           R_LIBS="$gc_library" Rscript tools/gctorture_run.R tests/abuse.R
+          R_LIBS="$gc_library" Rscript tools/gctorture_run.R tests/gctorture-callbacks.R
         shell: bash
       - name: Run causal-example GC stress
         if: runner.os == 'macOS'

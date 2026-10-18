@@ -6,13 +6,20 @@
 //! []const f64, g: []f64) void` (or `rzig.Error!void`). Without a gradient,
 //! derivative-based methods use central differences with the step 1e-3 of
 //! `optim()`. An error of a callback is recorded and returned when the
-//! optimizer finishes. The routines run inside R_ToplevelExec, because they
-//! can signal R errors (for example for non-finite values).
+//! optimizer finishes. The routines run with R's jumps stopped before the Zig
+//! frames (rcall.intercept): an R error of a routine, and a jump of R out of
+//! an R function that a callback calls through rzig.Function, return
+//! `error.RZigError` from the Zig call, and R resumes the jump at the boundary.
 
 const std = @import("std");
 const c = @import("c/abi.zig");
 const es = @import("error_state.zig");
+const rcall = @import("rcall.zig");
 const Ctx = @import("alloc.zig").Ctx;
+
+/// The value a failed objective returns to the routine: finite, so that the
+/// routine stops without an error of its own.
+const failed_value = std.math.floatMax(f64);
 
 const optimfn = *const fn (c_int, [*]f64, ?*anyopaque) callconv(.c) f64;
 const optimgr = *const fn (c_int, [*]f64, [*]f64, ?*anyopaque) callconv(.c) void;
@@ -26,10 +33,13 @@ extern fn Rdqags(f: integr_fn, ex: ?*anyopaque, a: *f64, b: *f64, epsabs: *f64, 
 extern fn Rdqagi(f: integr_fn, ex: ?*anyopaque, bound: *f64, inf: *c_int, epsabs: *f64, epsrel: *f64, result: *f64, abserr: *f64, neval: *c_int, ier: *c_int, limit: *c_int, lenw: *c_int, last: *c_int, iwork: [*]c_int, work: [*]f64) void;
 
 /// Call `function`, which returns `T` or an error union of it; an error is
-/// recorded in `failed` and `fallback` is returned.
-fn callRecorded(comptime T: type, result: anytype, failed: *bool, fallback: T) T {
+/// recorded in `failed` and `fallback` is returned. A jump of R out of an R
+/// function that the callback called continues past the routine to the
+/// intercept around it, when the callback runs inside the routine.
+fn callRecorded(comptime T: type, result: anytype, failed: *bool, fallback: T, inside_routine: bool) T {
     if (comptime @typeInfo(@TypeOf(result)) == .error_union) {
         return result catch {
+            if (inside_routine) rcall.resumeJump();
             failed.* = true;
             return fallback;
         };
@@ -44,13 +54,15 @@ fn Bridge(comptime Problem: type) type {
 
         problem: Problem,
         failed: bool = false,
+        /// Whether R's routine is running (callbacks may then resume jumps).
+        inside: bool = false,
         /// Bounds that the differences of the numeric gradient respect (L-BFGS-B).
         lower: ?[]const f64 = null,
         upper: ?[]const f64 = null,
 
         fn evaluate(self: *Self, x: []const f64) f64 {
-            if (self.failed) return std.math.inf(f64);
-            return callRecorded(f64, self.problem.value(x), &self.failed, std.math.inf(f64));
+            if (self.failed) return failed_value;
+            return callRecorded(f64, self.problem.value(x), &self.failed, failed_value, self.inside);
         }
 
         fn value(n: c_int, par: [*]f64, ex: ?*anyopaque) callconv(.c) f64 {
@@ -68,7 +80,8 @@ fn Bridge(comptime Problem: type) type {
                 return;
             }
             if (comptime @hasDecl(Base, "gradient")) {
-                callRecorded(void, self.problem.gradient(x, g), &self.failed, {});
+                callRecorded(void, self.problem.gradient(x, g), &self.failed, {}, self.inside);
+                if (self.failed) @memset(g, 0);
                 return;
             }
             // Central differences with the step of optim() (ndeps = 1e-3),
@@ -103,18 +116,18 @@ fn Bridge(comptime Problem: type) type {
     };
 }
 
-/// Run `function` with `args` inside R_ToplevelExec; false if R jumped.
-fn guarded(comptime function: anytype, args: anytype) bool {
+/// Run R's routine `function` with `args`, with R's jumps stopped before the
+/// Zig frames: a jump returns error.RZigError, and the boundary resumes it.
+fn guarded(ctx: *Ctx, comptime function: anytype, args: anytype) es.Error!void {
     const State = struct {
         args: @TypeOf(args),
 
-        fn run(data: ?*anyopaque) callconv(.c) void {
-            const self: *@This() = @ptrCast(@alignCast(data.?));
+        fn run(self: *@This()) void {
             @call(.auto, function, self.args);
         }
     };
     var state = State{ .args = args };
-    return c.R_ToplevelExec(State.run, &state) != c.FALSE;
+    return rcall.intercept(ctx, &state, State.run);
 }
 
 /// General-purpose optimization, as `optim()` does it.
@@ -175,23 +188,23 @@ pub const Optimize = struct {
         }
         var result = Result{ .value = start, .value_count = 0, .gradient_count = 0, .code = 0 };
         var fail: c_int = 0;
-        var ok = true;
-        switch (method) {
-            .bfgs => {
+        bridge.inside = true;
+        const outcome: es.Error!void = switch (method) {
+            .bfgs => bfgs: {
                 const mask = try ctx.alloc(c_int, x.len);
                 @memset(mask, 1);
-                ok = guarded(vmmin, .{ n, x.ptr, &result.value, &Bridge(Problem).value, &Bridge(Problem).gradient, options.max_iterations orelse 100, 0, mask.ptr, options.abs_tol, options.rel_tol, 10, @as(?*anyopaque, @ptrCast(&bridge)), &result.value_count, &result.gradient_count, &fail });
+                break :bfgs guarded(ctx, vmmin, .{ n, x.ptr, &result.value, &Bridge(Problem).value, &Bridge(Problem).gradient, options.max_iterations orelse 100, 0, mask.ptr, options.abs_tol, options.rel_tol, 10, @as(?*anyopaque, @ptrCast(&bridge)), &result.value_count, &result.gradient_count, &fail });
             },
-            .nelder_mead => {
+            .nelder_mead => nelder_mead: {
                 const start_point = try ctx.dupe(f64, x);
-                ok = guarded(nmmin, .{ n, start_point.ptr, x.ptr, &result.value, &Bridge(Problem).value, &fail, options.abs_tol, options.rel_tol, @as(?*anyopaque, @ptrCast(&bridge)), 1.0, 0.5, 2.0, 0, &result.value_count, options.max_iterations orelse 500 });
                 result.gradient_count = -1;
+                break :nelder_mead guarded(ctx, nmmin, .{ n, start_point.ptr, x.ptr, &result.value, &Bridge(Problem).value, &fail, options.abs_tol, options.rel_tol, @as(?*anyopaque, @ptrCast(&bridge)), 1.0, 0.5, 2.0, 0, &result.value_count, options.max_iterations orelse 500 });
             },
-            .conjugate_gradient => {
+            .conjugate_gradient => conjugate_gradient: {
                 const start_point = try ctx.dupe(f64, x);
-                ok = guarded(cgmin, .{ n, start_point.ptr, x.ptr, &result.value, &Bridge(Problem).value, &Bridge(Problem).gradient, &fail, options.abs_tol, options.rel_tol, @as(?*anyopaque, @ptrCast(&bridge)), options.cg_type, 0, &result.value_count, &result.gradient_count, options.max_iterations orelse 100 });
+                break :conjugate_gradient guarded(ctx, cgmin, .{ n, start_point.ptr, x.ptr, &result.value, &Bridge(Problem).value, &Bridge(Problem).gradient, &fail, options.abs_tol, options.rel_tol, @as(?*anyopaque, @ptrCast(&bridge)), options.cg_type, 0, &result.value_count, &result.gradient_count, options.max_iterations orelse 100 });
             },
-            .lbfgsb => {
+            .lbfgsb => lbfgsb_branch: {
                 const lower = try ctx.alloc(f64, x.len);
                 const upper = try ctx.alloc(f64, x.len);
                 const nbd = try ctx.alloc(c_int, x.len);
@@ -208,11 +221,17 @@ pub const Optimize = struct {
                 bridge.lower = lower;
                 bridge.upper = upper;
                 var message: [60]u8 = @splat(0);
-                ok = guarded(lbfgsb, .{ n, options.lmm, x.ptr, lower.ptr, upper.ptr, nbd.ptr, &result.value, &Bridge(Problem).value, &Bridge(Problem).gradient, &fail, @as(?*anyopaque, @ptrCast(&bridge)), options.factr, options.pgtol, &result.value_count, &result.gradient_count, options.max_iterations orelse 100, &message, 0, 10 });
+                break :lbfgsb_branch guarded(ctx, lbfgsb, .{ n, options.lmm, x.ptr, lower.ptr, upper.ptr, nbd.ptr, &result.value, &Bridge(Problem).value, &Bridge(Problem).gradient, &fail, @as(?*anyopaque, @ptrCast(&bridge)), options.factr, options.pgtol, &result.value_count, &result.gradient_count, options.max_iterations orelse 100, &message, 0, 10 });
             },
+        };
+        bridge.inside = false;
+        if (bridge.failed) {
+            // The failure of the objective comes first; an R error that the
+            // routine signalled afterwards is discarded.
+            rcall.dropJump();
+            return es.Error.RZigError;
         }
-        if (bridge.failed) return es.Error.RZigError;
-        if (!ok) return es.raise("rzig: the optimizer stopped with an R error (shown above)", .{});
+        try outcome;
         result.code = fail;
         return result;
     }
@@ -257,7 +276,7 @@ pub const Integrate = struct {
                         continue;
                     }
                     const where = point.*;
-                    const result = callRecorded(f64, self.integrand.value(where), &self.failed, 0);
+                    const result = callRecorded(f64, self.integrand.value(where), &self.failed, 0, true);
                     if (!self.failed and !std.math.isFinite(result)) {
                         self.non_finite = true;
                         self.at = where;
@@ -276,11 +295,11 @@ pub const Integrate = struct {
         var last: c_int = 0;
         const iwork = try ctx.alloc(c_int, @intCast(limit));
         const work = try ctx.alloc(f64, @intCast(lenw));
-        var ok: bool = undefined;
+        var outcome: es.Error!void = undefined;
         if (std.math.isFinite(lower) and std.math.isFinite(upper)) {
             var a = lower;
             var b = upper;
-            ok = guarded(Rdqags, .{ &State.run, @as(?*anyopaque, @ptrCast(&state)), &a, &b, &epsabs, &epsrel, &result.value, &result.abs_error, &result.evaluations, &ier, &limit, &lenw, &last, iwork.ptr, work.ptr });
+            outcome = guarded(ctx, Rdqags, .{ &State.run, @as(?*anyopaque, @ptrCast(&state)), &a, &b, &epsabs, &epsrel, &result.value, &result.abs_error, &result.evaluations, &ier, &limit, &lenw, &last, iwork.ptr, work.ptr });
         } else {
             var bound: f64 = 0;
             var inf: c_int = 2;
@@ -291,11 +310,14 @@ pub const Integrate = struct {
                 bound = upper;
                 inf = -1;
             }
-            ok = guarded(Rdqagi, .{ &State.run, @as(?*anyopaque, @ptrCast(&state)), &bound, &inf, &epsabs, &epsrel, &result.value, &result.abs_error, &result.evaluations, &ier, &limit, &lenw, &last, iwork.ptr, work.ptr });
+            outcome = guarded(ctx, Rdqagi, .{ &State.run, @as(?*anyopaque, @ptrCast(&state)), &bound, &inf, &epsabs, &epsrel, &result.value, &result.abs_error, &result.evaluations, &ier, &limit, &lenw, &last, iwork.ptr, work.ptr });
         }
-        if (state.failed) return es.Error.RZigError;
+        if (state.failed) {
+            rcall.dropJump();
+            return es.Error.RZigError;
+        }
+        try outcome;
         if (state.non_finite) return es.raise("rzig: the integrand is not finite at x = {d}", .{state.at});
-        if (!ok) return es.raise("rzig: the integration stopped with an R error (shown above)", .{});
         return switch (ier) {
             0 => result,
             1 => es.raise("rzig: maximum number of subdivisions reached", .{}),

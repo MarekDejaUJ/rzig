@@ -101,6 +101,62 @@ integrate_inverse <- function(lower, upper) {
   .Call(C_integrate_inverse, lower, upper)
 }
 
+call_numeric <- function(f, x) {
+  .Call(C_call_numeric, f, x)
+}
+
+call_named <- function(f, x) {
+  .Call(C_call_named, f, x)
+}
+
+call_literals <- function(f) {
+  .Call(C_call_literals, f)
+}
+
+call_with_object <- function(f, object) {
+  .Call(C_call_with_object, f, object)
+}
+
+call_with_function <- function(outer, inner) {
+  .Call(C_call_with_function, outer, inner)
+}
+
+call_optional <- function(f) {
+  .Call(C_call_optional, f)
+}
+
+call_with_cleanup <- function(f) {
+  .Call(C_call_with_cleanup, f)
+}
+
+call_cleanups <- function() {
+  .Call(C_call_cleanups)
+}
+
+call_or_default <- function(f, fallback) {
+  .Call(C_call_or_default, f, fallback)
+}
+
+call_or_raise <- function(f) {
+  .Call(C_call_or_raise, f)
+}
+
+warn_then_call <- function(f) {
+  .Call(C_warn_then_call, f)
+}
+
+rng_around_call <- function(f) {
+  .Call(C_rng_around_call, f)
+}
+
+optim_r <- function(f, gr, start, method) {
+  .Call(C_optim_r, f, gr, start, method)
+}
+
+integrate_r <- function(f, lower, upper) {
+  .Call(C_integrate_r, f, lower, upper)
+}
+
 csc_column_sums <- function(values) {
   .Call(C_csc_column_sums, values)
 }

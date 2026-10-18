@@ -27,6 +27,7 @@ const es = @import("error_state.zig");
 const Ctx = @import("alloc.zig").Ctx;
 const rng = @import("rng.zig");
 const unwind = @import("unwind.zig");
+const rcall = @import("rcall.zig");
 
 /// Entry point used by every generated fixed-arity wrapper.
 ///
@@ -57,6 +58,13 @@ pub fn invoke(
         state.stack.unwindAll();
         state.stack.deinit();
 
+        if (es.takeJump()) |jump| {
+            // R jumped out of R code that the call ran (rzig.Function); every
+            // Zig frame has returned, so the jump continues to its target.
+            c.R_ReleaseObject(@ptrCast(jump.token));
+            if (!jump.superseded) c.R_ContinueUnwind(@ptrCast(jump.token));
+        }
+
         if (es.takeInterrupt()) {
             // The Zig computation cannot resume after its frames have unwound,
             // so deliver an interrupt without R's optional resume restart.
@@ -75,13 +83,22 @@ pub fn invoke(
         c.Rf_errorcall(c.R_NilValue, "%s", message.ptr);
     }
 
+    // A jump that the exported function handled is discarded.
+    rcall.dropJump();
+
     // The arena has already been released, but the result stays protected
     // because warning delivery can allocate or become an R error.
-    while (es.takeWarning()) |warning| c.Rf_warning("%s", warning.ptr);
+    deliverWarnings();
 
     state.stack.unwindAll();
     state.stack.deinit();
     return result;
+}
+
+/// Emit the queued warnings. The boundary calls this before it returns, and
+/// rzig.Function before R code runs, inside the interception of R's jumps.
+pub fn deliverWarnings() void {
+    while (es.takeWarning()) |warning| c.Rf_warning("%s", warning.ptr);
 }
 
 /// Validate an exported function while its name, parameter positions and Zig
@@ -156,7 +173,8 @@ fn InvocationState(
             // PutRNGstate may allocate. At this point no Zig-owned resource is
             // live, while any successful result remains on the protect stack.
             rng.finish(rng_active);
-            _ = jumped;
+            // A jump that R did not let rzig stop (a panic) ends the call.
+            if (jumped) rcall.dropJump();
         }
     };
 }

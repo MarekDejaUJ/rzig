@@ -17,6 +17,7 @@ const matrix = @import("matrix.zig");
 const na = @import("na.zig");
 const protect = @import("protect.zig");
 const sexp = @import("sexp.zig");
+const rcall = @import("rcall.zig");
 const Ctx = @import("alloc.zig").Ctx;
 
 /// Opt-in mutable input. The wrapper duplicates the incoming SEXP first,
@@ -126,6 +127,7 @@ pub fn fromSexp(
     if (comptime external.isExternal(T)) return externalFromSexp(T, ctx, x, name);
     if (comptime T == sparse.CscMatrix) return cscFromSexp(x, name);
     if (comptime T == sexp.Sexp) return sexp.fromRaw(x);
+    if (comptime T == rcall.Function) return functionFromSexp(x, name);
 
     return switch (@typeInfo(T)) {
         .optional => |info| if (comptime isScalar(info.child))
@@ -259,6 +261,23 @@ pub fn validateReturnType(comptime T: type, comptime function_name: []const u8) 
                 "  nearest supported alternative: " ++ nearestReturnAlternative(T),
         );
     }
+}
+
+/// Whether exported functions accept `T` (rzig.Function results use it).
+pub fn supportsInput(comptime T: type) bool {
+    return isSupportedInput(T);
+}
+
+/// Whether exported functions can return `T` (rzig.Function arguments use it).
+pub fn supportsReturn(comptime T: type) bool {
+    return isSupportedReturn(T);
+}
+
+fn functionFromSexp(x: c.SEXP, comptime name: []const u8) es.Error!rcall.Function {
+    if (c.Rf_isFunction(x) == c.FALSE) {
+        return es.raise("rzig: {s} must be a function; got {s}", .{ name, typeName(x) });
+    }
+    return .{ .object = x, .name = comptime rcall.callName(name) };
 }
 
 fn stringScalar(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const u8 {
@@ -870,7 +889,8 @@ fn isSupportedInput(comptime T: type) bool {
         T == matrix.IntMatrix or
         T == matrix.BoolMatrix or
         T == sparse.CscMatrix or
-        T == sexp.Sexp)
+        T == sexp.Sexp or
+        T == rcall.Function)
     {
         return true;
     }
@@ -952,7 +972,8 @@ fn isSupportedReturn(comptime T: type) bool {
         T == []complex.Complex or
         T == complex.Raw or
         T == list.List or
-        T == sexp.Sexp)
+        T == sexp.Sexp or
+        T == rcall.Function)
     {
         return true;
     }
@@ -999,6 +1020,11 @@ fn nearestInputAlternative(comptime T: type) []const u8 {
     if (T == std.math.Complex(f64)) return "rzig.Complex for an R complex scalar (convert with toStd())";
     if (T == []?[]const u8 or T == []const ?[]u8) return "[]const ?[]const u8 for a character vector that keeps NA";
     if (T == []u8) return "[]const u8 for a UTF-8 string";
+    if (@typeInfo(T) == .@"fn" or
+        (@typeInfo(T) == .pointer and @typeInfo(@typeInfo(T).pointer.child) == .@"fn"))
+    {
+        return "rzig.Function for an R function";
+    }
 
     return switch (@typeInfo(T)) {
         .float => "f64 for an R numeric scalar",
@@ -1081,6 +1107,7 @@ pub fn toSexp(
     if (comptime T == record.Factor) return factorToSexp(stack, ctx, value);
     if (comptime external.isExternal(T)) return externalToSexp(stack, ctx, value);
     if (comptime T == sexp.Sexp) return stack.push(sexp.toRaw(value));
+    if (comptime T == rcall.Function) return stack.push(value.object);
 
     return switch (@typeInfo(T)) {
         .optional => if (value) |present|

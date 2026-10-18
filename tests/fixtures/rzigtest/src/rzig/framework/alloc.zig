@@ -19,6 +19,12 @@ pub const Ctx = struct {
     arena: std.heap.ArenaAllocator,
     rng_active: bool,
     externals: std.ArrayList(ExternalEntry),
+    /// R objects that stay allocated until the call ends (results of
+    /// rzig.Function calls), a spare continuation token of R_UnwindProtect,
+    /// and the function that releases them; this file calls no R function.
+    r_objects: std.ArrayList(*anyopaque),
+    spare_token: ?*anyopaque,
+    release_r_object: ?*const fn (*anyopaque) void,
 
     /// Create an empty context backed by Zig's C allocator.
     pub fn init() Ctx {
@@ -26,6 +32,9 @@ pub const Ctx = struct {
             .arena = std.heap.ArenaAllocator.init(std.heap.c_allocator),
             .rng_active = false,
             .externals = .empty,
+            .r_objects = .empty,
+            .spare_token = null,
+            .release_r_object = null,
         };
     }
 
@@ -34,6 +43,15 @@ pub const Ctx = struct {
     pub fn deinit(self: *Ctx) void {
         for (self.externals.items) |entry| {
             if (entry.destroy) |destroy| destroy(entry.holder);
+        }
+        if (self.release_r_object) |release| {
+            var index = self.r_objects.items.len;
+            while (index > 0) {
+                index -= 1;
+                release(self.r_objects.items[index]);
+            }
+            if (self.spare_token) |token| release(token);
+            self.spare_token = null;
         }
         self.arena.deinit();
     }

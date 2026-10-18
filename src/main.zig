@@ -30,6 +30,7 @@ test {
     _ = @import("class.zig");
     _ = @import("sparse.zig");
     _ = @import("thread_identity.zig");
+    _ = @import("rcall.zig");
     _ = @import("panic.zig");
     _ = @import("protect.zig");
     _ = @import("sexp.zig");

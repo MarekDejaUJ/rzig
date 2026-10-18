@@ -257,6 +257,33 @@ pub extern fn R_UnwindProtect(
     continuation: ?SEXP,
 ) SEXP;
 
+/// Allocate a continuation token for R_UnwindProtect; may allocate and longjmp.
+pub extern fn R_MakeUnwindCont() SEXP;
+/// Resume the jump of R kept in a continuation token; never returns.
+pub extern fn R_ContinueUnwind(continuation: SEXP) noreturn;
+/// Keep an object from garbage collection until R_ReleaseObject; may allocate and longjmp.
+pub extern fn R_PreserveObject(x: SEXP) void;
+/// End the protection that R_PreserveObject started.
+pub extern fn R_ReleaseObject(x: SEXP) void;
+/// Set the head of a pairlist cell.
+pub extern fn SETCAR(x: SEXP, value: SEXP) SEXP;
+/// Set the tag of a pairlist cell.
+pub extern fn SET_TAG(x: SEXP, tag: SEXP) void;
+/// A pairlist cell; may allocate and longjmp.
+pub extern fn Rf_cons(head: SEXP, tail: SEXP) SEXP;
+/// A call cell; may allocate and longjmp.
+pub extern fn Rf_lcons(head: SEXP, tail: SEXP) SEXP;
+/// A call with one argument; may allocate and longjmp.
+pub extern fn Rf_lang2(function: SEXP, argument: SEXP) SEXP;
+/// A new environment; may allocate and longjmp.
+pub extern fn R_NewEnv(enclosure: SEXP, hash: c_int, size: c_int) SEXP;
+/// Bind a symbol in an environment; may allocate and longjmp.
+pub extern fn Rf_defineVar(symbol: SEXP, value: SEXP, environment: SEXP) void;
+/// Look up a function by name; longjmps when there is none.
+pub extern fn Rf_findFun(symbol: SEXP, environment: SEXP) SEXP;
+/// Whether `x` is a closure, a builtin or a special.
+pub extern fn Rf_isFunction(x: SEXP) Rboolean;
+
 /// Load R's random-number state for native draws; may allocate and longjmp.
 pub extern fn GetRNGstate() void;
 /// Save R's random-number state after native draws; may allocate and longjmp.

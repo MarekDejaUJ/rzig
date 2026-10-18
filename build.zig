@@ -109,6 +109,16 @@ pub fn build(b: *std.Build) void {
     const run_parallel_tests = b.addRunArtifact(parallel_tests);
     test_step.dependOn(&run_parallel_tests.step);
 
+    const rcall_test_module = b.createModule(.{
+        .root_source_file = b.path("src/rcall_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const rcall_tests = b.addTest(.{ .root_module = rcall_test_module });
+    const run_rcall_tests = b.addRunArtifact(rcall_tests);
+    test_step.dependOn(&run_rcall_tests.step);
+
     const unwind_test_module = b.createModule(.{
         .root_source_file = b.path("src/unwind_test.zig"),
         .target = target,

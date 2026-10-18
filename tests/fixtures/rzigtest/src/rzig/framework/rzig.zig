@@ -42,6 +42,8 @@ pub const Transpose = @import("lapack.zig").Transpose;
 pub const Triangle = @import("lapack.zig").Triangle;
 pub const Side = @import("lapack.zig").Side;
 pub const Diagonal = @import("lapack.zig").Diagonal;
+/// An R function received as an argument, called from Zig with `call`.
+pub const Function = @import("rcall.zig").Function;
 /// R's optimizers (optim(): BFGS, Nelder-Mead, CG, L-BFGS-B) for Zig objectives.
 pub const Optimize = @import("optimize.zig").Optimize;
 /// R's numerical integration (integrate(): QUADPACK dqags and dqagi).

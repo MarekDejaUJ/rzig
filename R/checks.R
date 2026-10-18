@@ -14,7 +14,7 @@
   "[]constf64", "[]consti32", "[]constbool", "[]constu8", "[]const[]constu8",
   "[]constLogical", "[]const?[]constu8", "?[]constu8", "Complex", "[]constComplex", "Raw", "Factor",
   "CscMatrix",
-  "Matrix", "IntMatrix", "BoolMatrix", "Sexp",
+  "Matrix", "IntMatrix", "BoolMatrix", "Sexp", "Function",
   "Mut([]f64)", "Mut([]i32)", "Mut(Matrix)", "Mut(IntMatrix)"
 )
 
@@ -26,7 +26,7 @@
 
 .rzig_plain_returns <- c(
   "void", "f64", "i32", "i64", "[]i64", "[]consti64", "bool", .rzig_vector_returns, "[]constu8", "Complex", "Raw",
-  "Factor", "List", "Sexp"
+  "Factor", "List", "Sexp", "Function"
 )
 
 # The prefix `rzig.` goes first: removing the spaces of "[]const rzig.Logical"
@@ -42,7 +42,7 @@
       "^(f(16|32|64|80|128)|[iu][0-9]+|isize|usize|bool|void|anyopaque|",
       "anyerror|noreturn|type|anytype|comptime_int|comptime_float|const|",
       "c_[a-z]+|Matrix|IntMatrix|BoolMatrix|CscMatrix|Logical|Complex|Raw|Record|DataFrame|Factor|External|Mut|",
-      "Sexp|List|",
+      "Sexp|List|Function|",
       "Attributed|Error|Ctx)$"
     ),
     identifier

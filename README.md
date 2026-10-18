@@ -460,6 +460,7 @@ function. The complete input surface is:
 | `rzig.Mut([]f64)`, `rzig.Mut([]i32)` | double or integer vector | duplicated before writable access |
 | `rzig.Mut(rzig.Matrix)`, `rzig.Mut(rzig.IntMatrix)` | double or integer matrix | duplicated with its attributes before writable access |
 | `rzig.Sexp` | any R object | borrowed low-level handle |
+| `rzig.Function` | function | borrowed; `call()` evaluates it from Zig |
 
 Supported return values are:
 
@@ -483,6 +484,7 @@ Supported return values are:
 | `rzig.List` | named R list |
 | `rzig.Attributed(T)` | supported vector `T` with names, dimensions, dimnames, or classes |
 | `rzig.Sexp` | the supplied R object |
+| `rzig.Function` | the supplied function |
 | `?T` | supported `T`, or `NULL` when `null` |
 
 Any supported return may be wrapped in `rzig.Error!T`. `usize` and the
@@ -766,6 +768,31 @@ pub fn crossprod(ctx: *rzig.Ctx, x: rzig.Matrix) rzig.Error!rzig.Attributed([]f6
 }
 ```
 
+## Calling R functions from Zig
+
+An `rzig.Function` parameter receives an R function, and
+`f.call(ctx, T, args)` calls it on the thread that entered R. `args` is a
+tuple of positional arguments or a struct of named ones, with values of any
+type an exported function can return; the result is converted to `T` like an
+argument (`void` ignores it).
+
+```zig
+pub fn apply_twice(ctx: *rzig.Ctx, f: rzig.Function, x: []const f64) rzig.Error![]const f64 {
+    const once = try f.call(ctx, []const f64, .{x});
+    return f.call(ctx, []const f64, .{ .x = once });
+}
+```
+
+An R error, an interrupt, or a condition handler or restart outside the call
+that takes control returns `rzig.Error`. Return it, and R continues the error
+with its class and call once the Zig frames have run their `defer` blocks, so
+`tryCatch()`, `withCallingHandlers()` and `traceback()` behave as they would
+without Zig in between. The calls appear as `f(...)`, with the name of the R
+argument. A borrowed result stays allocated until the exported function
+returns, and R's random-number state passes to R and back when `ctx.rng()` is
+in use. Objectives and integrands of `rzig.Optimize` and `rzig.Integrate`
+may call R functions.
+
 ## Optimization and integration
 
 `rzig.Optimize.minimize(ctx, method, &problem, x, options)` runs the
@@ -832,7 +859,9 @@ of threads a call would use, for example to size per-thread buffers.
 
 RZig keeps R's non-local error mechanism at the outer native boundary. Internal
 Zig code returns explicit errors, all Zig-owned cleanup finishes before an R
-error is raised, and cleanup is protected if an R API call jumps out. Inputs are
+error is raised, and cleanup is protected if an R API call jumps out. A jump
+of R out of R code that Zig calls (`rzig.Function`) stops before the Zig frames
+and resumes after them. Inputs are
 borrowed read-only, return slices are copied into R-owned memory, and generated
 packages build in `ReleaseSafe` mode so bounds and overflow checks stay enabled.
 

@@ -51,6 +51,20 @@
 \alias{parallel_uniforms}
 \alias{parallel_out_of_bounds}
 \alias{parallel_count}
+\alias{call_numeric}
+\alias{call_named}
+\alias{call_literals}
+\alias{call_with_object}
+\alias{call_with_function}
+\alias{call_optional}
+\alias{call_with_cleanup}
+\alias{call_cleanups}
+\alias{call_or_default}
+\alias{call_or_raise}
+\alias{warn_then_call}
+\alias{rng_around_call}
+\alias{optim_r}
+\alias{integrate_r}
 \title{Fixture Functions for the Types and Services of the Boundary}
 \usage{
 parallel_thread_count(count)
@@ -104,6 +118,20 @@ parallel_sum(values)
 parallel_uniforms(count)
 parallel_out_of_bounds(values)
 parallel_count(count)
+call_numeric(f, x)
+call_named(f, x)
+call_literals(f)
+call_with_object(f, object)
+call_with_function(outer, inner)
+call_optional(f)
+call_with_cleanup(f)
+call_cleanups()
+call_or_default(f, fallback)
+call_or_raise(f)
+warn_then_call(f)
+rng_around_call(f)
+optim_r(f, gr, start, method)
+integrate_r(f, lower, upper)
 }
 \arguments{
 \item{count}{A non-negative count.}
@@ -134,6 +162,9 @@ bound.}
 \item{with_gradient}{Whether the objective has an analytic gradient.}
 \item{upper}{Upper bounds or limits.}
 \item{mean, sd}{Parameters of a normal density.}
+\item{f, gr, outer, inner}{R functions.}
+\item{object}{Any R object.}
+\item{fallback}{The value returned when \code{f} fails.}
 }
 \value{
 The value each function computes; the tests of the package describe them.

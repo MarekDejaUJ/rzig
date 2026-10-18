@@ -20,6 +20,12 @@ var error_buffer: [MESSAGE_CAPACITY]u8 = @splat(0);
 var error_length: usize = 0;
 var interrupt_pending: bool = false;
 
+// A jump of R stopped by rcall.intercept: the continuation token, preserved
+// until the boundary resumes or discards it, and whether an error raised
+// after the jump replaced it.
+var pending_jump: ?*anyopaque = null;
+var jump_superseded: bool = false;
+
 var warning_buffers: [MAX_WARNINGS][MESSAGE_CAPACITY]u8 =
     @splat(@splat(0));
 var warning_lengths: [MAX_WARNINGS]usize = @splat(0);
@@ -43,8 +49,14 @@ pub fn reset() void {
 /// set would invite additional error exits. Messages longer than 1023 bytes are
 /// truncated and end in an ellipsis.
 pub fn raise(comptime format: []const u8, args: anytype) Error {
-    error_length = writeMessage(&error_buffer, format, args);
+    record(format, args);
     return Error.RZigError;
+}
+
+/// Record an error message as `raise` does, without returning the error value.
+pub fn record(comptime format: []const u8, args: anytype) void {
+    error_length = writeMessage(&error_buffer, format, args);
+    if (pending_jump != null) jump_superseded = true;
 }
 
 /// Take the current NUL-terminated error message and clear its logical slot.
@@ -60,6 +72,7 @@ pub fn take() [:0]const u8 {
 /// Record a caught user interrupt for class-preserving boundary delivery.
 pub fn interrupt() Error {
     interrupt_pending = true;
+    if (pending_jump != null) jump_superseded = true;
     return Error.RZigError;
 }
 
@@ -68,6 +81,64 @@ pub fn takeInterrupt() bool {
     const pending = interrupt_pending;
     interrupt_pending = false;
     return pending;
+}
+
+/// A jump of R kept for the boundary.
+pub const Jump = struct {
+    token: *anyopaque,
+    /// An error raised after the jump replaces it.
+    superseded: bool,
+};
+
+/// Internal (rzig.Function): keep a jump of R stopped by rcall.intercept.
+pub fn noteJump(token: *anyopaque) void {
+    pending_jump = token;
+    jump_superseded = false;
+}
+
+/// Take the kept jump of R, if any.
+pub fn takeJump() ?Jump {
+    const token = pending_jump orelse return null;
+    pending_jump = null;
+    return .{ .token = token, .superseded = jump_superseded };
+}
+
+/// Whether a jump of R is kept.
+pub fn jumpPending() bool {
+    return pending_jump != null;
+}
+
+/// The error state of a call while R code that it called runs (R code can
+/// call exported functions of rzig packages, which start from an empty state).
+pub const Saved = struct {
+    message: [MESSAGE_CAPACITY]u8 = undefined,
+    message_length: usize = 0,
+    interrupt: bool = false,
+    jump: ?*anyopaque = null,
+    superseded: bool = false,
+};
+
+/// Move the error message, the interrupt marker and a kept jump to `saved`.
+pub fn save(saved: *Saved) void {
+    saved.message_length = error_length;
+    @memcpy(saved.message[0..error_length], error_buffer[0..error_length]);
+    saved.interrupt = interrupt_pending;
+    saved.jump = pending_jump;
+    saved.superseded = jump_superseded;
+    error_length = 0;
+    interrupt_pending = false;
+    pending_jump = null;
+    jump_superseded = false;
+}
+
+/// Put back the state that `save` moved, after the R code returned normally.
+pub fn restore(saved: *const Saved) void {
+    error_length = saved.message_length;
+    @memcpy(error_buffer[0..error_length], saved.message[0..error_length]);
+    error_buffer[error_length] = 0;
+    interrupt_pending = saved.interrupt;
+    pending_jump = saved.jump;
+    jump_superseded = saved.superseded;
 }
 
 /// Queue a warning without allocating or calling R.
