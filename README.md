@@ -228,6 +228,20 @@ Files that use the `rzig` module call into R and are tested from R
 (`testthat`). Packages scaffolded by an older rzig get the `test` step of
 `build.zig` from `update_rzig(path)`.
 
+## Creating a package
+
+`create_rzig_package("path/to/zigstats")` creates a package named
+`zigstats` with the scaffold, the `hello_zig()` example, its help page and a
+testthat suite; `build_zig("path/to/zigstats")` installs it. Replace the
+placeholder title, description and author through `fields`:
+
+```r
+rzig::create_rzig_package("zigstats", fields = list(
+  Title = "Rank Statistics in 'Zig'",
+  "Authors@R" = 'person("Ada", "Lovelace", email = "ada@example.org", role = c("aut", "cre"))'
+))
+```
+
 ## Continuous integration
 
 `use_rzig_ci(path)` writes `.github/workflows/rzig-check.yaml`, a GitHub

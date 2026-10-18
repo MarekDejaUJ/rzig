@@ -1,3 +1,14 @@
+# rzig 0.16.0
+
+## New features
+
+- `create_rzig_package()` creates a new package in one call: a
+  `DESCRIPTION` (GPL-3, `SystemRequirements: Zig 0.16.x or 0.17.x`, fields
+  replaceable through `fields`), the scaffold of `use_rzig()` with the
+  `hello_zig()` example and its help page, a testthat suite with one test,
+  and optionally the workflow of `use_rzig_ci()`. The created package passes
+  `R CMD check --as-cran`.
+
 # rzig 0.15.0
 
 ## New features
