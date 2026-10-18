@@ -1,3 +1,20 @@
+# rzig 0.21.0
+
+## New features
+
+- `rzig.IntMatrix` borrows an integer matrix and `rzig.BoolMatrix` copies a
+  logical matrix without `NA`; with `rzig.Matrix` they are views made by
+  `rzig.MatrixOf(T)` with `at(row, column)` and `column(j)`.
+- `rzig.Mut([]i32)`, `rzig.Mut(rzig.Matrix)` and `rzig.Mut(rzig.IntMatrix)`
+  duplicate an integer vector or a matrix before writable access; the
+  duplicate keeps `dim`, `dimnames` and `class` and is what the R function
+  returns. Writable matrix views add `set(row, column, value)`.
+- `rzig.Attributed(T)` gains `setMatrix(nrow, ncol)` and
+  `setDimnames(row_names, column_names)`, checked against the dimensions
+  before R allocates the result.
+- Matrices of the wrong storage mode are rejected with the `storage.mode()`
+  call that converts them.
+
 # rzig 0.20.0
 
 ## New features

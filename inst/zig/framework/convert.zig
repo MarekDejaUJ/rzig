@@ -15,14 +15,21 @@ const sexp = @import("sexp.zig");
 const Ctx = @import("alloc.zig").Ctx;
 
 /// Opt-in mutable input. The wrapper duplicates the incoming SEXP first,
-/// because R vectors are copy-on-modify and may be shared.
+/// because R vectors are copy-on-modify and may be shared. `T` is `[]f64`,
+/// `[]i32`, `rzig.Matrix` or `rzig.IntMatrix`; for a matrix, `data` is a
+/// writable view with `nrow` and `ncol`.
 pub fn Mut(comptime T: type) type {
     return struct {
         pub const rzig_mut_inner = T;
 
         /// Writable data backed by an R-owned duplicate of the input.
-        data: T,
+        data: MutableData(T),
     };
+}
+
+fn MutableData(comptime T: type) type {
+    if (matrix.isMatrix(T)) return matrix.MutableMatrixOf(T.rzig_matrix_element);
+    return T;
 }
 
 /// Report whether `T` is a mutable-input wrapper created by `Mut`.
@@ -33,7 +40,7 @@ pub fn isMutableInput(comptime T: type) bool {
     };
 }
 
-/// Duplicate and protect a mutable numeric input before exposing its storage.
+/// Duplicate and protect a mutable input before exposing its storage.
 pub fn fromMutableSexp(
     comptime T: type,
     stack: *protect.Stack,
@@ -42,20 +49,39 @@ pub fn fromMutableSexp(
     mutable_result: *?c.SEXP,
 ) es.Error!T {
     if (comptime !isSupportedMutableInput(T)) {
-        @compileError("rzig: only rzig.Mut([]f64) is currently supported");
+        @compileError("rzig: rzig.Mut supports []f64, []i32, rzig.Matrix and rzig.IntMatrix");
     }
-    if (c.TYPEOF(x) != c.REALSXP) {
-        return es.raise(
-            "rzig: {s} must be a numeric vector for rzig.Mut([]f64); got {s}; use as.numeric() in R",
-            .{ name, typeName(x) },
-        );
+    const Inner = T.rzig_mut_inner;
+    if (comptime Inner == []f64) {
+        if (c.TYPEOF(x) != c.REALSXP) {
+            return es.raise(
+                "rzig: {s} must be a numeric vector for rzig.Mut([]f64); got {s}; use as.numeric() in R",
+                .{ name, typeName(x) },
+            );
+        }
+    } else if (comptime Inner == []i32) {
+        if (c.TYPEOF(x) != c.INTSXP) {
+            return es.raise(
+                "rzig: {s} must be an integer vector for rzig.Mut([]i32); got {s}; use as.integer() in R",
+                .{ name, typeName(x) },
+            );
+        }
     }
+    // Matrices are validated like borrowed matrices: storage type, dim and length.
+    const shape: ?MatrixShape = if (comptime matrix.isMatrix(Inner))
+        try matrixShape(Inner.rzig_matrix_element, x, name)
+    else
+        null;
 
     const length = try vectorLength(x, name);
     std.debug.assert(mutable_result.* == null);
     const duplicate = stack.push(c.Rf_duplicate(x));
     mutable_result.* = duplicate;
-    return .{ .data = c.REAL(duplicate)[0..length] };
+    if (comptime Inner == []f64) return .{ .data = c.REAL(duplicate)[0..length] };
+    if (comptime Inner == []i32) return .{ .data = c.INTEGER(duplicate)[0..length] };
+    const Element = Inner.rzig_matrix_element;
+    const data = if (comptime Element == f64) c.REAL(duplicate)[0..length] else c.INTEGER(duplicate)[0..length];
+    return .{ .data = .{ .data = data, .nrow = shape.?.rows, .ncol = shape.?.columns } };
 }
 
 /// SEXP -> Zig. `pos` is the zero-based parameter index and `name` its
@@ -75,7 +101,7 @@ pub fn fromSexp(
     if (comptime T == []const bool) return logicalSlice(ctx, x, name);
     if (comptime T == []const u8) return stringScalar(ctx, x, name);
     if (comptime T == []const []const u8) return stringSlice(ctx, x, name);
-    if (comptime T == matrix.Matrix) return matrixFromSexp(x, name);
+    if (comptime matrix.isMatrix(T)) return matrixFromSexp(T, ctx, x, name);
     if (comptime T == sexp.Sexp) return sexp.fromRaw(x);
 
     return switch (@typeInfo(T)) {
@@ -85,17 +111,75 @@ pub fn fromSexp(
     };
 }
 
-fn matrixFromSexp(x: c.SEXP, comptime name: []const u8) es.Error!matrix.Matrix {
+const MatrixShape = struct {
+    rows: usize,
+    columns: usize,
+    length: usize,
+};
+
+fn matrixFromSexp(comptime T: type, ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error!T {
+    const Element = T.rzig_matrix_element;
+    const shape = try matrixShape(Element, x, name);
+    if (comptime Element == f64) {
+        return .{ .data = c.REAL_RO(x)[0..shape.length], .nrow = shape.rows, .ncol = shape.columns };
+    }
+    if (comptime Element == i32) {
+        return .{ .data = c.INTEGER_RO(x)[0..shape.length], .nrow = shape.rows, .ncol = shape.columns };
+    }
+    const source = c.LOGICAL_RO(x)[0..shape.length];
+    for (source, 0..) |value, index| {
+        if (na.isNaLogical(value)) {
+            return es.raise(
+                "rzig: {s} cannot contain NA; found NA at position {d}",
+                .{ name, index + 1 },
+            );
+        }
+    }
+    const data = try ctx.alloc(bool, shape.length);
+    for (source, data) |value, *slot| slot.* = value != c.FALSE;
+    return .{ .data = data, .nrow = shape.rows, .ncol = shape.columns };
+}
+
+fn article(word: []const u8) []const u8 {
+    return if (word.len > 0 and std.mem.indexOfScalar(u8, "aeiou", word[0]) != null) "an" else "a";
+}
+
+const MatrixKind = struct {
+    sexp: c.SEXPTYPE,
+    label: []const u8,
+    storage: []const u8,
+};
+
+fn matrixKind(comptime Element: type) MatrixKind {
+    return switch (Element) {
+        f64 => .{ .sexp = c.REALSXP, .label = "a numeric", .storage = "double" },
+        i32 => .{ .sexp = c.INTSXP, .label = "an integer", .storage = "integer" },
+        bool => .{ .sexp = c.LGLSXP, .label = "a logical", .storage = "logical" },
+        else => @compileError("rzig: matrices hold f64, i32 or bool elements"),
+    };
+}
+
+/// Check the storage type, `dim` attribute and length of a matrix argument.
+fn matrixShape(comptime Element: type, x: c.SEXP, comptime name: []const u8) es.Error!MatrixShape {
+    const kind = comptime matrixKind(Element);
     if (c.Rf_isMatrix(x) == c.FALSE) {
+        const dimensions = c.Rf_getAttrib(x, c.R_DimSymbol);
+        if (c.TYPEOF(dimensions) == c.INTSXP) {
+            return es.raise(
+                "rzig: {s} must be " ++ kind.label ++ " matrix; got {s} {s} array with {d} dimensions",
+                .{ name, article(typeName(x)), typeName(x), c.Rf_xlength(dimensions) },
+            );
+        }
         return es.raise(
-            "rzig: {s} must be a numeric matrix; got a {s} vector without dimensions",
-            .{ name, typeName(x) },
+            "rzig: {s} must be " ++ kind.label ++ " matrix; got {s} {s} vector without dimensions",
+            .{ name, article(typeName(x)), typeName(x) },
         );
     }
-    if (c.TYPEOF(x) != c.REALSXP) {
+    if (c.TYPEOF(x) != kind.sexp) {
         return es.raise(
-            "rzig: {s} must store double values; got a {s} matrix; use storage.mode(x) <- \"double\" in R",
-            .{ name, typeName(x) },
+            "rzig: {s} must store " ++ kind.storage ++ " values; got {s} {s} matrix; use storage.mode(x) <- \"" ++
+                kind.storage ++ "\" in R",
+            .{ name, article(typeName(x)), typeName(x) },
         );
     }
 
@@ -120,11 +204,7 @@ fn matrixFromSexp(x: c.SEXP, comptime name: []const u8) es.Error!matrix.Matrix {
         );
     }
 
-    return .{
-        .data = c.REAL_RO(x)[0..length],
-        .nrow = rows,
-        .ncol = columns,
-    };
+    return .{ .rows = rows, .columns = columns, .length = length };
 }
 
 /// Reject an unsupported exported-function parameter with full call-site
@@ -403,6 +483,8 @@ fn isSupportedInput(comptime T: type) bool {
         T == []const u8 or
         T == []const []const u8 or
         T == matrix.Matrix or
+        T == matrix.IntMatrix or
+        T == matrix.BoolMatrix or
         T == sexp.Sexp)
     {
         return true;
@@ -415,7 +497,8 @@ fn isSupportedInput(comptime T: type) bool {
 
 fn isSupportedMutableInput(comptime T: type) bool {
     if (!isMutableInput(T)) return false;
-    return T.rzig_mut_inner == []f64;
+    const Inner = T.rzig_mut_inner;
+    return Inner == []f64 or Inner == []i32 or Inner == matrix.Matrix or Inner == matrix.IntMatrix;
 }
 
 fn isSupportedReturn(comptime T: type) bool {
@@ -457,8 +540,13 @@ fn isSupportedVectorReturn(comptime T: type) bool {
 }
 
 fn nearestInputAlternative(comptime T: type) []const u8 {
-    if (isMutableInput(T)) return "rzig.Mut([]f64) for a duplicated writable numeric vector";
+    if (isMutableInput(T)) {
+        return "rzig.Mut([]f64), rzig.Mut([]i32), rzig.Mut(rzig.Matrix) or rzig.Mut(rzig.IntMatrix) " ++
+            "for a duplicated writable vector or matrix";
+    }
     if (T == [][]const f64 or T == []const []const f64) return "rzig.Matrix for an R numeric matrix";
+    if (T == [][]const i32 or T == []const []const i32) return "rzig.IntMatrix for an R integer matrix";
+    if (T == [][]const bool or T == []const []const bool) return "rzig.BoolMatrix for an R logical matrix";
     if (T == f32 or T == f16 or T == f128) return "f64 for an R numeric scalar";
     if (T == []const f32 or T == []const f16 or T == []const f128 or
         T == []f32 or T == []f16 or T == []f128)
@@ -554,6 +642,9 @@ fn attributedToSexp(stack: *protect.Stack, ctx: *Ctx, value: anytype) es.Error!c
 
     const result = try toSexp(stack, ctx, value.value);
     if (metadata.dim) |dimensions| try attachDim(stack, result, dimensions);
+    if (metadata.row_names != null or metadata.column_names != null) {
+        try attachDimnames(stack, result, metadata.row_names, metadata.column_names);
+    }
     if (metadata.names) |names| try attachStringAttribute(stack, result, c.R_NamesSymbol, names);
     if (metadata.class) |classes| try attachStringAttribute(stack, result, c.R_ClassSymbol, classes);
     return result;
@@ -596,6 +687,25 @@ fn validateAttributes(metadata: attributes.Metadata, value_length: usize) es.Err
         _ = try returnLength(classes.len);
         try validateAttributeStrings(classes, "class");
     }
+    if (metadata.row_names != null or metadata.column_names != null) {
+        const dimensions = metadata.dim orelse
+            return es.raise("rzig: `dimnames` needs `dim`; call setMatrix() or setDim() first", .{});
+        if (dimensions.len != 2) {
+            return es.raise("rzig: `dimnames` needs a two-dimensional `dim`; got {d} dimensions", .{dimensions.len});
+        }
+        if (metadata.row_names) |names| {
+            if (names.len != @as(usize, @intCast(dimensions[0]))) {
+                return es.raise("rzig: {d} row names for {d} rows", .{ names.len, dimensions[0] });
+            }
+            try validateAttributeStrings(names, "dimnames");
+        }
+        if (metadata.column_names) |names| {
+            if (names.len != @as(usize, @intCast(dimensions[1]))) {
+                return es.raise("rzig: {d} column names for {d} columns", .{ names.len, dimensions[1] });
+            }
+            try validateAttributeStrings(names, "dimnames");
+        }
+    }
 }
 
 fn validateAttributeStrings(values: []const []const u8, comptime attribute_name: []const u8) es.Error!void {
@@ -625,6 +735,27 @@ fn attachDim(stack: *protect.Stack, result: c.SEXP, dimensions: []const i32) es.
     const attribute = stack.push(c.Rf_allocVector(c.INTSXP, try returnLength(dimensions.len)));
     if (dimensions.len > 0) @memcpy(c.INTEGER(attribute)[0..dimensions.len], dimensions);
     _ = c.Rf_setAttrib(result, c.R_DimSymbol, attribute);
+    stack.pop(1);
+}
+
+fn attachDimnames(
+    stack: *protect.Stack,
+    result: c.SEXP,
+    row_names: ?[]const []const u8,
+    column_names: ?[]const []const u8,
+) es.Error!void {
+    const dimnames = stack.push(c.Rf_allocVector(c.VECSXP, 2));
+    for ([_]?[]const []const u8{ row_names, column_names }, 0..) |maybe_names, index| {
+        const names = maybe_names orelse continue;
+        const strings = stack.push(c.Rf_allocVector(c.STRSXP, try returnLength(names.len)));
+        for (names, 0..) |value, position| {
+            const element = c.Rf_mkCharLenCE(value.ptr, @intCast(value.len), c.CE_UTF8);
+            c.SET_STRING_ELT(strings, @intCast(position), element);
+        }
+        _ = c.SET_VECTOR_ELT(dimnames, @intCast(index), strings);
+        stack.pop(1);
+    }
+    _ = c.Rf_setAttrib(result, c.R_DimNamesSymbol, dimnames);
     stack.pop(1);
 }
 

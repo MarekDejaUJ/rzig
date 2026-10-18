@@ -9,9 +9,12 @@ pub const Metadata = struct {
     names: ?[]const []const u8 = null,
     dim: ?[]const i32 = null,
     class: ?[]const []const u8 = null,
+    row_names: ?[]const []const u8 = null,
+    column_names: ?[]const []const u8 = null,
 };
 
-/// Wrap a supported vector return value with optional `names`, `dim`, and `class`.
+/// Wrap a supported vector return value with optional `names`, `dim`,
+/// `dimnames` and `class`.
 pub fn Attributed(comptime T: type) type {
     return struct {
         const Self = @This();
@@ -46,6 +49,27 @@ pub fn Attributed(comptime T: type) type {
                 }
             }
             self.metadata_value.dim = try self.ctx.dupe(i32, dimensions);
+        }
+
+        /// Make the value an `nrow` by `ncol` matrix: `dim` is `c(nrow, ncol)`.
+        pub fn setMatrix(self: *Self, nrow: usize, ncol: usize) es.Error!void {
+            const limit: usize = std.math.maxInt(i32);
+            if (nrow > limit or ncol > limit) {
+                return es.raise("rzig: matrix dimensions {d} x {d} exceed R's limit of {d}", .{ nrow, ncol, limit });
+            }
+            const dimensions = [2]i32{ @intCast(nrow), @intCast(ncol) };
+            try self.setDim(&dimensions);
+        }
+
+        /// Copy row and column names (`dimnames`) into the call context; `null`
+        /// leaves that dimension unnamed. The value needs a two-dimensional `dim`.
+        pub fn setDimnames(
+            self: *Self,
+            row_names: ?[]const []const u8,
+            column_names: ?[]const []const u8,
+        ) es.Error!void {
+            self.metadata_value.row_names = if (row_names) |names| try copyStrings(self.ctx, names, "dimnames") else null;
+            self.metadata_value.column_names = if (column_names) |names| try copyStrings(self.ctx, names, "dimnames") else null;
         }
 
         /// Set one class string, copied into the call context.

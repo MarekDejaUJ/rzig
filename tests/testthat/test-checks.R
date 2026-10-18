@@ -5,10 +5,12 @@ output <- function(type) rzig:::.rzig_classify_return(key(type))
 test_that("argument types follow the rules of the boundary", {
   for (type in c("f64", "i32", "bool", "usize", "?f64", "[]const f64", "[]const i32",
                  "[]const bool", "[]const u8", "[]const []const u8", "rzig.Matrix",
-                 "rzig.Sexp", "rzig.Mut([]f64)")) {
+                 "rzig.IntMatrix", "rzig.BoolMatrix", "rzig.Sexp", "rzig.Mut([]f64)",
+                 "rzig.Mut([]i32)", "rzig.Mut(rzig.Matrix)", "rzig.Mut(rzig.IntMatrix)")) {
     expect_identical(input(type), "supported", info = type)
   }
-  for (type in c("f32", "[]const f32", "i64", "[]f64", "*const f64", "u8", "[]const i64")) {
+  for (type in c("f32", "[]const f32", "i64", "[]f64", "*const f64", "u8", "[]const i64",
+                 "rzig.Mut([]bool)", "rzig.Mut(rzig.BoolMatrix)")) {
     expect_identical(input(type), "unsupported", info = type)
   }
   expect_identical(input("Vec"), "local")
@@ -36,6 +38,11 @@ test_that("signature rules are checked before compilation", {
   expect_match(check("two", c("x", "y"), rep("rzig.Mut([]f64)", 2L), "void")$problems, "at most one")
   expect_match(check("ret", "x", "rzig.Mut([]f64)", "[]f64")$problems, "must return void")
   expect_length(check("ok", "x", "rzig.Mut([]f64)", "rzig.Error!void")$problems, 0L)
+  expect_match(check("mats", c("x", "y"), c("rzig.Mut(rzig.Matrix)", "rzig.Mut([]i32)"), "void")$problems,
+    "2 rzig.Mut arguments")
+  expect_match(check("matret", "x", "rzig.Mut(rzig.IntMatrix)", "f64")$problems, "must return void")
+  expect_match(check("intvec", "x", "[]i32", "void")$problems, "rzig.Mut([]i32)", fixed = TRUE)
+  expect_match(check("boolmut", "x", "rzig.Mut([]bool)", "void")$problems, "rzig.Mut(rzig.IntMatrix)", fixed = TRUE)
   expect_match(check("generic", "x", "anytype", "f64")$problems, "anytype")
   expect_match(check("inferred", "x", "f64", "!f64")$problems, "rzig.Error!T")
   expect_match(check("anyerr", "x", "f64", "anyerror!f64")$problems, "rzig.Error!T")

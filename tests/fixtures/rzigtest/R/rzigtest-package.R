@@ -69,6 +69,30 @@ interruptible_count <- function(iterations) {
 #' @param x A numeric vector.
 #' @return The elementwise squares.
 #' @export
+int_matrix_sum <- function(values) {
+  .Call(C_int_matrix_sum, values)
+}
+
+bool_matrix_row_counts <- function(values) {
+  .Call(C_bool_matrix_row_counts, values)
+}
+
+matrix_add_column_index <- function(values, step) {
+  .Call(C_matrix_add_column_index, values, step)
+}
+
+int_matrix_negate_diagonal <- function(values) {
+  .Call(C_int_matrix_negate_diagonal, values)
+}
+
+int_add_in_place <- function(values, step) {
+  .Call(C_int_add_in_place, values, step)
+}
+
+named_matrix <- function(nrow, ncol, row_names, column_names) {
+  .Call(C_named_matrix, nrow, ncol, row_names, column_names)
+}
+
 console_lines <- function(count) {
   invisible(.Call(C_console_lines, count))
 }

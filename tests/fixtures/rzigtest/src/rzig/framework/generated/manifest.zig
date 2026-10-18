@@ -189,6 +189,42 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{},
             },
             .{
+                .name = "int_matrix_sum",
+                .func = bound_root.int_matrix_sum,
+                .doc = "Sum the entries of an integer matrix, column by column.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "bool_matrix_row_counts",
+                .func = bound_root.bool_matrix_row_counts,
+                .doc = "Count the TRUE entries in each row of a logical matrix.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "matrix_add_column_index",
+                .func = bound_root.matrix_add_column_index,
+                .doc = "Add `step` times the column index to each column of a numeric matrix.",
+                .parameters = .{ "values", "step" },
+            },
+            .{
+                .name = "int_matrix_negate_diagonal",
+                .func = bound_root.int_matrix_negate_diagonal,
+                .doc = "Negate the diagonal of an integer matrix in place.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "int_add_in_place",
+                .func = bound_root.int_add_in_place,
+                .doc = "Add `step` to each element of an integer vector in place.",
+                .parameters = .{ "values", "step" },
+            },
+            .{
+                .name = "named_matrix",
+                .func = bound_root.named_matrix,
+                .doc = "Return an nrow x ncol matrix of row-major positions with dimnames.",
+                .parameters = .{ "nrow", "ncol", "row_names", "column_names" },
+            },
+            .{
                 .name = "console_lines",
                 .func = bound_root.console_lines,
                 .doc = "Print `count` numbered lines to R's output and a summary to its message stream.",

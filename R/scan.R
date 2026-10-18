@@ -625,7 +625,7 @@ print.rzig_exports <- function(x, ...) {
     mutable <- FALSE
     for (position in seq_along(item$parameters)) {
       type <- item$parameter_types[[position]]
-      if (grepl("Mut\\(", type, useBytes = TRUE)) mutable <- TRUE
+      if (grepl("Mut\\(", type, useBytes = TRUE)) mutable <- type
       cat(sprintf(
         "  %-10s %-22s %s\n", item$parameters[[position]], type,
         .rzig_describe_parameter(type)
@@ -660,7 +660,12 @@ print.rzig_exports <- function(x, ...) {
     "[]constu8" = "character, length 1, copied",
     "[]const[]constu8" = "character vector, copied",
     "Matrix" = "double matrix, borrowed",
+    "IntMatrix" = "integer matrix, borrowed",
+    "BoolMatrix" = "logical matrix, copied",
     "Mut([]f64)" = "double vector, writable duplicate",
+    "Mut([]i32)" = "integer vector, writable duplicate",
+    "Mut(Matrix)" = "double matrix, writable duplicate",
+    "Mut(IntMatrix)" = "integer matrix, writable duplicate",
     "Sexp" = "R object, borrowed",
     "not supported; the Zig compiler rejects the signature"
   )
@@ -672,8 +677,9 @@ print.rzig_exports <- function(x, ...) {
   key <- sub("^rzig\\.", "", key, useBytes = TRUE)
   optional <- grepl("^\\?", key, useBytes = TRUE)
   if (optional) key <- substring(key, 2L)
-  if (mutable && key == "void") {
-    return("the writable duplicate, a double vector")
+  if (!isFALSE(mutable) && key == "void") {
+    duplicate <- sub(", writable duplicate$", "", .rzig_describe_parameter(mutable))
+    return(paste0("the writable duplicate, a ", duplicate))
   }
   attributed <- regmatches(key, regexec("^Attributed\\((.*)\\)$", key))[[1L]]
   if (length(attributed) == 2L) {

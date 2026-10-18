@@ -12,7 +12,8 @@
 .rzig_input_types <- c(
   "f64", "i32", "bool", "usize", "?f64", "?i32", "?bool", "?usize",
   "[]constf64", "[]consti32", "[]constbool", "[]constu8", "[]const[]constu8",
-  "Matrix", "Sexp", "Mut([]f64)"
+  "Matrix", "IntMatrix", "BoolMatrix", "Sexp",
+  "Mut([]f64)", "Mut([]i32)", "Mut(Matrix)", "Mut(IntMatrix)"
 )
 
 .rzig_vector_returns <- c(
@@ -34,7 +35,7 @@
     paste0(
       "^(f(16|32|64|80|128)|[iu][0-9]+|isize|usize|bool|void|anyopaque|",
       "anyerror|noreturn|type|anytype|comptime_int|comptime_float|const|",
-      "c_[a-z]+|Matrix|Mut|Sexp|List|Attributed|Error|Ctx)$"
+      "c_[a-z]+|Matrix|IntMatrix|BoolMatrix|Mut|Sexp|List|Attributed|Error|Ctx)$"
     ),
     identifier
   )
@@ -53,6 +54,10 @@
 .rzig_input_alternative <- function(key, type = key) {
   if (grepl("f(16|32|80|128)", key)) return(sub("f(16|32|80|128)", "f64", trimws(type)))
   if (grepl("^\\[\\]f64$", key)) return("rzig.Mut([]f64) to modify a duplicate, or []const f64 to read")
+  if (grepl("^\\[\\]i32$", key)) return("rzig.Mut([]i32) to modify a duplicate, or []const i32 to read")
+  if (startsWith(key, "Mut(")) {
+    return("rzig.Mut([]f64), rzig.Mut([]i32), rzig.Mut(rzig.Matrix) or rzig.Mut(rzig.IntMatrix)")
+  }
   if (grepl("[iu](8|16|64|128)|u32|isize", key) && !grepl("u8", key)) {
     return("i32, or f64 for integers beyond 32 bits")
   }
@@ -115,7 +120,7 @@
         ))
         next
       }
-      if (key == "Mut([]f64)") mutable <- mutable + 1L
+      if (startsWith(key, "Mut(")) mutable <- mutable + 1L
       verdict <- .rzig_classify(key, .rzig_input_types)
       if (verdict == "unsupported") {
         problems <- c(problems, sprintf(
@@ -159,12 +164,12 @@
     }
     if (mutable > 1L) {
       problems <- c(problems, sprintf(
-        "`%s` has %d rzig.Mut([]f64) arguments; at most one is allowed", name, mutable
+        "`%s` has %d rzig.Mut arguments; at most one is allowed", name, mutable
       ))
     }
     if (mutable == 1L && payload != "void") {
       problems <- c(problems, sprintf(
-        "`%s` takes rzig.Mut([]f64) and must return void (or rzig.Error!void); the wrapper returns the duplicate",
+        "`%s` takes an rzig.Mut argument and must return void (or rzig.Error!void); the wrapper returns the duplicate",
         name
       ))
     }

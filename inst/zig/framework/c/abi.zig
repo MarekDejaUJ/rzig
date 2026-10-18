@@ -111,6 +111,8 @@ pub extern var R_BlankString: SEXP;
 pub extern var R_ClassSymbol: SEXP;
 /// Installed `dim` symbol.
 pub extern var R_DimSymbol: SEXP;
+/// Installed `dimnames` symbol.
+pub extern var R_DimNamesSymbol: SEXP;
 /// Installed `names` symbol.
 pub extern var R_NamesSymbol: SEXP;
 /// R's ordinary NaN value.

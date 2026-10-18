@@ -373,3 +373,24 @@ test_that("byte-encoded strings fail safely if R cannot translate them", {
   expect_s3_class(condition, "error")
   expect_identical(echo_i32(11L), 11L)
 })
+
+test_that("hostile matrix inputs fail before Zig reads them", {
+  numbers <- matrix(1:4, 2L)
+  cases <- list(
+    list(function() int_matrix_sum(NULL), c("argument `values` of int_matrix_sum", "integer matrix")),
+    list(function() int_matrix_sum(list(1L)), c("integer matrix")),
+    list(function() int_matrix_sum(data.frame(a = 1:2)), c("integer matrix")),
+    list(function() int_matrix_sum(array(1:8, c(2L, 2L, 2L))), c("integer array with 3 dimensions")),
+    list(function() int_matrix_sum(matrix(c("a", "b"), 1L)), c("storage.mode")),
+    list(function() bool_matrix_row_counts(matrix(c(TRUE, NA), 2L)), c("NA")),
+    list(function() bool_matrix_row_counts(numbers), c("storage.mode(x) <- \"logical\"")),
+    list(function() matrix_add_column_index(numbers, 1), c("storage.mode(x) <- \"double\"")),
+    list(function() matrix_add_column_index(c(1, 2), 1), c("without dimensions")),
+    list(function() int_matrix_negate_diagonal(matrix(c(1, 2), 1L)), c("storage.mode(x) <- \"integer\"")),
+    list(function() int_add_in_place(c(1, 2), 1L), c("as.integer()")),
+    list(function() named_matrix(2L, 2L, c("a", NA), character()), c("NA")),
+    list(function() named_matrix(-1L, 1L, character(), character()), c("non-negative"))
+  )
+  for (case in cases) expect_error_live(case[[1L]], case[[2L]])
+  expect_identical(numbers, matrix(1:4, 2L))
+})

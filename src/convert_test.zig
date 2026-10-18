@@ -23,6 +23,7 @@ const FakeSexp = extern struct {
     dim: ?*FakeSexp = null,
     class: ?*FakeSexp = null,
     text: ?[*:0]const u8 = null,
+    dimnames: ?*FakeSexp = null,
 };
 
 const mock_na_real: f64 = @bitCast(@as(u64, 0x7ff8_0000_0000_07a2));
@@ -31,11 +32,13 @@ var mock_na_string = FakeSexp{ .kind = c.CHARSXP, .length = 0 };
 var mock_names_symbol = FakeSexp{ .kind = c.SYMSXP, .length = 0 };
 var mock_dim_symbol = FakeSexp{ .kind = c.SYMSXP, .length = 0 };
 var mock_class_symbol = FakeSexp{ .kind = c.SYMSXP, .length = 0 };
+var mock_dimnames_symbol = FakeSexp{ .kind = c.SYMSXP, .length = 0 };
 export var R_NilValue: c.SEXP = @ptrCast(&mock_nil);
 export var R_NaString: c.SEXP = @ptrCast(&mock_na_string);
 export var R_NamesSymbol: c.SEXP = @ptrCast(&mock_names_symbol);
 export var R_DimSymbol: c.SEXP = @ptrCast(&mock_dim_symbol);
 export var R_ClassSymbol: c.SEXP = @ptrCast(&mock_class_symbol);
+export var R_DimNamesSymbol: c.SEXP = @ptrCast(&mock_dimnames_symbol);
 var vmax_get_count: usize = 0;
 var vmax_set_count: usize = 0;
 var mock_objects: [32]FakeSexp = undefined;
@@ -146,6 +149,7 @@ export fn Rf_duplicate(value: c.SEXP) c.SEXP {
     result.dim = source.dim;
     result.class = source.class;
     result.text = source.text;
+    result.dimnames = source.dimnames;
     return raw(result);
 }
 
@@ -203,6 +207,8 @@ export fn Rf_setAttrib(value: c.SEXP, symbol: c.SEXP, attribute: c.SEXP) c.SEXP 
         mutableFake(value).dim = mutableFake(attribute);
     } else if (symbol == R_ClassSymbol) {
         mutableFake(value).class = mutableFake(attribute);
+    } else if (symbol == R_DimNamesSymbol) {
+        mutableFake(value).dimnames = mutableFake(attribute);
     } else {
         std.debug.assert(false);
     }
@@ -858,6 +864,182 @@ test "Attributed validates metadata before allocating an R result" {
         "rzig: `names` has length 1, but the returned vector has length 2",
         es.take(),
     );
+    try std.testing.expectEqual(@as(usize, 0), mock_object_count);
+    try std.testing.expectEqual(@as(usize, 0), mock_protect_count);
+}
+
+test "IntMatrix borrows integer data and BoolMatrix copies logical data without NA" {
+    es.reset();
+    var dimensions = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 1, 2 } };
+    var integers = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 7, -3 }, .dim = &dimensions };
+    var logicals = FakeSexp{ .kind = c.LGLSXP, .length = 2, .integers = .{ c.TRUE, c.FALSE }, .dim = &dimensions };
+    var missing = FakeSexp{
+        .kind = c.LGLSXP,
+        .length = 2,
+        .integers = .{ c.TRUE, std.math.minInt(c_int) },
+        .dim = &dimensions,
+    };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+
+    const int_view = try convert.fromSexp(matrix.IntMatrix, &ctx, raw(&integers), "`x`");
+    try std.testing.expectEqual(@as(usize, 1), int_view.nrow);
+    try std.testing.expectEqual(@as(usize, 2), int_view.ncol);
+    try std.testing.expectEqual(@as(i32, -3), int_view.at(0, 1));
+    try std.testing.expectEqual(@intFromPtr(&integers.integers[0]), @intFromPtr(int_view.data.ptr));
+
+    const bool_view = try convert.fromSexp(matrix.BoolMatrix, &ctx, raw(&logicals), "`x`");
+    try std.testing.expectEqualSlices(bool, &.{ true, false }, bool_view.data);
+    try std.testing.expectEqualSlices(bool, &.{false}, bool_view.column(1));
+
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp(matrix.BoolMatrix, &ctx, raw(&missing), "`x`"));
+    try std.testing.expectEqualStrings("rzig: `x` cannot contain NA; found NA at position 2", es.take());
+}
+
+test "matrices of one storage mode reject the others with a storage.mode hint" {
+    es.reset();
+    var dimensions = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 2, 1 } };
+    var doubles = FakeSexp{ .kind = c.REALSXP, .length = 2, .reals = .{ 1, 2 }, .dim = &dimensions };
+    var integers = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 1, 2 } };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp(matrix.IntMatrix, &ctx, raw(&doubles), "`x`"));
+    try std.testing.expectEqualStrings(
+        "rzig: `x` must store integer values; got a double matrix; use storage.mode(x) <- \"integer\" in R",
+        es.take(),
+    );
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp(matrix.BoolMatrix, &ctx, raw(&doubles), "`x`"));
+    try std.testing.expectEqualStrings(
+        "rzig: `x` must store logical values; got a double matrix; use storage.mode(x) <- \"logical\" in R",
+        es.take(),
+    );
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp(matrix.IntMatrix, &ctx, raw(&integers), "`x`"));
+    try std.testing.expectEqualStrings("rzig: `x` must be an integer matrix; got an integer vector without dimensions", es.take());
+}
+
+test "Mut(Matrix) duplicates a numeric matrix and exposes a writable view" {
+    resetOutputMock();
+    var dimensions = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 1, 2 } };
+    var source = FakeSexp{ .kind = c.REALSXP, .length = 2, .reals = .{ 2, 3 }, .dim = &dimensions };
+    var stack = protect.Stack.init();
+    var mutable_result: ?c.SEXP = null;
+
+    const mutable = try convert.fromMutableSexp(
+        convert.Mut(matrix.Matrix),
+        &stack,
+        raw(&source),
+        "`m`",
+        &mutable_result,
+    );
+    try std.testing.expectEqual(@as(usize, 1), mutable.data.nrow);
+    try std.testing.expectEqual(@as(usize, 2), mutable.data.ncol);
+    mutable.data.set(0, 1, 30);
+
+    try std.testing.expectEqualSlices(f64, &.{ 2, 3 }, &source.reals);
+    try std.testing.expectEqualSlices(f64, &.{ 2, 30 }, mutableFake(mutable_result.?).reals[0..2]);
+    try std.testing.expect(mutableFake(mutable_result.?).dim != null);
+    try std.testing.expectEqual(@as(usize, 1), mock_protect_count);
+
+    stack.unwindAll();
+    stack.deinit();
+}
+
+test "Mut([]i32) and Mut(IntMatrix) duplicate integer inputs and reject other types first" {
+    resetOutputMock();
+    es.reset();
+    var dimensions = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 2, 1 } };
+    var vector = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 4, 5 } };
+    var int_matrix = FakeSexp{ .kind = c.INTSXP, .length = 2, .integers = .{ 6, 7 }, .dim = &dimensions };
+    var doubles = FakeSexp{ .kind = c.REALSXP, .length = 2, .reals = .{ 1, 2 } };
+
+    var stack = protect.Stack.init();
+    var mutable_result: ?c.SEXP = null;
+    const mutable_vector = try convert.fromMutableSexp(convert.Mut([]i32), &stack, raw(&vector), "`v`", &mutable_result);
+    mutable_vector.data[1] = 50;
+    try std.testing.expectEqualSlices(c_int, &.{ 4, 5 }, &vector.integers);
+    try std.testing.expectEqualSlices(c_int, &.{ 4, 50 }, mutableFake(mutable_result.?).integers[0..2]);
+    stack.unwindAll();
+
+    mutable_result = null;
+    const mutable_matrix = try convert.fromMutableSexp(convert.Mut(matrix.IntMatrix), &stack, raw(&int_matrix), "`m`", &mutable_result);
+    try std.testing.expectEqual(@as(usize, 2), mutable_matrix.data.nrow);
+    mutable_matrix.data.column(0)[1] = 70;
+    try std.testing.expectEqualSlices(c_int, &.{ 6, 70 }, mutableFake(mutable_result.?).integers[0..2]);
+    stack.unwindAll();
+
+    resetOutputMock();
+    mutable_result = null;
+    try std.testing.expectError(
+        es.Error.RZigError,
+        convert.fromMutableSexp(convert.Mut([]i32), &stack, raw(&doubles), "`v`", &mutable_result),
+    );
+    try std.testing.expectEqualStrings(
+        "rzig: `v` must be an integer vector for rzig.Mut([]i32); got double; use as.integer() in R",
+        es.take(),
+    );
+    try std.testing.expectError(
+        es.Error.RZigError,
+        convert.fromMutableSexp(convert.Mut(matrix.IntMatrix), &stack, raw(&vector), "`m`", &mutable_result),
+    );
+    try std.testing.expectEqualStrings("rzig: `m` must be an integer matrix; got an integer vector without dimensions", es.take());
+    try std.testing.expectEqual(@as(usize, 0), mock_object_count);
+    try std.testing.expectEqual(@as(usize, 0), mock_protect_count);
+    stack.deinit();
+}
+
+test "Attributed matrices carry row and column names" {
+    resetOutputMock();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    const values: []const f64 = &.{ 1.5, 2.5 };
+    var result = attributes.Attributed([]const f64).init(&ctx, values);
+    try result.setMatrix(1, 2);
+    try result.setDimnames(&.{"only"}, &.{ "left", "right" });
+
+    var stack = protect.Stack.init();
+    const converted = try convert.toSexp(&stack, &ctx, result);
+    const fake = mutableFake(converted);
+    try std.testing.expectEqualSlices(c_int, &.{ 1, 2 }, &fake.dim.?.integers);
+    const dimnames = fake.dimnames.?;
+    try std.testing.expectEqual(@as(c_int, c.VECSXP), TYPEOF(raw(dimnames)));
+    try std.testing.expectEqualStrings("only", std.mem.span(dimnames.vectors[0].?.strings[0].?.text.?));
+    try std.testing.expectEqualStrings("right", std.mem.span(dimnames.vectors[1].?.strings[1].?.text.?));
+    try std.testing.expectEqual(@as(usize, 1), mock_protect_count);
+    stack.unwindAll();
+
+    resetOutputMock();
+    var columns_only = attributes.Attributed([]const f64).init(&ctx, values);
+    try columns_only.setMatrix(2, 1);
+    try columns_only.setDimnames(null, &.{"value"});
+    const named = try convert.toSexp(&stack, &ctx, columns_only);
+    try std.testing.expect(mutableFake(named).dimnames.?.vectors[0] == null);
+    stack.unwindAll();
+    stack.deinit();
+}
+
+test "dimnames are checked against dim before allocating" {
+    resetOutputMock();
+    es.reset();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    const values: []const f64 = &.{ 1.5, 2.5 };
+    var stack = protect.Stack.init();
+    defer stack.deinit();
+
+    var wrong_rows = attributes.Attributed([]const f64).init(&ctx, values);
+    try wrong_rows.setMatrix(1, 2);
+    try wrong_rows.setDimnames(&.{ "a", "b" }, null);
+    try std.testing.expectError(es.Error.RZigError, convert.toSexp(&stack, &ctx, wrong_rows));
+    try std.testing.expectEqualStrings("rzig: 2 row names for 1 rows", es.take());
+
+    var without_dim = attributes.Attributed([]const f64).init(&ctx, values);
+    try without_dim.setDimnames(null, &.{ "a", "b" });
+    try std.testing.expectError(es.Error.RZigError, convert.toSexp(&stack, &ctx, without_dim));
+    try std.testing.expectEqualStrings("rzig: `dimnames` needs `dim`; call setMatrix() or setDim() first", es.take());
+
+    var large = attributes.Attributed([]const f64).init(&ctx, values);
+    try std.testing.expectError(es.Error.RZigError, large.setMatrix(@as(usize, std.math.maxInt(i32)) + 1, 1));
     try std.testing.expectEqual(@as(usize, 0), mock_object_count);
     try std.testing.expectEqual(@as(usize, 0), mock_protect_count);
 }

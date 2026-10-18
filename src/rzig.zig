@@ -31,8 +31,12 @@ pub const NA = @import("na.zig");
 pub const Sexp = @import("sexp.zig").Sexp;
 /// Arena-backed builder materialized as a named R list at the boundary.
 pub const List = @import("list.zig").List;
-/// Borrowed column-major view of an R numeric matrix.
+/// Borrowed column-major view of an R double matrix.
 pub const Matrix = @import("matrix.zig").Matrix;
+/// Borrowed column-major view of an R integer matrix.
+pub const IntMatrix = @import("matrix.zig").IntMatrix;
+/// Copied column-major view of an R logical matrix without NA.
+pub const BoolMatrix = @import("matrix.zig").BoolMatrix;
 /// Opt-in mutable input that duplicates an R vector before exposing writes.
 pub const Mut = @import("convert.zig").Mut;
 /// Generate native wrappers and register every manifest export.

@@ -442,7 +442,10 @@ function. The complete input surface is:
 | `[]const u8` | one non-`NA` character value | copied as UTF-8 |
 | `[]const []const u8` | character vector without `NA` | copied as UTF-8 |
 | `rzig.Matrix` | double matrix | borrowed, read-only, column-major |
-| `rzig.Mut([]f64)` | double vector | duplicated before writable access |
+| `rzig.IntMatrix` | integer matrix | borrowed, read-only, column-major; `NA` is `std.math.minInt(i32)` |
+| `rzig.BoolMatrix` | logical matrix without `NA` | copied into the call arena |
+| `rzig.Mut([]f64)`, `rzig.Mut([]i32)` | double or integer vector | duplicated before writable access |
+| `rzig.Mut(rzig.Matrix)`, `rzig.Mut(rzig.IntMatrix)` | double or integer matrix | duplicated with its attributes before writable access |
 | `rzig.Sexp` | any R object | borrowed low-level handle |
 
 Supported return values are:
@@ -457,12 +460,12 @@ Supported return values are:
 | `[]const u8` | length-one character vector |
 | `[]const []const u8` / `[][]const u8` | character vector |
 | `rzig.List` | named R list |
-| `rzig.Attributed(T)` | supported vector `T` with names, dimensions, or classes |
+| `rzig.Attributed(T)` | supported vector `T` with names, dimensions, dimnames, or classes |
 | `rzig.Sexp` | the supplied R object |
 | `?T` | supported `T`, or `NULL` when `null` |
 
-Any supported return may be wrapped in `rzig.Error!T`. `usize` and
-`rzig.Matrix` are parameter-only. Unsupported signatures fail at compile time
+Any supported return may be wrapped in `rzig.Error!T`. `usize` and the
+matrix views are parameter-only. Unsupported signatures fail at compile time
 with the function and parameter position in the error.
 
 ## Errors and warnings
@@ -497,10 +500,13 @@ slices, UTF-8 strings or string vectors, optional values, or `rzig.Sexp`. Names
 are copied into the call context, and no R object is allocated until boundary
 conversion begins.
 
-## Mutable numeric inputs
+## Mutable inputs
 
-Mutation is opt-in with `rzig.Mut([]f64)`. RZig duplicates and protects the R
-vector before Zig receives writable storage, then returns that duplicate:
+Mutation is opt-in with `rzig.Mut([]f64)`, `rzig.Mut([]i32)`,
+`rzig.Mut(rzig.Matrix)` or `rzig.Mut(rzig.IntMatrix)`. RZig duplicates and
+protects the R vector or matrix before Zig receives writable storage, then
+returns that duplicate, which keeps the attributes of the input (`dim`,
+`dimnames`, `class`):
 
 ```zig
 /// Scale a copy of a numeric vector.
@@ -517,8 +523,26 @@ R wrapper returns the mutated duplicate automatically.
 ## Attributes and matrices
 
 `rzig.Matrix` borrows an R double matrix in column-major order and provides its
-validated shape through `nrow` and `ncol`. Integer matrices are rejected rather
-than silently copied; convert them in R with `storage.mode(x) <- "double"`.
+validated shape through `nrow` and `ncol`; `rzig.IntMatrix` borrows an integer
+matrix, and `rzig.BoolMatrix` copies a logical matrix without `NA`. `at(row,
+column)` reads one element and `column(j)` returns one column as a slice
+(zero-based indices). A matrix of another storage mode is rejected with the
+`storage.mode()` call that converts it in R. `rzig.Mut(rzig.Matrix)` exposes
+`set(row, column, value)` as well:
+
+```zig
+/// Center each column of a numeric matrix.
+/// @export
+pub fn center_columns(values: rzig.Mut(rzig.Matrix)) void {
+    for (0..values.data.ncol) |j| {
+        const column = values.data.column(j);
+        var mean: f64 = 0;
+        for (column) |value| mean += value;
+        mean /= @floatFromInt(column.len);
+        for (column) |*value| value.* -= mean;
+    }
+}
+```
 
 Use `rzig.Attributed([]const f64)` to return a numeric vector with metadata:
 
@@ -536,7 +560,10 @@ pub fn labeled(
 ```
 
 `setNames`, `setDim`, `setClass`, and `setClasses` copy their metadata into the
-call context. Lengths and dimension products are checked before R allocation.
+call context; `setMatrix(nrow, ncol)` sets a two-dimensional `dim` and
+`setDimnames(row_names, column_names)` names the rows and columns (`null`
+leaves a dimension unnamed). Lengths and dimension products are checked
+before R allocation.
 
 ## Long-running loops
 

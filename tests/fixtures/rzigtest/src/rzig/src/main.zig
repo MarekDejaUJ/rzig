@@ -318,6 +318,71 @@ pub fn simulate_interrupt(ctx: *rzig.Ctx) rzig.Error!void {
     return rzig.internal.interrupt.request();
 }
 
+/// Sum the entries of an integer matrix, column by column.
+/// @export
+pub fn int_matrix_sum(values: rzig.IntMatrix) rzig.Error!f64 {
+    var total: f64 = 0;
+    for (0..values.ncol) |column| {
+        for (values.column(column)) |value| total += @floatFromInt(value);
+    }
+    return total;
+}
+
+/// Count the TRUE entries in each row of a logical matrix.
+/// @export
+pub fn bool_matrix_row_counts(ctx: *rzig.Ctx, values: rzig.BoolMatrix) rzig.Error![]i32 {
+    const counts = try ctx.alloc(i32, values.nrow);
+    @memset(counts, 0);
+    for (0..values.nrow) |row| {
+        for (0..values.ncol) |column| {
+            if (values.at(row, column)) counts[row] += 1;
+        }
+    }
+    return counts;
+}
+
+/// Add `step` times the column index to each column of a numeric matrix.
+/// @export
+pub fn matrix_add_column_index(values: rzig.Mut(rzig.Matrix), step: f64) void {
+    for (0..values.data.ncol) |column| {
+        for (values.data.column(column)) |*value| value.* += step * @as(f64, @floatFromInt(column));
+    }
+}
+
+/// Negate the diagonal of an integer matrix in place.
+/// @export
+pub fn int_matrix_negate_diagonal(values: rzig.Mut(rzig.IntMatrix)) void {
+    const count = @min(values.data.nrow, values.data.ncol);
+    for (0..count) |index| values.data.set(index, index, -values.data.at(index, index));
+}
+
+/// Add `step` to each element of an integer vector in place.
+/// @export
+pub fn int_add_in_place(values: rzig.Mut([]i32), step: i32) rzig.Error!void {
+    for (values.data) |*value| {
+        value.* = std.math.add(i32, value.*, step) catch return rzig.raise("integer overflow", .{});
+    }
+}
+
+/// Return an nrow x ncol matrix of row-major positions with dimnames.
+/// @export
+pub fn named_matrix(
+    ctx: *rzig.Ctx,
+    nrow: usize,
+    ncol: usize,
+    row_names: []const []const u8,
+    column_names: []const []const u8,
+) rzig.Error!rzig.Attributed([]f64) {
+    const values = try ctx.alloc(f64, nrow * ncol);
+    for (0..ncol) |column| {
+        for (0..nrow) |row| values[column * nrow + row] = @floatFromInt(row * ncol + column + 1);
+    }
+    var result = rzig.Attributed([]f64).init(ctx, values);
+    try result.setMatrix(nrow, ncol);
+    try result.setDimnames(if (row_names.len > 0) row_names else null, if (column_names.len > 0) column_names else null);
+    return result;
+}
+
 /// Print `count` numbered lines to R's output and a summary to its message stream.
 /// @export
 pub fn console_lines(ctx: *rzig.Ctx, count: usize) rzig.Error!void {
