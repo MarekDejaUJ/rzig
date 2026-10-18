@@ -1004,6 +1004,23 @@ R CMD build tests/fixtures/rzigtest
 Continuous integration builds and checks the fixture package on Linux, macOS,
 and Windows, and runs GC-stress and memory-analysis profiles where available.
 
+## Stability
+
+From version 1.0.0, rzig follows semantic versioning for its public
+interface: the exported R functions, the declarations of the Zig module
+`rzig` except `rzig.internal`, the markers and options of the Zig source
+(`/// @export`, `/// @class`, `@default`), the fields of `DESCRIPTION` that it
+reads (`Config/rzig/...`), and the files it writes into a package. A change
+that breaks code using them comes with a new major version; additions come
+with minor versions. `rzig.internal`, the generated manifest and the
+framework files under `src/rzig/framework` are rzig's own and change with any
+version; `update_rzig()` replaces them.
+
+Zig changes between release series, so rzig supports the two most recent
+series it has been tested with (0.16 and 0.17 for rzig 1.0.0). Support for a
+new series comes with a minor version; a series is dropped in a minor version
+that NEWS announces one version ahead.
+
 ## Packages using rzig
 
 - [pnsbib](https://github.com/MarekDejaUJ/pnsbib): probabilities of

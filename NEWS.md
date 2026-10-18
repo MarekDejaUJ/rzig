@@ -1,3 +1,32 @@
+# rzig 1.0.0
+
+rzig follows semantic versioning from this version on. The public interface
+is the exported R functions, the declarations of the Zig module `rzig` except
+`rzig.internal`, the markers and options of the Zig source, the
+`Config/rzig/...` fields of `DESCRIPTION` and the files rzig writes into a
+package. The README section "Stability" states the policy, including the
+supported Zig release series (0.16 and 0.17).
+
+Since 0.2.3, the previous CRAN release, rzig has gained (details in the
+entries below):
+
+- a step-wise workflow: `find_zig()`, `scan_exports()`, `render_bindings()`,
+  `rzig_status()`, `build_zig()`, `test_zig()`, `create_rzig_package()`,
+  `update_rzig()`, `install_zig()` and `zig_function()`;
+- types: logical values with `NA`, integer and logical matrices, complex and
+  raw vectors, `i64` and bit64 `integer64`, named lists, data frames, factors,
+  sparse matrices, external values and classes;
+- R functions called from Zig, with R's non-local exits resumed after the Zig
+  cleanup;
+- R's distributions, BLAS and LAPACK, optimizers and integration;
+- parallel reductions in a fixed order, random streams for worker threads,
+  and interrupts and panics while worker threads run;
+- packages with C, C++ or Fortran sources, vendored C libraries, and Zig
+  modules and C-callable functions shared between packages;
+- configure targets for the macOS version R was built for, Linux with musl
+  and Windows on arm64;
+- eight vignettes with executable code.
+
 # rzig 0.42.4
 
 ## Bug fixes
