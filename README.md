@@ -247,6 +247,22 @@ pinned in rzig, and comes from a community mirror of Zig or from
 ziglang.org. `find_zig()` and the `configure` scripts of rzig packages find
 compilers installed there; `uninstall_zig()` removes them.
 
+## Installing rzig packages on machines without Zig
+
+The `configure` script of a package created with rzig downloads Zig itself
+when no supported compiler is found and the environment variable
+`RZIG_DOWNLOAD_ZIG` is `true`:
+
+```r
+Sys.setenv(RZIG_DOWNLOAD_ZIG = "true")
+install.packages("zigstats", repos = "https://example.r-universe.dev")
+```
+
+The download is the verified archive of `install_zig()` (Zig 0.16.0, or the
+release named by `RZIG_ZIG_VERSION`) and is kept in `zig_home()` for later
+installations. Without the variable, nothing is downloaded and the
+installation stops with instructions.
+
 ## Creating a package
 
 `create_rzig_package("path/to/zigstats")` creates a package named

@@ -1,3 +1,13 @@
+# rzig 0.19.0
+
+## New features
+
+- The generated `configure` downloads Zig when no supported compiler is
+  found and `RZIG_DOWNLOAD_ZIG=true`: the verified archive of
+  `install_zig()` (Zig 0.16.0, or `RZIG_ZIG_VERSION`), kept in `zig_home()`
+  for later installations. Without the variable nothing is downloaded, and
+  the message for a missing compiler names the variable.
+
 # rzig 0.18.0
 
 ## New features

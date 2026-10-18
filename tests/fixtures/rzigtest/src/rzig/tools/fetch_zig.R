@@ -205,7 +205,7 @@ rzig_fetch_install <- function(version, directory, platform = rzig_fetch_platfor
 
 if (sys.nframe() == 0L) {
   arguments <- commandArgs(trailingOnly = TRUE)
-  tryCatch({
+  invisible(tryCatch({
     if (length(arguments) != 2L) stop("usage: Rscript fetch_zig.R <version> <directory>", call. = FALSE)
     path <- rzig_fetch_install(arguments[[1L]], arguments[[2L]], quiet = TRUE,
       inform = function(...) message(...))
@@ -213,5 +213,5 @@ if (sys.nframe() == 0L) {
   }, error = function(error) {
     message("rzig: ", conditionMessage(error))
     quit(save = "no", status = 1L)
-  })
+  }))
 }

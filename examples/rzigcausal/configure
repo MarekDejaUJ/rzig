@@ -98,6 +98,28 @@ else
             done
         fi
     fi
+    # With RZIG_DOWNLOAD_ZIG=true, a missing compiler is downloaded, verified
+    # against the pinned SHA-256 and kept in the install_zig() folder.
+    if test -z "$zig_path"; then
+        case "${RZIG_DOWNLOAD_ZIG:-}" in
+            true | TRUE | yes | 1)
+                download_version=${RZIG_ZIG_VERSION:-0.16.0}
+                download_dir=${zig_home:-$(pwd)/src/rzig/.zig-download}
+                if test ! -f src/rzig/tools/fetch_zig.R; then
+                    printf '%s\n' 'RZIG_DOWNLOAD_ZIG is set, but src/rzig/tools/fetch_zig.R is missing; update the package with rzig::update_rzig().' >&2
+                    exit 1
+                fi
+                printf 'downloading Zig %s into %s (RZIG_DOWNLOAD_ZIG)\n' "$download_version" "$download_dir"
+                downloaded=$("$r_bin" --no-echo --vanilla -f src/rzig/tools/fetch_zig.R --args "$download_version" "$download_dir") || downloaded=
+                # The path of the executable is the last line of the output.
+                downloaded=$(printf '%s\n' "$downloaded" | sed -n '$p')
+                if test -z "$downloaded" || ! try_candidate "$downloaded"; then
+                    printf 'could not download a verified Zig %s; see the messages above.\n' "$download_version" >&2
+                    exit 1
+                fi
+                ;;
+        esac
+    fi
     if test -z "$zig_path"; then
         if test -n "$first_path"; then
             zig_rejected "$first_path" "$first_version"
@@ -106,7 +128,8 @@ else
                 "Zig 0.16.x or 0.17.x is required to install this package." \
                 "Install it with rzig::install_zig() in R, or download it from" \
                 "https://ziglang.org/download/ and add it to PATH or reinstall with" \
-                "ZIG=/absolute/path/to/zig." >&2
+                "ZIG=/absolute/path/to/zig. With RZIG_DOWNLOAD_ZIG=true, the" \
+                "installation downloads a verified Zig release itself." >&2
         fi
         exit 1
     fi

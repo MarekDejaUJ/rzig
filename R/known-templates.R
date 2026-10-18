@@ -11,6 +11,7 @@
     "6f6f0cbe1089d0b1c6640870b0b6b21c",
     "8d565b3b557cd326b253157300377c16",
     "db67db78223377b96500af69d91d2a49",
+    "ee0c83ada298c48e541c2c11bd3b5856",
     "f8f96661584967ca6642d417457045ac"
   ),
   "configure.win" = c(
@@ -63,7 +64,8 @@
     "cbf3112e9704598a2adfcea30fbc82bf"
   ),
   "tools/fetch_zig.R" = c(
-    "939a9380815b852aa9bf2bfc2517dfee"
+    "939a9380815b852aa9bf2bfc2517dfee",
+    "e60f71f68c1e5e3c7bff5eab54edcdc4"
   ),
   "tools/scan.zig" = c(
     "7be5d2d84f225378e14a4486e6c17534",
