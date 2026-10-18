@@ -1,3 +1,15 @@
+# rzig 0.7.0
+
+## New features
+
+- `rzig.parallelFor()` limits its worker threads: `RZIG_NUM_THREADS` lowers
+  the number (an invalid value is an error naming the variable),
+  `OMP_THREAD_LIMIT` is respected, and while `R CMD check` limits the cores
+  (`_R_CHECK_LIMIT_CORES_`, as in CRAN submission checks) at most two threads
+  run. Before, a call used one thread per core up to 32 in any setting.
+- `rzig.parallelThreadCount(count)` returns the number of worker threads a
+  call of `parallelFor` with `count` indices uses.
+
 # rzig 0.6.0
 
 ## New features

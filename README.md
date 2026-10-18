@@ -400,6 +400,14 @@ off the R thread. It must be panic-free and must not import or call R or RZig
 APIs. If a worker can fail, record that in atomic plain-data state, wait for
 `parallelFor` to join every worker, and call `rzig.raise` on the calling thread.
 
+`parallelFor` starts one worker thread per core, at most 32 and at most one per
+index. The environment variable `RZIG_NUM_THREADS` lowers that number (for
+example `Sys.setenv(RZIG_NUM_THREADS = 2)` in R), `OMP_THREAD_LIMIT` is
+respected as well, and while `R CMD check` limits the cores
+(`_R_CHECK_LIMIT_CORES_`, set for CRAN submissions) at most two threads run, as
+the CRAN policy requires. `rzig.parallelThreadCount(count)` returns the number
+of threads a call would use, for example to size per-thread buffers.
+
 ## Safety model
 
 RZig keeps R's non-local error mechanism at the outer native boundary. Internal

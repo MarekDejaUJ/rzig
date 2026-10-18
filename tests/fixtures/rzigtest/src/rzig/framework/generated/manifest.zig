@@ -189,6 +189,12 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{},
             },
             .{
+                .name = "parallel_thread_count",
+                .func = bound_root.parallel_thread_count,
+                .doc = "Report how many worker threads parallelFor uses for `count` indices.",
+                .parameters = .{"count"},
+            },
+            .{
                 .name = "parallel_square",
                 .func = bound_root.parallel_square,
                 .doc = "Square a numeric vector using only pure Zig worker threads.",

@@ -37,8 +37,7 @@ pub fn parallelFor(
         return es.raise("rzig: parallelFor item count exceeds its safe limit", .{});
     }
 
-    const cpu_count = std.Thread.getCpuCount() catch 1;
-    const thread_count = @min(count, @min(cpu_count, max_worker_threads));
+    const thread_count = try threadCount(count);
     const threads = try ctx.alloc(std.Thread, thread_count);
     const Runner = RunnerType(@TypeOf(state), worker);
     var runner = Runner{
@@ -55,6 +54,51 @@ pub fn parallelFor(
         };
     }
     for (threads[0..spawned]) |thread| thread.join();
+}
+
+/// The number of worker threads `parallelFor` uses for `count` indices: one per
+/// core, at most 32 and at most `count`. The environment variable
+/// `RZIG_NUM_THREADS` lowers the limit, `OMP_THREAD_LIMIT` is respected as
+/// well, and while `R CMD check` limits the cores (`_R_CHECK_LIMIT_CORES_` set
+/// to anything but "false", as for CRAN submissions) at most two threads run.
+/// Read the variables only on the thread that entered R.
+pub fn threadCount(count: usize) es.Error!usize {
+    if (count == 0) return 0;
+    const cpu_count = std.Thread.getCpuCount() catch 1;
+    var limit: usize = @min(cpu_count, max_worker_threads);
+    if (environmentValue("RZIG_NUM_THREADS")) |value| {
+        const requested = parseThreadLimit(value) orelse return es.raise(
+            "rzig: RZIG_NUM_THREADS must be a positive whole number, got '{s}'",
+            .{value},
+        );
+        limit = @min(limit, requested);
+    }
+    if (environmentValue("OMP_THREAD_LIMIT")) |value| {
+        if (parseThreadLimit(value)) |omp_limit| limit = @min(limit, omp_limit);
+    }
+    if (environmentValue("_R_CHECK_LIMIT_CORES_")) |value| {
+        if (checkLimitsCores(value)) limit = @min(limit, 2);
+    }
+    return @max(1, @min(count, limit));
+}
+
+fn environmentValue(comptime name: [:0]const u8) ?[]const u8 {
+    const value = std.c.getenv(name.ptr) orelse return null;
+    const text = std.mem.span(value);
+    return if (text.len == 0) null else text;
+}
+
+/// A positive whole number of threads, or null for anything else.
+pub fn parseThreadLimit(text: []const u8) ?usize {
+    const trimmed = std.mem.trim(u8, text, " \t\r\n");
+    const value = std.fmt.parseUnsigned(usize, trimmed, 10) catch return null;
+    return if (value == 0) null else value;
+}
+
+/// R's parallel package treats every value of `_R_CHECK_LIMIT_CORES_` except
+/// "false" as an active limit.
+pub fn checkLimitsCores(text: []const u8) bool {
+    return !std.ascii.eqlIgnoreCase(std.mem.trim(u8, text, " \t\r\n"), "false");
 }
 
 fn RunnerType(comptime StatePointer: type, comptime worker: anytype) type {

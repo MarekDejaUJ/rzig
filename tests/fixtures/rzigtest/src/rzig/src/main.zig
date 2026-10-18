@@ -318,6 +318,12 @@ pub fn simulate_interrupt(ctx: *rzig.Ctx) rzig.Error!void {
     return rzig.internal.interrupt.request();
 }
 
+/// Report how many worker threads parallelFor uses for `count` indices.
+/// @export
+pub fn parallel_thread_count(count: usize) rzig.Error!i32 {
+    return @intCast(try rzig.parallelThreadCount(count));
+}
+
 /// Square a numeric vector using only pure Zig worker threads.
 /// @export
 pub fn parallel_square(ctx: *rzig.Ctx, values: []const f64) rzig.Error![]f64 {

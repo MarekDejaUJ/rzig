@@ -16,6 +16,9 @@ pub const warn = @import("error_state.zig").warn;
 pub const checkInterrupt = @import("interrupt.zig").checkInterrupt;
 /// Run a pure Zig indexed loop on worker threads without exposing R capabilities.
 pub const parallelFor = @import("parallel.zig").parallelFor;
+/// The number of worker threads `parallelFor` uses for `count` indices (see
+/// `parallel.threadCount`: RZIG_NUM_THREADS, OMP_THREAD_LIMIT, R CMD check).
+pub const parallelThreadCount = @import("parallel.zig").threadCount;
 /// Calling-thread capability for draws controlled by R's `set.seed()`.
 pub const Rng = @import("rng.zig").Rng;
 /// Deterministic distribution functions supplied by the linked R runtime.

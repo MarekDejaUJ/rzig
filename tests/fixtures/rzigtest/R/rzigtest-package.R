@@ -69,6 +69,10 @@ interruptible_count <- function(iterations) {
 #' @param x A numeric vector.
 #' @return The elementwise squares.
 #' @export
+parallel_thread_count <- function(count) {
+  .Call(C_parallel_thread_count, count)
+}
+
 parallel_square <- function(x) {
   .Call(C_parallel_square, x)
 }
