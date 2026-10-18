@@ -213,6 +213,18 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{"value"},
             },
             .{
+                .name = "rmath_eval",
+                .func = bound_root.rmath_eval,
+                .doc = "Evaluate the density (\"d\"), distribution function (\"p\") or quantile (\"q\")\nof the distribution named `name` with the parameters `values`.",
+                .parameters = .{ "kind", "name", "x", "values", "lower", "log" },
+            },
+            .{
+                .name = "rmath_draws",
+                .func = bound_root.rmath_draws,
+                .doc = "Draw `count` values from the distribution named `name` with R's generator.",
+                .parameters = .{ "name", "count", "values" },
+            },
+            .{
                 .name = "counter_new",
                 .func = bound_root.counter_new,
                 .doc = "A counter that keeps its count between calls.",

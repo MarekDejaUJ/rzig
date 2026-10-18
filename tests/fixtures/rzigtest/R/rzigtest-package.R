@@ -85,6 +85,14 @@ sexp_element_kinds <- function(value) {
   .Call(C_sexp_element_kinds, value)
 }
 
+rmath_eval <- function(kind, name, x, values, lower, log) {
+  .Call(C_rmath_eval, kind, name, x, values, lower, log)
+}
+
+rmath_draws <- function(name, count, values) {
+  .Call(C_rmath_draws, name, count, values)
+}
+
 counter_new <- function(step) {
   .Call(C_counter_new, step)
 }

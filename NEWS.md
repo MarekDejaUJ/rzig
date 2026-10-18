@@ -1,3 +1,16 @@
+# rzig 0.29.0
+
+## New features
+
+- `rzig.Rmath.density()`, `rzig.Rmath.cdf()` and `rzig.Rmath.quantile()`
+  evaluate the d, p and q functions of R for 17 distributions
+  (`rzig.Distribution`), with R's parameter names and defaults
+  (`rzig.Rmath.Params(.gamma)` is `.{ .shape, .scale = 1 }`), the tail and
+  log options, and a guard that keeps an R warning turned into an error from
+  jumping out of Zig code.
+- `rng.draw(distribution, params)` draws with R's generator for the
+  distribution, so draws match R's for the same seed.
+
 # rzig 0.28.0
 
 ## New features

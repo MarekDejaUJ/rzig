@@ -23,8 +23,11 @@ pub const parallelThreadCount = @import("parallel.zig").threadCount;
 pub const Rng = @import("rng.zig").Rng;
 /// Progress bar on R's message stream, created with `ctx.progress()`.
 pub const Progress = @import("progress.zig").Progress;
-/// Deterministic distribution functions supplied by the linked R runtime.
+/// R's distribution functions: `density`, `cdf` and `quantile` for each
+/// `rzig.Distribution`; draws come from `rzig.Rng.draw`.
 pub const Rmath = @import("rmath.zig").Rmath;
+/// The distributions of R's Rmath library.
+pub const Distribution = @import("rmath.zig").Distribution;
 /// NA constants (`NA.real`, `NA.integer`, `NA.logical`) and predicates.
 pub const NA = @import("na.zig");
 /// One element of an R logical vector: `TRUE`, `FALSE` or `NA`.

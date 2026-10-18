@@ -358,6 +358,46 @@ pub fn sexp_element_kinds(ctx: *rzig.Ctx, value: rzig.Sexp) rzig.Error![]const [
     return result;
 }
 
+fn distributionParams(comptime distribution: rzig.Distribution, values: []const f64) rzig.Rmath.Params(distribution) {
+    const Params = rzig.Rmath.Params(distribution);
+    var params: Params = undefined;
+    inline for (comptime rzig.internal.compat.fieldNames(@typeInfo(Params).@"struct"), 0..) |field, index| {
+        @field(params, field) = values[index];
+    }
+    return params;
+}
+
+/// Evaluate the density ("d"), distribution function ("p") or quantile ("q")
+/// of the distribution named `name` with the parameters `values`.
+/// @export
+pub fn rmath_eval(kind: []const u8, name: []const u8, x: f64, values: []const f64, lower: bool, log: bool) rzig.Error!f64 {
+    inline for (comptime std.enums.values(rzig.Distribution)) |distribution| {
+        if (std.mem.eql(u8, name, @tagName(distribution))) {
+            const params = distributionParams(distribution, values);
+            if (std.mem.eql(u8, kind, "d")) return rzig.Rmath.density(distribution, x, params, .{ .log = log });
+            if (std.mem.eql(u8, kind, "p")) return rzig.Rmath.cdf(distribution, x, params, .{ .lower_tail = lower, .log = log });
+            if (std.mem.eql(u8, kind, "q")) return rzig.Rmath.quantile(distribution, x, params, .{ .lower_tail = lower, .log = log });
+            return rzig.raise("kind must be d, p or q; got {s}", .{kind});
+        }
+    }
+    return rzig.raise("unknown distribution {s}", .{name});
+}
+
+/// Draw `count` values from the distribution named `name` with R's generator.
+/// @export
+pub fn rmath_draws(ctx: *rzig.Ctx, name: []const u8, count: usize, values: []const f64) rzig.Error![]f64 {
+    const rng = try ctx.rng();
+    const result = try ctx.alloc(f64, count);
+    inline for (comptime std.enums.values(rzig.Distribution)) |distribution| {
+        if (std.mem.eql(u8, name, @tagName(distribution))) {
+            const params = distributionParams(distribution, values);
+            for (result) |*slot| slot.* = rng.draw(distribution, params);
+            return result;
+        }
+    }
+    return rzig.raise("unknown distribution {s}", .{name});
+}
+
 var counters_released: i32 = 0;
 
 const Counter = struct {

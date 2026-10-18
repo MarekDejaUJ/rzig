@@ -39,6 +39,8 @@
 \alias{counters_released_count}
 \alias{counter_fail_after_create}
 \alias{other_new}
+\alias{rmath_eval}
+\alias{rmath_draws}
 \title{Fixture Functions for the Types and Services of the Boundary}
 \usage{
 parallel_thread_count(count)
@@ -80,13 +82,16 @@ counter_same(counter)
 counters_released_count()
 counter_fail_after_create()
 other_new()
+rmath_eval(kind, name, x, values, lower, log)
+rmath_draws(name, count, values)
 }
 \arguments{
 \item{count}{A non-negative count.}
 \item{width}{The number of characters to print.}
 \item{total}{The number of steps.}
 \item{show}{Whether to draw the progress bar.}
-\item{values}{A vector or matrix of the type the function reads.}
+\item{values}{A vector or matrix of the type the function reads; the parameters
+of a distribution.}
 \item{step}{The amount to add.}
 \item{nrow, ncol}{The dimensions of the result.}
 \item{row_names, column_names}{Character vectors of names; empty for none.}
@@ -98,8 +103,11 @@ other_new()
 \code{sexp_} functions.}
 \item{options}{A named list of fitting options.}
 \item{data}{A data frame with columns \code{value} and \code{group}.}
-\item{name}{The name of a list entry or an attribute.}
+\item{name}{The name of a list entry, an attribute or a distribution.}
 \item{counter}{A counter made by \code{counter_new()}.}
+\item{kind}{\code{"d"}, \code{"p"} or \code{"q"}.}
+\item{x}{The value or probability.}
+\item{lower, log}{The tail and the scale of probabilities.}
 }
 \value{
 The value each function computes; the tests of the package describe them.

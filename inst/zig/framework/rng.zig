@@ -3,6 +3,7 @@
 const std = @import("std");
 const c = @import("c/abi.zig");
 const es = @import("error_state.zig");
+const rmath = @import("rmath.zig");
 
 /// Calling-thread capability for draws controlled by R's `set.seed()`.
 ///
@@ -27,6 +28,13 @@ pub const Rng = struct {
     pub fn exponential(self: Rng) f64 {
         self.assertActive();
         return c.exp_rand();
+    }
+
+    /// Draw one value from `distribution` with R's generator for it (`rgamma`,
+    /// `rbinom`, ...), so the draws match R's for the same seed.
+    pub fn draw(self: Rng, comptime distribution: rmath.Distribution, params: rmath.Params(distribution)) f64 {
+        self.assertActive();
+        return rmath.drawOf(distribution, params);
     }
 
     fn assertActive(self: Rng) void {

@@ -714,6 +714,23 @@ Call `try rzig.checkInterrupt()` about every 100,000 iterations of a long loop.
 It probes through an R trampoline that catches the runtime's non-local interrupt
 exit, allowing Zig cleanup to finish before the boundary returns an R error.
 
+## Distributions
+
+`rzig.Rmath.density`, `rzig.Rmath.cdf` and `rzig.Rmath.quantile` evaluate the
+distributions of R (`.normal`, `.uniform`, `.gamma`, `.beta`, `.binomial`,
+`.poisson`, `.exponential`, `.t`, `.chisq`, `.f`, `.lognormal`, `.weibull`,
+`.logistic`, `.cauchy`, `.geometric`, `.hypergeometric`,
+`.negative_binomial`), with R's parameter names and defaults, and
+`rng.draw(distribution, params)` draws from R's generator, so the draws
+follow `set.seed()`:
+
+```zig
+const p = try rzig.Rmath.cdf(.gamma, x, .{ .shape = 2 }, .{ .lower_tail = false });
+const d = try rzig.Rmath.density(.normal, x, .{ .mean = 1 }, .{ .log = true });
+const rng = try ctx.rng();
+const draw = rng.draw(.poisson, .{ .lambda = 3 });
+```
+
 ## Pure Zig parallel loops
 
 `rzig.parallelFor` distributes an indexed computation across Zig worker threads.
