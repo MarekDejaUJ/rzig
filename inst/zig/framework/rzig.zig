@@ -25,8 +25,10 @@ pub const Rng = @import("rng.zig").Rng;
 pub const Progress = @import("progress.zig").Progress;
 /// Deterministic distribution functions supplied by the linked R runtime.
 pub const Rmath = @import("rmath.zig").Rmath;
-/// Missing-value predicates for R scalar representations.
+/// NA constants (`NA.real`, `NA.integer`, `NA.logical`) and predicates.
 pub const NA = @import("na.zig");
+/// One element of an R logical vector: `TRUE`, `FALSE` or `NA`.
+pub const Logical = @import("na.zig").Logical;
 /// Opaque borrowed R value escape hatch.
 pub const Sexp = @import("sexp.zig").Sexp;
 /// Arena-backed builder materialized as a named R list at the boundary.

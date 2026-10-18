@@ -394,3 +394,17 @@ test_that("hostile matrix inputs fail before Zig reads them", {
   for (case in cases) expect_error_live(case[[1L]], case[[2L]])
   expect_identical(numbers, matrix(1:4, 2L))
 })
+
+test_that("hostile inputs to NA-keeping types fail cleanly", {
+  cases <- list(
+    list(function() logical_tally(NULL), c("argument `values` of logical_tally", "logical vector")),
+    list(function() logical_tally(list(TRUE)), c("logical vector")),
+    list(function() logical_tally("TRUE"), c("logical vector")),
+    list(function() upper_or_na(1:2), c("character vector")),
+    list(function() upper_or_na(list("a")), c("character vector")),
+    list(function() label_or_default(TRUE), c("character vector")),
+    list(function() label_or_default(c(NA, NA)), c("character vector"))
+  )
+  for (case in cases) expect_error_live(case[[1L]], case[[2L]])
+  expect_identical(logical_not(c(NA, TRUE)), c(NA, FALSE))
+})

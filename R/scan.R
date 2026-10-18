@@ -640,8 +640,7 @@ print.rzig_exports <- function(x, ...) {
 }
 
 .rzig_describe_parameter <- function(type) {
-  key <- gsub("[[:space:]]+", "", type, useBytes = TRUE)
-  key <- sub("^rzig\\.", "", key, useBytes = TRUE)
+  key <- .rzig_type_key(type)
   scalar <- c(
     f64 = "double, length 1",
     i32 = "integer, length 1",
@@ -657,6 +656,9 @@ print.rzig_exports <- function(x, ...) {
     "[]constf64" = "double vector, borrowed",
     "[]consti32" = "integer vector, borrowed",
     "[]constbool" = "logical vector, copied",
+    "[]constLogical" = "logical vector with NA, borrowed",
+    "[]const?[]constu8" = "character vector with NA, copied",
+    "?[]constu8" = "character, length 1, NA or NULL",
     "[]constu8" = "character, length 1, copied",
     "[]const[]constu8" = "character vector, copied",
     "Matrix" = "double matrix, borrowed",
@@ -672,14 +674,12 @@ print.rzig_exports <- function(x, ...) {
 }
 
 .rzig_describe_return <- function(type, mutable = FALSE) {
-  key <- gsub("[[:space:]]+", "", type, useBytes = TRUE)
-  key <- sub("^rzig\\.Error!", "", key, useBytes = TRUE)
-  key <- sub("^rzig\\.", "", key, useBytes = TRUE)
+  key <- sub("^Error!", "", .rzig_type_key(type), useBytes = TRUE)
   optional <- grepl("^\\?", key, useBytes = TRUE)
   if (optional) key <- substring(key, 2L)
   if (!isFALSE(mutable) && key == "void") {
     duplicate <- sub(", writable duplicate$", "", .rzig_describe_parameter(mutable))
-    return(paste0("the writable duplicate, a ", duplicate))
+    return(paste0("the writable duplicate, ", if (grepl("^[aeiou]", duplicate)) "an " else "a ", duplicate))
   }
   attributed <- regmatches(key, regexec("^Attributed\\((.*)\\)$", key))[[1L]]
   if (length(attributed) == 2L) {
@@ -695,8 +695,10 @@ print.rzig_exports <- function(x, ...) {
     "[]f64" = , "[]constf64" = "double vector",
     "[]i32" = , "[]consti32" = "integer vector",
     "[]bool" = , "[]constbool" = "logical vector",
+    "[]Logical" = , "[]constLogical" = "logical vector with NA",
     "[]constu8" = "character, length 1",
     "[][]constu8" = , "[]const[]constu8" = "character vector",
+    "[]?[]constu8" = , "[]const?[]constu8" = "character vector with NA",
     "List" = "named list",
     "Sexp" = "the supplied R object",
     "not supported; the Zig compiler rejects the signature"

@@ -101,6 +101,9 @@ pub fn fromSexp(
     if (comptime T == []const bool) return logicalSlice(ctx, x, name);
     if (comptime T == []const u8) return stringScalar(ctx, x, name);
     if (comptime T == []const []const u8) return stringSlice(ctx, x, name);
+    if (comptime T == []const na.Logical) return logicalNaSlice(x, name);
+    if (comptime T == []const ?[]const u8) return stringNaSlice(ctx, x, name);
+    if (comptime T == ?[]const u8) return optionalString(ctx, x, name);
     if (comptime matrix.isMatrix(T)) return matrixFromSexp(T, ctx, x, name);
     if (comptime T == sexp.Sexp) return sexp.fromRaw(x);
 
@@ -283,6 +286,49 @@ fn stringSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const
         slot.* = try ctx.dupe(u8, std.mem.span(translated));
     }
     return result;
+}
+
+/// A borrowed logical vector that keeps NA.
+fn logicalNaSlice(x: c.SEXP, comptime name: []const u8) es.Error![]const na.Logical {
+    if (c.TYPEOF(x) != c.LGLSXP) {
+        return es.raise(
+            "rzig: {s} must be a logical vector; got {s}",
+            .{ name, typeName(x) },
+        );
+    }
+    const length = try vectorLength(x, name);
+    const data: [*]const na.Logical = @ptrCast(c.LOGICAL_RO(x));
+    return data[0..length];
+}
+
+/// A copied character vector in which NA becomes `null`.
+fn stringNaSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const ?[]const u8 {
+    if (c.TYPEOF(x) != c.STRSXP) {
+        return es.raise(
+            "rzig: {s} must be a character vector; got {s}",
+            .{ name, typeName(x) },
+        );
+    }
+    const length = try vectorLength(x, name);
+    const mark = c.vmaxget();
+    defer c.vmaxset(mark);
+    const result = try ctx.alloc(?[]const u8, length);
+    for (result, 0..) |*slot, index| {
+        const element = c.STRING_ELT(x, @intCast(index));
+        slot.* = if (element == c.R_NaString)
+            null
+        else
+            try ctx.dupe(u8, std.mem.span(c.Rf_translateCharUTF8(element)));
+    }
+    return result;
+}
+
+/// A character scalar; NA and NULL become `null`.
+fn optionalString(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error!?[]const u8 {
+    if (c.Rf_isNull(x) != c.FALSE) return null;
+    if (c.TYPEOF(x) == c.STRSXP and c.Rf_xlength(x) == 1 and c.STRING_ELT(x, 0) == c.R_NaString) return null;
+    if (c.TYPEOF(x) == c.LGLSXP and c.Rf_xlength(x) == 1 and na.isNaLogical(c.LOGICAL_ELT(x, 0))) return null;
+    return try stringScalar(ctx, x, name);
 }
 
 fn realSlice(x: c.SEXP, comptime name: []const u8) es.Error![]const f64 {
@@ -482,6 +528,9 @@ fn isSupportedInput(comptime T: type) bool {
         T == []const bool or
         T == []const u8 or
         T == []const []const u8 or
+        T == []const na.Logical or
+        T == []const ?[]const u8 or
+        T == ?[]const u8 or
         T == matrix.Matrix or
         T == matrix.IntMatrix or
         T == matrix.BoolMatrix or
@@ -516,6 +565,10 @@ fn isSupportedReturn(comptime T: type) bool {
         T == []const u8 or
         T == []const []const u8 or
         T == [][]const u8 or
+        T == []const na.Logical or
+        T == []na.Logical or
+        T == []const ?[]const u8 or
+        T == []?[]const u8 or
         T == list.List or
         T == sexp.Sexp)
     {
@@ -536,7 +589,9 @@ fn isSupportedVectorReturn(comptime T: type) bool {
     return T == []const f64 or T == []f64 or
         T == []const i32 or T == []i32 or
         T == []const bool or T == []bool or
-        T == []const []const u8 or T == [][]const u8;
+        T == []const na.Logical or T == []na.Logical or
+        T == []const []const u8 or T == [][]const u8 or
+        T == []const ?[]const u8 or T == []?[]const u8;
 }
 
 fn nearestInputAlternative(comptime T: type) []const u8 {
@@ -556,6 +611,8 @@ fn nearestInputAlternative(comptime T: type) []const u8 {
     if (T == []f64) return "[]const f64 for a borrowed read-only numeric vector";
     if (T == []i32) return "[]const i32 for a borrowed read-only integer vector";
     if (T == []bool) return "[]const bool for a borrowed read-only logical vector";
+    if (T == []na.Logical) return "[]const rzig.Logical for a borrowed logical vector that keeps NA";
+    if (T == []?[]const u8 or T == []const ?[]u8) return "[]const ?[]const u8 for a character vector that keeps NA";
     if (T == []u8) return "[]const u8 for a UTF-8 string";
 
     return switch (@typeInfo(T)) {
@@ -622,6 +679,8 @@ pub fn toSexp(
     if (comptime T == []const bool or T == []bool) return logicalSliceToSexp(stack, value);
     if (comptime T == []const u8) return stringToSexp(stack, value);
     if (comptime T == []const []const u8 or T == [][]const u8) return stringSliceToSexp(stack, value);
+    if (comptime T == []const na.Logical or T == []na.Logical) return logicalNaSliceToSexp(stack, value);
+    if (comptime T == []const ?[]const u8 or T == []?[]const u8) return stringNaSliceToSexp(stack, value);
     if (comptime attributes.isAttributed(T)) return attributedToSexp(stack, ctx, value);
     if (comptime T == list.List) return listToSexp(stack, ctx, value);
     if (comptime T == sexp.Sexp) return stack.push(sexp.toRaw(value));
@@ -811,6 +870,38 @@ fn logicalSliceToSexp(stack: *protect.Stack, value: []const bool) es.Error!c.SEX
     const result = stack.push(c.Rf_allocVector(c.LGLSXP, length));
     for (value, c.LOGICAL(result)[0..value.len]) |source, *target| {
         target.* = if (source) c.TRUE else c.FALSE;
+    }
+    return result;
+}
+
+fn logicalNaSliceToSexp(stack: *protect.Stack, value: []const na.Logical) es.Error!c.SEXP {
+    const length = try returnLength(value.len);
+    const result = stack.push(c.Rf_allocVector(c.LGLSXP, length));
+    for (value, c.LOGICAL(result)[0..value.len]) |source, *target| target.* = @intFromEnum(source);
+    return result;
+}
+
+fn stringNaSliceToSexp(stack: *protect.Stack, value: []const ?[]const u8) es.Error!c.SEXP {
+    _ = try returnLength(value.len);
+    for (value, 0..) |maybe, index| {
+        const text = maybe orelse continue;
+        if (!std.unicode.utf8ValidateSlice(text)) {
+            return es.raise("rzig: returned string at position {d} is not valid UTF-8", .{index + 1});
+        }
+        if (std.mem.indexOfScalar(u8, text, 0) != null) {
+            return es.raise("rzig: returned string at position {d} contains an embedded NUL byte", .{index + 1});
+        }
+        if (text.len > std.math.maxInt(c_int)) {
+            return es.raise("rzig: returned string at position {d} exceeds R's string limit", .{index + 1});
+        }
+    }
+    const result = stack.push(c.Rf_allocVector(c.STRSXP, try returnLength(value.len)));
+    for (value, 0..) |maybe, index| {
+        const element = if (maybe) |text|
+            c.Rf_mkCharLenCE(text.ptr, @intCast(text.len), c.CE_UTF8)
+        else
+            c.R_NaString;
+        c.SET_STRING_ELT(result, @intCast(index), element);
     }
     return result;
 }

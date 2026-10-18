@@ -6,7 +6,8 @@ test_that("argument types follow the rules of the boundary", {
   for (type in c("f64", "i32", "bool", "usize", "?f64", "[]const f64", "[]const i32",
                  "[]const bool", "[]const u8", "[]const []const u8", "rzig.Matrix",
                  "rzig.IntMatrix", "rzig.BoolMatrix", "rzig.Sexp", "rzig.Mut([]f64)",
-                 "rzig.Mut([]i32)", "rzig.Mut(rzig.Matrix)", "rzig.Mut(rzig.IntMatrix)")) {
+                 "rzig.Mut([]i32)", "rzig.Mut(rzig.Matrix)", "rzig.Mut(rzig.IntMatrix)",
+                 "[]const rzig.Logical", "[]const ?[]const u8", "?[]const u8")) {
     expect_identical(input(type), "supported", info = type)
   }
   for (type in c("f32", "[]const f32", "i64", "[]f64", "*const f64", "u8", "[]const i64",
@@ -19,7 +20,8 @@ test_that("argument types follow the rules of the boundary", {
 
 test_that("return types follow the rules of the boundary", {
   for (type in c("void", "f64", "[]f64", "[]const u8", "?[]const u8", "rzig.List",
-                 "rzig.Attributed([]f64)", "[][]const u8")) {
+                 "rzig.Attributed([]f64)", "[][]const u8", "[]rzig.Logical", "[]const rzig.Logical",
+                 "[]?[]const u8", "rzig.Attributed([]rzig.Logical)", "rzig.Attributed([]const ?[]const u8)")) {
     expect_identical(output(type), "supported", info = type)
   }
   for (type in c("f32", "usize", "rzig.Attributed([]const u8)", "rzig.Mut([]f64)")) {

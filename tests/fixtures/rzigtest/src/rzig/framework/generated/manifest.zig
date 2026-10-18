@@ -189,6 +189,48 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{},
             },
             .{
+                .name = "logical_tally",
+                .func = bound_root.logical_tally,
+                .doc = "Count the TRUE, FALSE and NA values of a logical vector.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "logical_not",
+                .func = bound_root.logical_not,
+                .doc = "Negate a logical vector, keeping NA.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "upper_or_na",
+                .func = bound_root.upper_or_na,
+                .doc = "Upper-case the ASCII letters of each string, keeping NA.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "label_or_default",
+                .func = bound_root.label_or_default,
+                .doc = "Return the label, or \"(none)\" when it is NA or NULL.",
+                .parameters = .{"label"},
+            },
+            .{
+                .name = "na_real",
+                .func = bound_root.na_real,
+                .doc = "R's missing double.",
+                .parameters = .{},
+            },
+            .{
+                .name = "na_integer",
+                .func = bound_root.na_integer,
+                .doc = "R's missing integer.",
+                .parameters = .{},
+            },
+            .{
+                .name = "na_logical",
+                .func = bound_root.na_logical,
+                .doc = "R's missing logical, as a vector of length 1.",
+                .parameters = .{},
+            },
+            .{
                 .name = "int_matrix_sum",
                 .func = bound_root.int_matrix_sum,
                 .doc = "Sum the entries of an integer matrix, column by column.",

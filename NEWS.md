@@ -1,3 +1,24 @@
+# rzig 0.22.0
+
+## New features
+
+- `[]const rzig.Logical` borrows a logical vector that can contain `NA`;
+  `rzig.Logical` has the values `.TRUE`, `.FALSE` and `.NA` and the methods
+  `isTrue()`, `isFalse()`, `isNa()` and `fromBool()`. `[]rzig.Logical` returns
+  a logical vector with `NA`.
+- `[]const ?[]const u8` copies a character vector in which `NA` becomes
+  `null`, and `[]?[]const u8` returns one in which `null` becomes `NA`.
+  `?[]const u8` accepts one string, `NA` or `NULL`.
+- `rzig.NA.real`, `rzig.NA.integer` and `rzig.NA.logical` are R's missing
+  values, for results that contain `NA`.
+
+## Bug fixes
+
+- Types written with a space before `rzig.`, such as `[]const rzig.Logical`,
+  are recognized by the checks before compilation, and the printed export
+  descriptions of `scan_exports()` name `rzig.Mut(rzig.Matrix)` and the
+  other new types instead of calling them unsupported.
+
 # rzig 0.21.0
 
 ## New features

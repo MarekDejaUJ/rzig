@@ -12,22 +12,26 @@
 .rzig_input_types <- c(
   "f64", "i32", "bool", "usize", "?f64", "?i32", "?bool", "?usize",
   "[]constf64", "[]consti32", "[]constbool", "[]constu8", "[]const[]constu8",
+  "[]constLogical", "[]const?[]constu8", "?[]constu8",
   "Matrix", "IntMatrix", "BoolMatrix", "Sexp",
   "Mut([]f64)", "Mut([]i32)", "Mut(Matrix)", "Mut(IntMatrix)"
 )
 
 .rzig_vector_returns <- c(
   "[]f64", "[]constf64", "[]i32", "[]consti32", "[]bool", "[]constbool",
-  "[][]constu8", "[]const[]constu8"
+  "[]Logical", "[]constLogical", "[][]constu8", "[]const[]constu8",
+  "[]?[]constu8", "[]const?[]constu8"
 )
 
 .rzig_plain_returns <- c(
   "void", "f64", "i32", "bool", .rzig_vector_returns, "[]constu8", "List", "Sexp"
 )
 
+# The prefix `rzig.` goes first: removing the spaces of "[]const rzig.Logical"
+# first would join it to the word before it.
 .rzig_type_key <- function(type) {
-  key <- gsub("[[:space:]]+", "", type, useBytes = TRUE)
-  gsub("(^|[^A-Za-z0-9_])rzig\\.", "\\1", key, useBytes = TRUE)
+  key <- gsub("(^|[^A-Za-z0-9_])rzig\\.", "\\1", type, useBytes = TRUE)
+  gsub("[[:space:]]+", "", key, useBytes = TRUE)
 }
 
 .rzig_known_identifier <- function(identifier) {
@@ -35,7 +39,7 @@
     paste0(
       "^(f(16|32|64|80|128)|[iu][0-9]+|isize|usize|bool|void|anyopaque|",
       "anyerror|noreturn|type|anytype|comptime_int|comptime_float|const|",
-      "c_[a-z]+|Matrix|IntMatrix|BoolMatrix|Mut|Sexp|List|Attributed|Error|Ctx)$"
+      "c_[a-z]+|Matrix|IntMatrix|BoolMatrix|Logical|Mut|Sexp|List|Attributed|Error|Ctx)$"
     ),
     identifier
   )

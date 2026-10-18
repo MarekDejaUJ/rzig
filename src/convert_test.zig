@@ -1043,3 +1043,74 @@ test "dimnames are checked against dim before allocating" {
     try std.testing.expectEqual(@as(usize, 0), mock_object_count);
     try std.testing.expectEqual(@as(usize, 0), mock_protect_count);
 }
+
+test "logical vectors that keep NA are borrowed, character vectors map NA to null" {
+    es.reset();
+    var logicals = FakeSexp{ .kind = c.LGLSXP, .length = 2, .integers = .{ c.TRUE, std.math.minInt(c_int) } };
+    var strings = FakeSexp{ .kind = c.STRSXP, .length = 2 };
+    var text = FakeSexp{ .kind = c.CHARSXP, .length = 1, .text = "z" };
+    strings.strings = .{ &text, &mock_na_string };
+    var numbers = FakeSexp{ .kind = c.REALSXP, .length = 1, .reals = .{ 1, 0 } };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+
+    const flags = try convert.fromSexp([]const na.Logical, &ctx, raw(&logicals), "`x`");
+    try std.testing.expectEqual(na.Logical.TRUE, flags[0]);
+    try std.testing.expect(flags[1].isNa());
+    try std.testing.expectEqual(@intFromPtr(&logicals.integers[0]), @intFromPtr(flags.ptr));
+
+    const labels = try convert.fromSexp([]const ?[]const u8, &ctx, raw(&strings), "`x`");
+    try std.testing.expectEqualStrings("z", labels[0].?);
+    try std.testing.expect(labels[1] == null);
+
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp([]const na.Logical, &ctx, raw(&numbers), "`x`"));
+    try std.testing.expectEqualStrings("rzig: `x` must be a logical vector; got double", es.take());
+}
+
+test "optional strings accept NA and NULL as null" {
+    es.reset();
+    var na_string = FakeSexp{ .kind = c.STRSXP, .length = 1 };
+    na_string.strings = .{ &mock_na_string, null };
+    var na_logical = FakeSexp{ .kind = c.LGLSXP, .length = 1, .integers = .{ std.math.minInt(c_int), 0 } };
+    var text = FakeSexp{ .kind = c.CHARSXP, .length = 1, .text = "ok" };
+    var present = FakeSexp{ .kind = c.STRSXP, .length = 1 };
+    present.strings = .{ &text, null };
+    var number = FakeSexp{ .kind = c.REALSXP, .length = 1, .reals = .{ 1, 0 } };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+
+    try std.testing.expect((try convert.fromSexp(?[]const u8, &ctx, raw(&mock_nil), "`x`")) == null);
+    try std.testing.expect((try convert.fromSexp(?[]const u8, &ctx, raw(&na_string), "`x`")) == null);
+    try std.testing.expect((try convert.fromSexp(?[]const u8, &ctx, raw(&na_logical), "`x`")) == null);
+    try std.testing.expectEqualStrings("ok", (try convert.fromSexp(?[]const u8, &ctx, raw(&present), "`x`")).?);
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp(?[]const u8, &ctx, raw(&number), "`x`"));
+    try std.testing.expectEqualStrings("rzig: `x` must be a character vector of length 1; got double", es.take());
+}
+
+test "logical and character results can contain NA" {
+    resetOutputMock();
+    es.reset();
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+    var stack = protect.Stack.init();
+    defer stack.deinit();
+
+    const pair: []const na.Logical = &.{ .FALSE, .NA };
+    const logical_result = try convert.toSexp(&stack, &ctx, pair);
+    try std.testing.expectEqual(@as(c_int, c.LGLSXP), TYPEOF(logical_result));
+    try std.testing.expectEqualSlices(c_int, &.{ c.FALSE, std.math.minInt(c_int) }, &mutableFake(logical_result).integers);
+    stack.unwindAll();
+
+    const labels: []const ?[]const u8 = &.{ "a", null };
+    const string_result = try convert.toSexp(&stack, &ctx, labels);
+    const fake = mutableFake(string_result);
+    try std.testing.expectEqualStrings("a", std.mem.span(fake.strings[0].?.text.?));
+    try std.testing.expect(raw(fake.strings[1].?) == R_NaString);
+    stack.unwindAll();
+
+    resetOutputMock();
+    const invalid: []const ?[]const u8 = &.{ null, "\xff" };
+    try std.testing.expectError(es.Error.RZigError, convert.toSexp(&stack, &ctx, invalid));
+    try std.testing.expectEqualStrings("rzig: returned string at position 2 is not valid UTF-8", es.take());
+    try std.testing.expectEqual(@as(usize, 0), mock_object_count);
+}

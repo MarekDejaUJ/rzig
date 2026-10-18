@@ -69,6 +69,34 @@ interruptible_count <- function(iterations) {
 #' @param x A numeric vector.
 #' @return The elementwise squares.
 #' @export
+logical_tally <- function(values) {
+  .Call(C_logical_tally, values)
+}
+
+logical_not <- function(values) {
+  .Call(C_logical_not, values)
+}
+
+upper_or_na <- function(values) {
+  .Call(C_upper_or_na, values)
+}
+
+label_or_default <- function(label) {
+  .Call(C_label_or_default, label)
+}
+
+na_real <- function() {
+  .Call(C_na_real)
+}
+
+na_integer <- function() {
+  .Call(C_na_integer)
+}
+
+na_logical <- function() {
+  .Call(C_na_logical)
+}
+
 int_matrix_sum <- function(values) {
   .Call(C_int_matrix_sum, values)
 }

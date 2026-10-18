@@ -439,8 +439,11 @@ function. The complete input surface is:
 | `[]const f64` | double vector | borrowed, read-only |
 | `[]const i32` | integer vector | borrowed, read-only |
 | `[]const bool` | logical vector without `NA` | copied into the call arena |
+| `[]const rzig.Logical` | logical vector | borrowed, read-only; elements `.TRUE`, `.FALSE`, `.NA` |
 | `[]const u8` | one non-`NA` character value | copied as UTF-8 |
 | `[]const []const u8` | character vector without `NA` | copied as UTF-8 |
+| `[]const ?[]const u8` | character vector | copied as UTF-8; `NA` becomes `null` |
+| `?[]const u8` | one character value, `NA`, or `NULL` | copied as UTF-8; `NA` and `NULL` become `null` |
 | `rzig.Matrix` | double matrix | borrowed, read-only, column-major |
 | `rzig.IntMatrix` | integer matrix | borrowed, read-only, column-major; `NA` is `std.math.minInt(i32)` |
 | `rzig.BoolMatrix` | logical matrix without `NA` | copied into the call arena |
@@ -457,8 +460,10 @@ Supported return values are:
 | `[]const f64` / `[]f64` | double vector |
 | `[]const i32` / `[]i32` | integer vector |
 | `[]const bool` / `[]bool` | logical vector |
+| `[]const rzig.Logical` / `[]rzig.Logical` | logical vector that can contain `NA` |
 | `[]const u8` | length-one character vector |
 | `[]const []const u8` / `[][]const u8` | character vector |
+| `[]const ?[]const u8` / `[]?[]const u8` | character vector; `null` becomes `NA` |
 | `rzig.List` | named R list |
 | `rzig.Attributed(T)` | supported vector `T` with names, dimensions, dimnames, or classes |
 | `rzig.Sexp` | the supplied R object |

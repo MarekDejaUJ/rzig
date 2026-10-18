@@ -140,3 +140,15 @@ test_that("invalid export options are errors of the scan", {
   expect_error(scan("/// @default x 1 +", "/// @export", "pub fn f(x: f64) f64 {", "    return x;", "}"),
     "not one R expression")
 })
+
+test_that("parameter and return descriptions follow the type keys", {
+  describe <- rzig:::.rzig_describe_parameter
+  expect_identical(describe("[]const rzig.Logical"), "logical vector with NA, borrowed")
+  expect_identical(describe("rzig.Mut(rzig.Matrix)"), "double matrix, writable duplicate")
+  expect_identical(describe("[]const ?[]const u8"), "character vector with NA, copied")
+  expect_identical(describe("? f64"), "double, length 1, NA or NULL")
+  returns <- rzig:::.rzig_describe_return
+  expect_identical(returns("rzig.Error![]rzig.Logical"), "logical vector with NA")
+  expect_identical(returns("void", "rzig.Mut(rzig.IntMatrix)"), "the writable duplicate, an integer matrix")
+  expect_identical(returns("rzig.Error!rzig.Attributed([]f64)"), "double vector with names, dim or class attributes")
+})

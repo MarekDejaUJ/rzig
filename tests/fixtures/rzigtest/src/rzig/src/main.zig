@@ -318,6 +318,73 @@ pub fn simulate_interrupt(ctx: *rzig.Ctx) rzig.Error!void {
     return rzig.internal.interrupt.request();
 }
 
+/// Count the TRUE, FALSE and NA values of a logical vector.
+/// @export
+pub fn logical_tally(ctx: *rzig.Ctx, values: []const rzig.Logical) rzig.Error![]i32 {
+    const counts = try ctx.alloc(i32, 3);
+    @memset(counts, 0);
+    for (values) |value| {
+        if (value.isNa()) {
+            counts[2] += 1;
+        } else if (value.isTrue()) {
+            counts[0] += 1;
+        } else {
+            counts[1] += 1;
+        }
+    }
+    return counts;
+}
+
+/// Negate a logical vector, keeping NA.
+/// @export
+pub fn logical_not(ctx: *rzig.Ctx, values: []const rzig.Logical) rzig.Error![]rzig.Logical {
+    const result = try ctx.alloc(rzig.Logical, values.len);
+    for (values, result) |value, *slot| {
+        slot.* = if (value.isNa()) rzig.NA.logical else rzig.Logical.fromBool(!value.isTrue());
+    }
+    return result;
+}
+
+/// Upper-case the ASCII letters of each string, keeping NA.
+/// @export
+pub fn upper_or_na(ctx: *rzig.Ctx, values: []const ?[]const u8) rzig.Error![]?[]const u8 {
+    const result = try ctx.alloc(?[]const u8, values.len);
+    for (values, result) |value, *slot| {
+        const text = value orelse {
+            slot.* = null;
+            continue;
+        };
+        const copy = try ctx.dupe(u8, text);
+        for (copy) |*byte| byte.* = std.ascii.toUpper(byte.*);
+        slot.* = copy;
+    }
+    return result;
+}
+
+/// Return the label, or "(none)" when it is NA or NULL.
+/// @export
+pub fn label_or_default(label: ?[]const u8) []const u8 {
+    return label orelse "(none)";
+}
+
+/// R's missing double.
+/// @export
+pub fn na_real() f64 {
+    return rzig.NA.real;
+}
+
+/// R's missing integer.
+/// @export
+pub fn na_integer() i32 {
+    return rzig.NA.integer;
+}
+
+/// R's missing logical, as a vector of length 1.
+/// @export
+pub fn na_logical() []const rzig.Logical {
+    return &.{rzig.NA.logical};
+}
+
 /// Sum the entries of an integer matrix, column by column.
 /// @export
 pub fn int_matrix_sum(values: rzig.IntMatrix) rzig.Error!f64 {
