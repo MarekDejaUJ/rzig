@@ -548,6 +548,40 @@ the levels of a factor. All three are also return types: a record becomes a
 named list, a data frame gets compact row names, and a factor's codes are
 checked against its levels.
 
+## Values that live across calls
+
+`rzig.External(T)` keeps a Zig value between calls in an R object (an
+external pointer with the classes `c("T", "rzig_external")`). A function
+returns `rzig.External(T).create(ctx, value)`, and later calls receive the
+value through `.ptr` and may modify it; when R garbage-collects the object,
+`T.deinit()` runs (it must not call R) and the memory is released:
+
+```zig
+const Counter = struct {
+    count: i32 = 0,
+    pub fn deinit(self: *Counter) void {
+        _ = self;
+    }
+};
+
+/// @export
+pub fn counter(ctx: *rzig.Ctx) rzig.Error!rzig.External(Counter) {
+    return rzig.External(Counter).create(ctx, .{});
+}
+
+/// @export
+pub fn increment(c: rzig.External(Counter)) i32 {
+    c.ptr.count += 1;
+    return c.ptr.count;
+}
+```
+
+Memory that the value refers to must outlive the call: allocate it with
+`std.heap.c_allocator` and free it in `deinit`, not with the call
+context. An object of another type or package is rejected by its tag. A value
+saved with `saveRDS()` or in a workspace is lost, and using it is an error
+that asks to create it again.
+
 ## Reading R objects
 
 An `rzig.Sexp` parameter borrows any R object. Its read-only methods

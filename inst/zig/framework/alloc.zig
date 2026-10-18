@@ -17,18 +17,54 @@ const rng_api = @import("rng.zig");
 pub const Ctx = struct {
     arena: std.heap.ArenaAllocator,
     rng_active: bool,
+    externals: std.ArrayList(ExternalEntry),
 
     /// Create an empty context backed by Zig's C allocator.
     pub fn init() Ctx {
         return .{
             .arena = std.heap.ArenaAllocator.init(std.heap.c_allocator),
             .rng_active = false,
+            .externals = .empty,
         };
     }
 
-    /// Release every allocation owned by this context.
+    /// Release every allocation owned by this context, including the values of
+    /// `rzig.External` created during the call that no R object owns.
     pub fn deinit(self: *Ctx) void {
+        for (self.externals.items) |entry| {
+            if (entry.destroy) |destroy| destroy(entry.holder);
+        }
         self.arena.deinit();
+    }
+
+    /// Internal (rzig.External): the call owns `holder` until R does.
+    pub fn trackExternal(self: *Ctx, holder: *anyopaque, destroy: *const fn (*anyopaque) void) error{OutOfMemory}!void {
+        try self.externals.append(self.arena.allocator(), .{ .holder = holder, .destroy = destroy, .object = null });
+    }
+
+    /// Internal (rzig.External): hand `holder` to an R object; false when the
+    /// call does not own it.
+    pub fn releaseExternal(self: *Ctx, holder: *anyopaque) bool {
+        for (self.externals.items) |*entry| {
+            if (entry.holder == holder and entry.destroy != null) {
+                entry.destroy = null;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// Internal (rzig.External): remember the R object of an input value.
+    pub fn noteExternalInput(self: *Ctx, holder: *anyopaque, object: *anyopaque) error{OutOfMemory}!void {
+        try self.externals.append(self.arena.allocator(), .{ .holder = holder, .destroy = null, .object = object });
+    }
+
+    /// Internal (rzig.External): the R object an input value came from.
+    pub fn externalObject(self: *Ctx, holder: *anyopaque) ?*anyopaque {
+        for (self.externals.items) |entry| {
+            if (entry.holder == holder) return entry.object;
+        }
+        return null;
     }
 
     /// Return the arena allocator for advanced Zig-only operations.
@@ -76,6 +112,15 @@ pub const Ctx = struct {
         _ = self;
         return progress_api.Progress.init(total, show);
     }
+};
+
+/// A value of `rzig.External` that a call created or received.
+const ExternalEntry = struct {
+    holder: *anyopaque,
+    /// Set while the call owns the value; null once an R object owns it.
+    destroy: ?*const fn (*anyopaque) void,
+    /// The R object of an input value.
+    object: ?*anyopaque,
 };
 
 test "context serves multiple allocations from one arena" {

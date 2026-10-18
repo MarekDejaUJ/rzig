@@ -133,6 +133,18 @@ pub extern fn TYPEOF(x: SEXP) c_int;
 pub extern fn Rf_xlength(x: SEXP) R_xlen_t;
 /// Test whether an object is R's null singleton.
 pub extern fn Rf_isNull(x: SEXP) Rboolean;
+/// An external pointer to `p` with a tag and an object kept alive with it.
+pub extern fn R_MakeExternalPtr(p: ?*anyopaque, tag: SEXP, prot: SEXP) SEXP;
+/// The address of an external pointer; NULL after serialization.
+pub extern fn R_ExternalPtrAddr(s: SEXP) ?*anyopaque;
+/// The tag of an external pointer.
+pub extern fn R_ExternalPtrTag(s: SEXP) SEXP;
+/// Set the address of an external pointer to NULL.
+pub extern fn R_ClearExternalPtr(s: SEXP) void;
+/// A C finalizer.
+pub const R_CFinalizer_t = *const fn (SEXP) callconv(.c) void;
+/// Run `fun` when `s` is garbage collected, and at exit when `onexit`.
+pub extern fn R_RegisterCFinalizerEx(s: SEXP, fun: R_CFinalizer_t, onexit: Rboolean) void;
 /// Whether the object has a class attribute.
 pub extern fn Rf_isObject(x: SEXP) Rboolean;
 /// Whether the object is an S4 object.

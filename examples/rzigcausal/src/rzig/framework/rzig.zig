@@ -39,6 +39,8 @@ pub const Record = @import("record.zig").Record;
 pub const DataFrame = @import("record.zig").DataFrame;
 /// An R factor: codes and levels.
 pub const Factor = @import("record.zig").Factor;
+/// A Zig value owned by an R object (an external pointer) across calls.
+pub const External = @import("external.zig").External;
 /// Borrowed R value with read-only methods (kind, length, attributes, names,
 /// classes, list elements, typed conversion with `get`).
 pub const Sexp = @import("sexp.zig").Sexp;

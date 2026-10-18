@@ -1,3 +1,15 @@
+# rzig 0.27.0
+
+## New features
+
+- `rzig.External(T)` keeps a Zig value in an R external pointer across
+  calls: `rzig.External(T).create(ctx, value)` returns a new one, inputs
+  give the value through `.ptr`, and R's garbage collector runs `deinit` and
+  releases the memory. The tag of the external pointer identifies the type
+  and the package, so other objects are rejected without reading their
+  memory; a value lost by saving and restoring is a clear error; a value
+  created in a call that fails is released by the call.
+
 # rzig 0.26.0
 
 ## New features

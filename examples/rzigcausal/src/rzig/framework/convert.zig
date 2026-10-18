@@ -8,6 +8,7 @@ const attributes = @import("attributes.zig");
 const compat = @import("compat.zig");
 const complex = @import("complex.zig");
 const record = @import("record.zig");
+const external = @import("external.zig");
 const c = @import("c/abi.zig");
 const es = @import("error_state.zig");
 const list = @import("list.zig");
@@ -121,6 +122,7 @@ pub fn fromSexp(
     if (comptime matrix.isMatrix(T)) return matrixFromSexp(T, ctx, x, name);
     if (comptime record.isRecord(T)) return recordFromSexp(T, ctx, x, name);
     if (comptime T == record.Factor) return factorFromSexp(ctx, x, name);
+    if (comptime external.isExternal(T)) return externalFromSexp(T, ctx, x, name);
     if (comptime T == sexp.Sexp) return sexp.fromRaw(x);
 
     return switch (@typeInfo(T)) {
@@ -304,6 +306,25 @@ fn stringSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const
         slot.* = try ctx.dupe(u8, std.mem.span(translated));
     }
     return result;
+}
+
+/// The value of an external pointer made by this library for the same type.
+fn externalFromSexp(comptime E: type, ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error!E {
+    const T = E.rzig_external_inner;
+    const class = comptime external.shortName(T);
+    if (c.TYPEOF(x) != c.EXTPTRSXP or c.R_ExternalPtrTag(x) != external.Holder(T).tag()) {
+        return es.raise(
+            "rzig: {s} must be a " ++ class ++ " made by this package; got {s}",
+            .{ name, typeName(x) },
+        );
+    }
+    const address = c.R_ExternalPtrAddr(x) orelse return es.raise(
+        "rzig: {s} is a " ++ class ++ " whose Zig value was lost when R saved and restored it; create it again",
+        .{name},
+    );
+    const holder: *external.Holder(T) = @ptrCast(@alignCast(address));
+    ctx.noteExternalInput(holder, @ptrCast(x)) catch return es.raise("rzig: out of memory reading {s}", .{name});
+    return .{ .ptr = &holder.value };
 }
 
 /// A named list or data frame read into the fields of a struct.
@@ -793,6 +814,7 @@ fn isSupportedInput(comptime T: type) bool {
     if (isSupportedMutableInput(T)) return true;
     if (record.isRecord(T)) return isSupportedRecordInput(T);
     if (T == record.Factor) return true;
+    if (isSupportedExternal(T)) return true;
     if (isScalar(T) or
         T == []const f64 or
         T == []const i32 or
@@ -818,6 +840,10 @@ fn isSupportedInput(comptime T: type) bool {
             (@typeInfo(info.child) != .optional and !isMutableInput(info.child) and isSupportedInput(info.child)),
         else => false,
     };
+}
+
+fn isSupportedExternal(comptime T: type) bool {
+    return external.isExternal(T);
 }
 
 fn isSupportedRecordInput(comptime T: type) bool {
@@ -861,6 +887,7 @@ fn isSupportedReturn(comptime T: type) bool {
     if (isSupportedAttributedReturn(T)) return true;
     if (record.isRecord(T)) return isSupportedRecordReturn(T);
     if (T == record.Factor) return true;
+    if (isSupportedExternal(T)) return true;
     if (T == void or
         T == f64 or
         T == i32 or
@@ -1013,6 +1040,7 @@ pub fn toSexp(
     if (comptime T == list.List) return listToSexp(stack, ctx, value);
     if (comptime record.isRecord(T)) return recordToSexp(stack, ctx, value);
     if (comptime T == record.Factor) return factorToSexp(stack, ctx, value);
+    if (comptime external.isExternal(T)) return externalToSexp(stack, ctx, value);
     if (comptime T == sexp.Sexp) return stack.push(sexp.toRaw(value));
 
     return switch (@typeInfo(T)) {
@@ -1332,6 +1360,35 @@ fn recordToSexp(stack: *protect.Stack, ctx: *Ctx, value: anytype) es.Error!c.SEX
         _ = c.Rf_setAttrib(result, row_names_symbol.?, row_names);
         stack.pop(1);
     }
+    return result;
+}
+
+/// The R object for a value of `rzig.External`: a new external pointer for a
+/// value created in this call, or the object an input value came from.
+fn externalToSexp(stack: *protect.Stack, ctx: *Ctx, value: anytype) es.Error!c.SEXP {
+    const T = @TypeOf(value).rzig_external_inner;
+    const Holder = external.Holder(T);
+    const class_name = comptime external.shortName(T);
+    const holder: *Holder = @fieldParentPtr("value", value.ptr);
+    if (ctx.externalObject(holder)) |object| return stack.push(@ptrCast(object));
+
+    // Symbols first: installing one can allocate.
+    const tag = Holder.tag();
+    const result = stack.push(c.R_MakeExternalPtr(holder, tag, c.R_NilValue));
+    c.R_RegisterCFinalizerEx(result, Holder.finalize, c.TRUE);
+    if (!ctx.releaseExternal(holder)) {
+        // Not created by this call and not one of its inputs: R must not own it.
+        c.R_ClearExternalPtr(result);
+        return es.raise(
+            "rzig: a " ++ class_name ++ " can be returned only by the call that created it or received it",
+            .{},
+        );
+    }
+    const class = stack.push(c.Rf_allocVector(c.STRSXP, 2));
+    c.SET_STRING_ELT(class, 0, c.Rf_mkCharLenCE(class_name.ptr, @intCast(class_name.len), c.CE_UTF8));
+    c.SET_STRING_ELT(class, 1, c.Rf_mkCharLenCE("rzig_external", 13, c.CE_UTF8));
+    _ = c.Rf_setAttrib(result, c.R_ClassSymbol, class);
+    stack.pop(1);
     return result;
 }
 

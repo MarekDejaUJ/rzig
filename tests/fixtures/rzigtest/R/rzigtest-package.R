@@ -85,6 +85,30 @@ sexp_element_kinds <- function(value) {
   .Call(C_sexp_element_kinds, value)
 }
 
+counter_new <- function(step) {
+  .Call(C_counter_new, step)
+}
+
+counter_add <- function(counter) {
+  .Call(C_counter_add, counter)
+}
+
+counter_same <- function(counter) {
+  .Call(C_counter_same, counter)
+}
+
+counters_released_count <- function() {
+  .Call(C_counters_released_count)
+}
+
+counter_fail_after_create <- function() {
+  .Call(C_counter_fail_after_create)
+}
+
+other_new <- function() {
+  .Call(C_other_new)
+}
+
 record_options <- function(options) {
   .Call(C_record_options, options)
 }

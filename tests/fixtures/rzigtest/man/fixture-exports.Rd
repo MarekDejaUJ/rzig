@@ -33,6 +33,12 @@
 \alias{sexp_sum_entry}
 \alias{sexp_attribute_length}
 \alias{sexp_element_kinds}
+\alias{counter_new}
+\alias{counter_add}
+\alias{counter_same}
+\alias{counters_released_count}
+\alias{counter_fail_after_create}
+\alias{other_new}
 \title{Fixture Functions for the Types and Services of the Boundary}
 \usage{
 parallel_thread_count(count)
@@ -68,6 +74,12 @@ sexp_describe(value)
 sexp_sum_entry(value, name)
 sexp_attribute_length(value, name)
 sexp_element_kinds(value)
+counter_new(step)
+counter_add(counter)
+counter_same(counter)
+counters_released_count()
+counter_fail_after_create()
+other_new()
 }
 \arguments{
 \item{count}{A non-negative count.}
@@ -87,6 +99,7 @@ sexp_element_kinds(value)
 \item{options}{A named list of fitting options.}
 \item{data}{A data frame with columns \code{value} and \code{group}.}
 \item{name}{The name of a list entry or an attribute.}
+\item{counter}{A counter made by \code{counter_new()}.}
 }
 \value{
 The value each function computes; the tests of the package describe them.

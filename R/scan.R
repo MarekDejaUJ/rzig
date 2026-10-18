@@ -651,6 +651,7 @@ print.rzig_exports <- function(x, ...) {
   if (key %in% names(scalar)) return(scalar[[key]])
   if (grepl("^Record\\(", key, useBytes = TRUE)) return("named list, read into a struct")
   if (grepl("^DataFrame\\(", key, useBytes = TRUE)) return("data frame, read into a struct of columns")
+  if (grepl("^External\\(", key, useBytes = TRUE)) return("external pointer to a Zig value of this package")
   if (grepl("^\\?", key, useBytes = TRUE) && substring(key, 2L) %in% names(scalar)) {
     return(paste0(scalar[[substring(key, 2L)]], ", NA or NULL"))
   }
@@ -691,6 +692,7 @@ print.rzig_exports <- function(x, ...) {
   }
   if (grepl("^Record\\(", key, useBytes = TRUE)) return("named list built from a struct")
   if (grepl("^DataFrame\\(", key, useBytes = TRUE)) return("data frame built from a struct of columns")
+  if (grepl("^External\\(", key, useBytes = TRUE)) return("external pointer that owns a Zig value")
   attributed <- regmatches(key, regexec("^Attributed\\((.*)\\)$", key))[[1L]]
   if (length(attributed) == 2L) {
     inner <- .rzig_describe_return(attributed[[2L]])

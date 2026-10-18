@@ -358,6 +358,61 @@ pub fn sexp_element_kinds(ctx: *rzig.Ctx, value: rzig.Sexp) rzig.Error![]const [
     return result;
 }
 
+var counters_released: i32 = 0;
+
+const Counter = struct {
+    count: i32,
+    step: i32,
+
+    pub fn deinit(self: *Counter) void {
+        _ = self;
+        counters_released += 1;
+    }
+};
+
+const Other = struct {
+    value: f64,
+};
+
+/// A counter that keeps its count between calls.
+/// @export
+pub fn counter_new(ctx: *rzig.Ctx, step: i32) rzig.Error!rzig.External(Counter) {
+    return rzig.External(Counter).create(ctx, .{ .count = 0, .step = step });
+}
+
+/// Add the step of a counter to its count and return the count.
+/// @export
+pub fn counter_add(counter: rzig.External(Counter)) rzig.Error!i32 {
+    counter.ptr.count = std.math.add(i32, counter.ptr.count, counter.ptr.step) catch
+        return rzig.raise("counter overflow", .{});
+    return counter.ptr.count;
+}
+
+/// Return the counter it receives.
+/// @export
+pub fn counter_same(counter: rzig.External(Counter)) rzig.External(Counter) {
+    return counter;
+}
+
+/// The number of counters whose deinit has run.
+/// @export
+pub fn counters_released_count() i32 {
+    return counters_released;
+}
+
+/// Create a counter and then fail; the call releases the counter.
+/// @export
+pub fn counter_fail_after_create(ctx: *rzig.Ctx) rzig.Error!rzig.External(Counter) {
+    _ = try rzig.External(Counter).create(ctx, .{ .count = 0, .step = 1 });
+    return rzig.raise("failed after creating a counter", .{});
+}
+
+/// A value of another type, for type checks.
+/// @export
+pub fn other_new(ctx: *rzig.Ctx) rzig.Error!rzig.External(Other) {
+    return rzig.External(Other).create(ctx, .{ .value = 1.5 });
+}
+
 const FitOptions = struct {
     tolerance: f64 = 1e-8,
     @"max.iter": i32 = 100,

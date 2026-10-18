@@ -40,7 +40,7 @@
     paste0(
       "^(f(16|32|64|80|128)|[iu][0-9]+|isize|usize|bool|void|anyopaque|",
       "anyerror|noreturn|type|anytype|comptime_int|comptime_float|const|",
-      "c_[a-z]+|Matrix|IntMatrix|BoolMatrix|Logical|Complex|Raw|Record|DataFrame|Factor|Mut|Sexp|List|",
+      "c_[a-z]+|Matrix|IntMatrix|BoolMatrix|Logical|Complex|Raw|Record|DataFrame|Factor|External|Mut|Sexp|List|",
       "Attributed|Error|Ctx)$"
     ),
     identifier
@@ -52,7 +52,7 @@
 .rzig_classify <- function(key, supported) {
   if (key %in% supported) return("supported")
   # The fields of a record are checked by the compiler, which knows the struct.
-  if (grepl("^(Record|DataFrame)\\(.+\\)$", key)) return("supported")
+  if (grepl("^(Record|DataFrame|External)\\(.+\\)$", key)) return("supported")
   spaced <- gsub("const", " const ", key, fixed = TRUE)
   identifiers <- regmatches(spaced, gregexpr("[A-Za-z_][A-Za-z0-9_]*", spaced))[[1L]]
   if (length(identifiers) && !all(.rzig_known_identifier(identifiers))) return("local")

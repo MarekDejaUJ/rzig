@@ -213,6 +213,42 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{"value"},
             },
             .{
+                .name = "counter_new",
+                .func = bound_root.counter_new,
+                .doc = "A counter that keeps its count between calls.",
+                .parameters = .{"step"},
+            },
+            .{
+                .name = "counter_add",
+                .func = bound_root.counter_add,
+                .doc = "Add the step of a counter to its count and return the count.",
+                .parameters = .{"counter"},
+            },
+            .{
+                .name = "counter_same",
+                .func = bound_root.counter_same,
+                .doc = "Return the counter it receives.",
+                .parameters = .{"counter"},
+            },
+            .{
+                .name = "counters_released_count",
+                .func = bound_root.counters_released_count,
+                .doc = "The number of counters whose deinit has run.",
+                .parameters = .{},
+            },
+            .{
+                .name = "counter_fail_after_create",
+                .func = bound_root.counter_fail_after_create,
+                .doc = "Create a counter and then fail; the call releases the counter.",
+                .parameters = .{},
+            },
+            .{
+                .name = "other_new",
+                .func = bound_root.other_new,
+                .doc = "A value of another type, for type checks.",
+                .parameters = .{},
+            },
+            .{
                 .name = "record_options",
                 .func = bound_root.record_options,
                 .doc = "Return the options with their defaults filled in.",
