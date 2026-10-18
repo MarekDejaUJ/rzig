@@ -1,3 +1,13 @@
+# rzig 0.42.3
+
+## Bug fixes
+
+- `rzig.parallelFor()` and `rzig.parallelReduce()` return as soon as their
+  worker threads finish. The calling thread waits on a condition variable
+  that each worker signals when it ends, with a timeout of 10 ms for the
+  interrupt check; it no longer sleeps in growing steps, which delayed every
+  short loop by the remaining sleep (on Windows by at least one timer tick).
+
 # rzig 0.42.2
 
 ## Bug fixes

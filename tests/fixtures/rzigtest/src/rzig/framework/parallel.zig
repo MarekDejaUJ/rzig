@@ -87,10 +87,10 @@ fn RunnerType(comptime Context: type, comptime body: anytype) type {
         count: usize,
         context: Context,
         cancel: std.atomic.Value(bool) = .init(false),
-        finished: std.atomic.Value(usize) = .init(0),
+        completion: thread_identity.Completion = .{},
 
         fn run(self: *@This()) void {
-            defer _ = self.finished.fetchAdd(1, .release);
+            defer self.completion.finish();
             while (!self.cancel.load(.monotonic) and panic.workerPanicked() == null) {
                 const index = self.next.fetchAdd(1, .monotonic);
                 if (index >= self.count) return;
@@ -101,9 +101,10 @@ fn RunnerType(comptime Context: type, comptime body: anytype) type {
 }
 
 /// Run `body(context, index)` for every index in `[0, count)` on worker
-/// threads. The calling thread waits, checks for a user interrupt between
-/// short pauses (and then lets the workers stop after their current index),
-/// and turns a panic of a worker into an R error.
+/// threads. The calling thread waits until the workers finish, checks for a
+/// user interrupt at least every `interrupt_probe_ms` milliseconds (and then
+/// lets the workers stop after their current index), and turns a panic of a
+/// worker into an R error.
 fn runIndexed(ctx: *Ctx, count: usize, context: anytype, comptime body: anytype) es.Error!void {
     if (count == 0) return;
     if (count == std.math.maxInt(usize)) {
@@ -137,11 +138,11 @@ fn runIndexed(ctx: *Ctx, count: usize, context: anytype, comptime body: anytype)
         };
     }
     var interrupted = false;
-    var wait: u32 = 50;
-    // A worker that panicked ends without counting itself as finished.
-    while (runner.finished.load(.acquire) + panic.workerExits() < spawned) {
-        thread_identity.pause(wait);
-        wait = @min(wait * 2, 20_000);
+    while (true) {
+        // A worker that panicked ends without counting itself as finished, so
+        // the wait for it ends at the timeout.
+        const finished = runner.completion.wait(spawned -| panic.workerExits(), interrupt_probe_ms);
+        if (finished + panic.workerExits() >= spawned) break;
         if (!interrupted) {
             interrupt.checkInterrupt() catch {
                 interrupted = true;
@@ -155,6 +156,10 @@ fn runIndexed(ctx: *Ctx, count: usize, context: anytype, comptime body: anytype)
     }
     if (interrupted) return es.Error.RZigError;
 }
+
+/// The longest time the calling thread waits for worker threads without
+/// checking for a user interrupt.
+const interrupt_probe_ms: u32 = 10;
 
 /// The number of worker threads `parallelFor` uses for `count` indices: one per
 /// core, at most 32 and at most `count`. The environment variable
