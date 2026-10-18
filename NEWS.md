@@ -1,3 +1,11 @@
+# rzig 0.16.1
+
+## Repository checks
+
+- The SIGINT integration check creates its readiness marker inside the
+  `tryCatch()` that handles the interrupt, so a signal that arrives before
+  the Zig loop starts is still caught on a busy machine.
+
 # rzig 0.16.0
 
 ## New features

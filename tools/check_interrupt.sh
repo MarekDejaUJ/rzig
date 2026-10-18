@@ -1,9 +1,10 @@
 #!/bin/sh
 # POSIX integration check: deliver a real SIGINT while Zig is polling, then
 # assert that R catches an interrupt condition and remains usable. R creates a
-# marker file just before it enters the interruptible loop, and the signal is
-# sent only after the marker appears, so a slow start of R cannot make the
-# signal arrive before the loop.
+# marker file inside the tryCatch() just before it enters the interruptible
+# loop, and the signal is sent only after the marker appears, so neither a
+# slow start of R nor a busy machine can make the signal arrive outside the
+# handler.
 set -eu
 
 ready=$(mktemp "${TMPDIR:-/tmp}/rzig-interrupt.XXXXXX")
@@ -26,9 +27,11 @@ r_process_id=$$
 exec Rscript -e '
 library(rzigtest)
 caught <- FALSE
-file.create(Sys.getenv("RZIG_INTERRUPT_READY"))
 condition <- tryCatch(
-  interruptible_count(2147483647L),
+  {
+    file.create(Sys.getenv("RZIG_INTERRUPT_READY"))
+    interruptible_count(2147483647L)
+  },
   interrupt = function(value) {
     caught <<- TRUE
     value
