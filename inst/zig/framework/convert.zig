@@ -297,8 +297,27 @@ fn stringScalar(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]cons
 
     const mark = c.vmaxget();
     defer c.vmaxset(mark);
-    const translated = c.Rf_translateCharUTF8(element);
-    return ctx.dupe(u8, std.mem.span(translated));
+    return ctx.dupe(u8, try utf8Element(element, name));
+}
+
+/// The UTF-8 text of the CHARSXP `element` of `name`, in R's temporary storage.
+/// R cannot translate a string in the "bytes" encoding and signals an R error
+/// for one, so such a string is rejected before the translation.
+fn utf8Element(element: c.SEXP, comptime name: []const u8) es.Error![]const u8 {
+    if (c.Rf_getCharCE(element) == c.CE_BYTES) {
+        return es.raise(
+            "rzig: {s} contains a string in the \"bytes\" encoding, which cannot be translated to UTF-8",
+            .{name},
+        );
+    }
+    return std.mem.span(c.Rf_translateCharUTF8(element));
+}
+
+/// The text of a list or column name for matching and messages: UTF-8, or the
+/// stored bytes of a name in the "bytes" encoding, which R cannot translate.
+pub fn nameText(element: c.SEXP) []const u8 {
+    if (c.Rf_getCharCE(element) == c.CE_BYTES) return std.mem.span(c.R_CHAR(element));
+    return std.mem.span(c.Rf_translateCharUTF8(element));
 }
 
 fn stringSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const []const u8 {
@@ -323,8 +342,7 @@ fn stringSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const
     const result = try ctx.alloc([]const u8, length);
     for (result, 0..) |*slot, index| {
         const element = c.STRING_ELT(x, @intCast(index));
-        const translated = c.Rf_translateCharUTF8(element);
-        slot.* = try ctx.dupe(u8, std.mem.span(translated));
+        slot.* = try ctx.dupe(u8, try utf8Element(element, name));
     }
     return result;
 }
@@ -439,7 +457,7 @@ fn findEntry(names: c.SEXP, length: usize, comptime field_name: []const u8) es.E
     for (0..length) |index| {
         const element = c.STRING_ELT(names, @intCast(index));
         if (element == c.R_NaString) continue;
-        if (std.mem.eql(u8, std.mem.span(c.Rf_translateCharUTF8(element)), field_name)) return index;
+        if (std.mem.eql(u8, nameText(element), field_name)) return index;
     }
     return null;
 }
@@ -455,7 +473,12 @@ fn warnUnknownEntries(
     defer c.vmaxset(mark);
     for (0..length) |index| {
         const element = c.STRING_ELT(names, @intCast(index));
-        const text = if (element == c.R_NaString) "NA" else std.mem.span(c.Rf_translateCharUTF8(element));
+        const text = if (element == c.R_NaString)
+            "NA"
+        else if (c.Rf_getCharCE(element) == c.CE_BYTES)
+            "(a name in the \"bytes\" encoding)"
+        else
+            nameText(element);
         var known = false;
         inline for (field_names) |field_name| {
             if (std.mem.eql(u8, text, field_name)) known = true;
@@ -593,7 +616,7 @@ fn stringNaSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]con
         slot.* = if (element == c.R_NaString)
             null
         else
-            try ctx.dupe(u8, std.mem.span(c.Rf_translateCharUTF8(element)));
+            try ctx.dupe(u8, try utf8Element(element, name));
     }
     return result;
 }

@@ -143,6 +143,16 @@ export fn Rf_translateCharUTF8(value: c.SEXP) [*:0]const u8 {
     return fake.text.?;
 }
 
+export fn Rf_getCharCE(value: c.SEXP) c_uint {
+    _ = value;
+    return c.CE_UTF8;
+}
+
+export fn R_CHAR(value: c.SEXP) [*:0]const u8 {
+    const fake: *const FakeSexp = @ptrCast(@alignCast(value));
+    return fake.text.?;
+}
+
 export fn vmaxget() ?*anyopaque {
     vmax_get_count += 1;
     return @ptrFromInt(1);

@@ -366,11 +366,14 @@ test_that("S4 objects and classed vectors follow the type of their data", {
   expect_identical(echo_i32(11L), 11L)
 })
 
-test_that("byte-encoded strings fail safely if R cannot translate them", {
+test_that("byte-encoded strings fail with an error naming the argument", {
   bytes <- rawToChar(as.raw(255L))
   Encoding(bytes) <- "bytes"
   condition <- tryCatch(echo_string(bytes), error = identity)
   expect_s3_class(condition, "error")
+  expect_match(conditionMessage(condition), "argument `value` of echo_string", fixed = TRUE)
+  expect_match(conditionMessage(condition), "\"bytes\" encoding", fixed = TRUE)
+  expect_error(echo_strings(c("a", bytes)), "\"bytes\" encoding", fixed = TRUE)
   expect_identical(echo_i32(11L), 11L)
 })
 

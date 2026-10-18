@@ -1,3 +1,14 @@
+# rzig 0.42.4
+
+## Bug fixes
+
+- A string in the "bytes" encoding, which R cannot translate to UTF-8, gives
+  an rzig error naming the argument instead of R's translation error. The
+  read methods of `rzig.Sexp` reject such strings with an rzig error as well
+  and match list names in the "bytes" encoding by their bytes, so no R error
+  leaves an exported function past its `defer` statements; unknown entries of
+  a named list warn without printing the untranslatable bytes.
+
 # rzig 0.42.3
 
 ## Bug fixes

@@ -22,3 +22,13 @@ test_that("rzig.Sexp walks lists and converts entries with get()", {
   expect_identical(sexp_element_kinds(values), c("double", "character", "list"))
   expect_identical(sexp_element_kinds(1:3), c("none", "none", "none"))
 })
+
+test_that("rzig.Sexp matches byte-encoded names and rejects byte-encoded strings", {
+  bytes <- rawToChar(as.raw(255L))
+  Encoding(bytes) <- "bytes"
+  values <- list(1, c(2, 3))
+  names(values) <- c(bytes, "x")
+  expect_identical(sexp_sum_entry(values, "x"), 5)
+  expect_error(sexp_describe(values), "\"bytes\" encoding", fixed = TRUE)
+  expect_identical(sexp_sum_entry(list(x = 4), "x"), 4)
+})

@@ -190,8 +190,13 @@ pub extern fn STRING_ELT(x: SEXP, i: R_xlen_t) SEXP;
 pub extern fn SET_STRING_ELT(x: SEXP, i: R_xlen_t, value: SEXP) void;
 /// Allocate a CHARSXP from an explicitly sized encoded byte sequence.
 pub extern fn Rf_mkCharLenCE(bytes: [*]const u8, len: c_int, encoding: c_uint) SEXP;
-/// Translate a CHARSXP to temporary UTF-8 storage; may allocate and longjmp.
+/// Translate a CHARSXP to temporary UTF-8 storage; may allocate and longjmp,
+/// and signals an R error for a string in the "bytes" encoding.
 pub extern fn Rf_translateCharUTF8(x: SEXP) [*:0]const u8;
+/// The declared encoding of a CHARSXP (CE_NATIVE, CE_UTF8, CE_LATIN1, CE_BYTES).
+pub extern fn Rf_getCharCE(x: SEXP) c_uint;
+/// The bytes of a CHARSXP as stored, without translation.
+pub extern fn R_CHAR(x: SEXP) [*:0]const u8;
 
 /// Read one element from a generic vector.
 pub extern fn VECTOR_ELT(x: SEXP, i: R_xlen_t) SEXP;

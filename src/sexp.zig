@@ -102,7 +102,7 @@ const OpaqueSexp = opaque {
         for (0..count) |index| {
             const entry = c.STRING_ELT(toRaw(list_names), @intCast(index));
             if (entry == c.R_NaString) continue;
-            if (std.mem.eql(u8, std.mem.span(c.Rf_translateCharUTF8(entry)), name)) {
+            if (std.mem.eql(u8, entryText(entry), name)) {
                 return fromRaw(c.VECTOR_ELT(toRaw(self), @intCast(index)));
             }
         }
@@ -160,6 +160,13 @@ fn cString(name: []const u8, buffer: *[name_capacity]u8) ?[*:0]const u8 {
     return buffer[0..name.len :0].ptr;
 }
 
+/// The text of a name: UTF-8, or the stored bytes of a name in the "bytes"
+/// encoding, which R cannot translate (and signals an R error for).
+fn entryText(entry: c.SEXP) []const u8 {
+    if (c.Rf_getCharCE(entry) == c.CE_BYTES) return std.mem.span(c.R_CHAR(entry));
+    return std.mem.span(c.Rf_translateCharUTF8(entry));
+}
+
 fn copyStrings(ctx: *Ctx, value: Sexp) es.Error![]const ?[]const u8 {
     const count = xlength(value) orelse 0;
     const mark = c.vmaxget();
@@ -167,6 +174,12 @@ fn copyStrings(ctx: *Ctx, value: Sexp) es.Error![]const ?[]const u8 {
     const result = try ctx.alloc(?[]const u8, count);
     for (result, 0..) |*slot, index| {
         const entry = c.STRING_ELT(toRaw(value), @intCast(index));
+        if (entry != c.R_NaString and c.Rf_getCharCE(entry) == c.CE_BYTES) {
+            return es.raise(
+                "rzig: the character vector contains a string in the \"bytes\" encoding, which cannot be translated to UTF-8",
+                .{},
+            );
+        }
         slot.* = if (entry == c.R_NaString) null else try ctx.dupe(u8, std.mem.span(c.Rf_translateCharUTF8(entry)));
     }
     return result;

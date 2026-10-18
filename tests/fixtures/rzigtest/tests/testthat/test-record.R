@@ -6,6 +6,12 @@ test_that("named lists are read into structs with defaults", {
   expect_identical(full$max.iter, 7L)
   expect_identical(full$weights, c(1, 2))
   expect_warning(record_options(list(tolerance = 1, maxiter = 3L)), "unknown entry `maxiter`")
+  bytes <- rawToChar(as.raw(255L))
+  Encoding(bytes) <- "bytes"
+  named_in_bytes <- list(3L, 0.5)
+  names(named_in_bytes) <- c(bytes, "tolerance")
+  expect_warning(read_bytes <- record_options(named_in_bytes), "name in the \"bytes\" encoding", fixed = TRUE)
+  expect_identical(read_bytes$tolerance, 0.5)
   expect_identical(record_options(list()), record_options(list(tolerance = 1e-8)))
   expect_error(record_options(list(tolerance = "a")), "entry `tolerance`")
   expect_error(record_options(1), "named list")
