@@ -81,6 +81,11 @@ pub const FUNSXP: SEXPTYPE = 99;
 
 /// Missing integer sentinel, guaranteed by R to be `INT_MIN`.
 pub const NA_INTEGER: c_int = std.math.minInt(c_int);
+/// R's complex element: real and imaginary parts.
+pub const Rcomplex = extern struct {
+    r: f64,
+    i: f64,
+};
 /// Missing logical sentinel, identical to `NA_INTEGER`.
 pub const NA_LOGICAL: c_int = std.math.minInt(c_int);
 
@@ -148,6 +153,12 @@ pub extern fn INTEGER_ELT(x: SEXP, i: R_xlen_t) c_int;
 /// Read one logical element, including from ALTREP vectors.
 pub extern fn LOGICAL_ELT(x: SEXP, i: R_xlen_t) c_int;
 /// Copy a region of a double vector into caller-owned storage.
+/// Read-only pointer to the elements of a CPLXSXP.
+pub extern fn COMPLEX_RO(x: SEXP) [*]const Rcomplex;
+/// Writable pointer to the elements of a CPLXSXP.
+pub extern fn COMPLEX(x: SEXP) [*]Rcomplex;
+/// Writable pointer to the bytes of a RAWSXP.
+pub extern fn RAW(x: SEXP) [*]u8;
 pub extern fn REAL_GET_REGION(x: SEXP, i: R_xlen_t, n: R_xlen_t, buf: [*]f64) R_xlen_t;
 
 /// Obtain writable double-vector storage; may materialize ALTREP data.

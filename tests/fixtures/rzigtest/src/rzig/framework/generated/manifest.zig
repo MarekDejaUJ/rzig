@@ -189,6 +189,30 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{},
             },
             .{
+                .name = "complex_modulus",
+                .func = bound_root.complex_modulus,
+                .doc = "The modulus of each element of a complex vector.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "complex_conjugate",
+                .func = bound_root.complex_conjugate,
+                .doc = "The complex conjugate of each element.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "complex_product",
+                .func = bound_root.complex_product,
+                .doc = "Multiply two complex scalars.",
+                .parameters = .{ "a", "b" },
+            },
+            .{
+                .name = "raw_xor",
+                .func = bound_root.raw_xor,
+                .doc = "XOR every byte of a raw vector with `key`.",
+                .parameters = .{ "bytes", "key" },
+            },
+            .{
                 .name = "logical_tally",
                 .func = bound_root.logical_tally,
                 .doc = "Count the TRUE, FALSE and NA values of a logical vector.",

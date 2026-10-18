@@ -2,6 +2,7 @@
 
 const std = @import("std");
 const attributes = @import("attributes.zig");
+const complex = @import("complex.zig");
 const c = @import("c/abi.zig");
 const convert = @import("convert.zig");
 const es = @import("error_state.zig");
@@ -24,6 +25,8 @@ const FakeSexp = extern struct {
     class: ?*FakeSexp = null,
     text: ?[*:0]const u8 = null,
     dimnames: ?*FakeSexp = null,
+    complexes: [2]c.Rcomplex = .{ .{ .r = 0, .i = 0 }, .{ .r = 0, .i = 0 } },
+    bytes: [4]u8 = .{ 0, 0, 0, 0 },
 };
 
 const mock_na_real: f64 = @bitCast(@as(u64, 0x7ff8_0000_0000_07a2));
@@ -150,6 +153,8 @@ export fn Rf_duplicate(value: c.SEXP) c.SEXP {
     result.class = source.class;
     result.text = source.text;
     result.dimnames = source.dimnames;
+    result.complexes = source.complexes;
+    result.bytes = source.bytes;
     return raw(result);
 }
 
@@ -163,6 +168,22 @@ export fn Rf_unprotect(count: c_int) void {
     const amount: usize = @intCast(count);
     std.debug.assert(amount <= mock_protect_count);
     mock_protect_count -= amount;
+}
+
+export fn COMPLEX_RO(value: c.SEXP) [*]const c.Rcomplex {
+    return &mutableFake(value).complexes;
+}
+
+export fn COMPLEX(value: c.SEXP) [*]c.Rcomplex {
+    return &mutableFake(value).complexes;
+}
+
+export fn RAW_RO(value: c.SEXP) [*]const u8 {
+    return &mutableFake(value).bytes;
+}
+
+export fn RAW(value: c.SEXP) [*]u8 {
+    return &mutableFake(value).bytes;
 }
 
 export fn REAL(value: c.SEXP) [*]f64 {
@@ -243,6 +264,8 @@ export fn Rf_type2char(kind: c.SEXPTYPE) [*:0]const u8 {
         c.INTSXP => "integer",
         c.REALSXP => "double",
         c.STRSXP => "character",
+        c.CPLXSXP => "complex",
+        c.RAWSXP => "raw",
         else => "unknown",
     };
 }
@@ -1113,4 +1136,71 @@ test "logical and character results can contain NA" {
     try std.testing.expectError(es.Error.RZigError, convert.toSexp(&stack, &ctx, invalid));
     try std.testing.expectEqualStrings("rzig: returned string at position 2 is not valid UTF-8", es.take());
     try std.testing.expectEqual(@as(usize, 0), mock_object_count);
+}
+
+test "complex scalars and vectors are read in R's layout" {
+    es.reset();
+    var values = FakeSexp{ .kind = c.CPLXSXP, .length = 2 };
+    values.complexes = .{ .{ .r = 1, .i = -2 }, .{ .r = 3, .i = 4 } };
+    var one = FakeSexp{ .kind = c.CPLXSXP, .length = 1 };
+    one.complexes = .{ .{ .r = 0.5, .i = 1.5 }, .{ .r = 0, .i = 0 } };
+    var real = FakeSexp{ .kind = c.REALSXP, .length = 1, .reals = .{ 2.5, 0 } };
+    var missing = FakeSexp{ .kind = c.REALSXP, .length = 1, .reals = .{ mock_na_real, 0 } };
+    var text = FakeSexp{ .kind = c.STRSXP, .length = 1 };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+
+    const slice = try convert.fromSexp([]const complex.Complex, &ctx, raw(&values), "`z`");
+    try std.testing.expectEqual(@as(usize, 2), slice.len);
+    try std.testing.expectEqual(@as(f64, -2), slice[0].im);
+    try std.testing.expectEqual(@as(f64, 3), slice[1].re);
+    try std.testing.expectEqual(@intFromPtr(&values.complexes[0]), @intFromPtr(slice.ptr));
+
+    const scalar = try convert.fromSexp(complex.Complex, &ctx, raw(&one), "`z`");
+    try std.testing.expectEqual(@as(f64, 1.5), scalar.im);
+    const promoted = try convert.fromSexp(complex.Complex, &ctx, raw(&real), "`z`");
+    try std.testing.expectEqual(@as(f64, 2.5), promoted.re);
+    try std.testing.expectEqual(@as(f64, 0), promoted.im);
+
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp(complex.Complex, &ctx, raw(&missing), "`z`"));
+    try std.testing.expectEqualStrings("rzig: `z` cannot be NA", es.take());
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp(complex.Complex, &ctx, raw(&values), "`z`"));
+    try std.testing.expectEqualStrings("rzig: `z` must have length 1; got length 2", es.take());
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp([]const complex.Complex, &ctx, raw(&real), "`z`"));
+    try std.testing.expectEqualStrings("rzig: `z` must be a complex vector; got double; use as.complex() in R", es.take());
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp(complex.Complex, &ctx, raw(&text), "`z`"));
+    try std.testing.expectEqualStrings(
+        "rzig: `z` must be a complex, double, or integer vector of length 1; got character",
+        es.take(),
+    );
+}
+
+test "raw vectors are borrowed and returned as raw" {
+    resetOutputMock();
+    es.reset();
+    var bytes = FakeSexp{ .kind = c.RAWSXP, .length = 3, .bytes = .{ 0x01, 0xfe, 0x7f, 0 } };
+    var text = FakeSexp{ .kind = c.STRSXP, .length = 1 };
+    var ctx = Ctx.init();
+    defer ctx.deinit();
+
+    const value = try convert.fromSexp(complex.Raw, &ctx, raw(&bytes), "`b`");
+    try std.testing.expectEqualSlices(u8, &.{ 0x01, 0xfe, 0x7f }, value.data);
+    try std.testing.expectEqual(@intFromPtr(&bytes.bytes[0]), @intFromPtr(value.data.ptr));
+    try std.testing.expectError(es.Error.RZigError, convert.fromSexp(complex.Raw, &ctx, raw(&text), "`b`"));
+    try std.testing.expectEqualStrings(
+        "rzig: `b` must be a raw vector; got character; use as.raw() or charToRaw() in R",
+        es.take(),
+    );
+
+    var stack = protect.Stack.init();
+    defer stack.deinit();
+    const returned = try convert.toSexp(&stack, &ctx, complex.Raw{ .data = &.{ 9, 8 } });
+    try std.testing.expectEqual(@as(c_int, c.RAWSXP), TYPEOF(returned));
+    try std.testing.expectEqualSlices(u8, &.{ 9, 8 }, mutableFake(returned).bytes[0..2]);
+    stack.unwindAll();
+
+    const scalar = try convert.toSexp(&stack, &ctx, complex.Complex{ .re = 1, .im = 2 });
+    try std.testing.expectEqual(@as(c_int, c.CPLXSXP), TYPEOF(scalar));
+    try std.testing.expectEqual(@as(f64, 2), mutableFake(scalar).complexes[0].i);
+    stack.unwindAll();
 }

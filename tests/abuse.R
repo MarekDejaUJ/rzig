@@ -408,3 +408,18 @@ test_that("hostile inputs to NA-keeping types fail cleanly", {
   for (case in cases) expect_error_live(case[[1L]], case[[2L]])
   expect_identical(logical_not(c(NA, TRUE)), c(NA, FALSE))
 })
+
+test_that("hostile complex and raw inputs fail cleanly", {
+  cases <- list(
+    list(function() complex_modulus(NULL), c("argument `values` of complex_modulus", "complex vector")),
+    list(function() complex_modulus(list(1i)), c("complex vector")),
+    list(function() complex_product("1i", 1i), c("complex, double, or integer")),
+    list(function() complex_product(c(1i, 2i), 1i), c("length 1")),
+    list(function() complex_product(complex(), 1i), c("length 1")),
+    list(function() raw_xor(NULL, 1L), c("raw vector")),
+    list(function() raw_xor(1:3, 1L), c("raw vector")),
+    list(function() raw_xor(as.raw(1), NA_integer_), c("cannot be NA"))
+  )
+  for (case in cases) expect_error_live(case[[1L]], case[[2L]])
+  expect_identical(complex_product(1i, 1i), -1+0i)
+})

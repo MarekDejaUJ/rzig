@@ -22,6 +22,7 @@ test {
     _ = @import("boundary.zig");
     _ = @import("c/check.zig");
     _ = @import("error_state.zig");
+    _ = @import("complex.zig");
     _ = @import("matrix.zig");
     _ = @import("na.zig");
     _ = @import("panic.zig");

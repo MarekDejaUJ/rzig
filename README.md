@@ -444,6 +444,9 @@ function. The complete input surface is:
 | `[]const []const u8` | character vector without `NA` | copied as UTF-8 |
 | `[]const ?[]const u8` | character vector | copied as UTF-8; `NA` becomes `null` |
 | `?[]const u8` | one character value, `NA`, or `NULL` | copied as UTF-8; `NA` and `NULL` become `null` |
+| `rzig.Complex` | length-one complex, double, or integer | checked scalar; `NA` errors |
+| `[]const rzig.Complex` | complex vector | borrowed, read-only, layout of `Rcomplex` |
+| `rzig.Raw` | raw vector | borrowed bytes in `.data` |
 | `rzig.Matrix` | double matrix | borrowed, read-only, column-major |
 | `rzig.IntMatrix` | integer matrix | borrowed, read-only, column-major; `NA` is `std.math.minInt(i32)` |
 | `rzig.BoolMatrix` | logical matrix without `NA` | copied into the call arena |
@@ -464,6 +467,9 @@ Supported return values are:
 | `[]const u8` | length-one character vector |
 | `[]const []const u8` / `[][]const u8` | character vector |
 | `[]const ?[]const u8` / `[]?[]const u8` | character vector; `null` becomes `NA` |
+| `rzig.Complex` | length-one complex vector |
+| `[]const rzig.Complex` / `[]rzig.Complex` | complex vector |
+| `rzig.Raw` | raw vector |
 | `rzig.List` | named R list |
 | `rzig.Attributed(T)` | supported vector `T` with names, dimensions, dimnames, or classes |
 | `rzig.Sexp` | the supplied R object |

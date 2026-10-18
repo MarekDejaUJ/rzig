@@ -69,6 +69,22 @@ interruptible_count <- function(iterations) {
 #' @param x A numeric vector.
 #' @return The elementwise squares.
 #' @export
+complex_modulus <- function(values) {
+  .Call(C_complex_modulus, values)
+}
+
+complex_conjugate <- function(values) {
+  .Call(C_complex_conjugate, values)
+}
+
+complex_product <- function(a, b) {
+  .Call(C_complex_product, a, b)
+}
+
+raw_xor <- function(bytes, key) {
+  .Call(C_raw_xor, bytes, key)
+}
+
 logical_tally <- function(values) {
   .Call(C_logical_tally, values)
 }

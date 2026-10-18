@@ -1,3 +1,23 @@
+# rzig 0.23.0
+
+## New features
+
+- `rzig.Complex` (fields `re`, `im`; the layout of R's `Rcomplex`) is a
+  complex scalar, and `[]const rzig.Complex` borrows a complex vector;
+  `toStd()` and `fromStd()` convert to and from `std.math.Complex(f64)` for
+  complex arithmetic. Both are also return types.
+- `rzig.Raw` holds the bytes of a raw vector in `.data`, borrowed as an
+  input and copied as a result; `[]const u8` remains a UTF-8 string.
+
+## Repository checks
+
+- The scripts that copy the framework into the fixture, the example and
+  `inst/zig` take the list of files from `src/`, so a new framework file
+  reaches client packages.
+- The scaffold check follows the documented starter example (0.8.0) and the
+  roxygen2 mode of `document()` (0.6.0); the fixture documents all its
+  exports, so its `R CMD check` has no missing-documentation warning.
+
 # rzig 0.22.0
 
 ## New features

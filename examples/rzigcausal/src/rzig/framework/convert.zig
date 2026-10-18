@@ -5,6 +5,7 @@
 
 const std = @import("std");
 const attributes = @import("attributes.zig");
+const complex = @import("complex.zig");
 const c = @import("c/abi.zig");
 const es = @import("error_state.zig");
 const list = @import("list.zig");
@@ -104,6 +105,9 @@ pub fn fromSexp(
     if (comptime T == []const na.Logical) return logicalNaSlice(x, name);
     if (comptime T == []const ?[]const u8) return stringNaSlice(ctx, x, name);
     if (comptime T == ?[]const u8) return optionalString(ctx, x, name);
+    if (comptime T == complex.Complex) return scalarComplex(x, name);
+    if (comptime T == []const complex.Complex) return complexSlice(x, name);
+    if (comptime T == complex.Raw) return rawFromSexp(x, name);
     if (comptime matrix.isMatrix(T)) return matrixFromSexp(T, ctx, x, name);
     if (comptime T == sexp.Sexp) return sexp.fromRaw(x);
 
@@ -286,6 +290,56 @@ fn stringSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const
         slot.* = try ctx.dupe(u8, std.mem.span(translated));
     }
     return result;
+}
+
+/// A complex scalar; a double or integer scalar becomes its real part.
+fn scalarComplex(x: c.SEXP, comptime name: []const u8) es.Error!complex.Complex {
+    const kind: c.SEXPTYPE = @intCast(c.TYPEOF(x));
+    if (kind != c.CPLXSXP and kind != c.REALSXP and kind != c.INTSXP) {
+        return es.raise(
+            "rzig: {s} must be a complex, double, or integer vector of length 1; got {s}",
+            .{ name, typeName(x) },
+        );
+    }
+    const length = try vectorLength(x, name);
+    if (length != 1) return es.raise("rzig: {s} must have length 1; got length {d}", .{ name, length });
+    const value: complex.Complex = switch (kind) {
+        c.CPLXSXP => .{ .re = c.COMPLEX_RO(x)[0].r, .im = c.COMPLEX_RO(x)[0].i },
+        c.REALSXP => .{ .re = c.REAL_ELT(x, 0), .im = 0 },
+        else => if (na.isNaInt(c.INTEGER_ELT(x, 0)))
+            .{ .re = na.real, .im = 0 }
+        else
+            .{ .re = @floatFromInt(c.INTEGER_ELT(x, 0)), .im = 0 },
+    };
+    if (na.isNaReal(value.re) or na.isNaReal(value.im)) {
+        return es.raise("rzig: {s} cannot be NA", .{name});
+    }
+    return value;
+}
+
+/// A borrowed complex vector; NA and NaN parts are passed through.
+fn complexSlice(x: c.SEXP, comptime name: []const u8) es.Error![]const complex.Complex {
+    if (c.TYPEOF(x) != c.CPLXSXP) {
+        return es.raise(
+            "rzig: {s} must be a complex vector; got {s}; use as.complex() in R",
+            .{ name, typeName(x) },
+        );
+    }
+    const length = try vectorLength(x, name);
+    const data: [*]const complex.Complex = @ptrCast(c.COMPLEX_RO(x));
+    return data[0..length];
+}
+
+/// The borrowed bytes of a raw vector.
+fn rawFromSexp(x: c.SEXP, comptime name: []const u8) es.Error!complex.Raw {
+    if (c.TYPEOF(x) != c.RAWSXP) {
+        return es.raise(
+            "rzig: {s} must be a raw vector; got {s}; use as.raw() or charToRaw() in R",
+            .{ name, typeName(x) },
+        );
+    }
+    const length = try vectorLength(x, name);
+    return .{ .data = c.RAW_RO(x)[0..length] };
 }
 
 /// A borrowed logical vector that keeps NA.
@@ -531,6 +585,9 @@ fn isSupportedInput(comptime T: type) bool {
         T == []const na.Logical or
         T == []const ?[]const u8 or
         T == ?[]const u8 or
+        T == complex.Complex or
+        T == []const complex.Complex or
+        T == complex.Raw or
         T == matrix.Matrix or
         T == matrix.IntMatrix or
         T == matrix.BoolMatrix or
@@ -569,6 +626,10 @@ fn isSupportedReturn(comptime T: type) bool {
         T == []na.Logical or
         T == []const ?[]const u8 or
         T == []?[]const u8 or
+        T == complex.Complex or
+        T == []const complex.Complex or
+        T == []complex.Complex or
+        T == complex.Raw or
         T == list.List or
         T == sexp.Sexp)
     {
@@ -591,7 +652,8 @@ fn isSupportedVectorReturn(comptime T: type) bool {
         T == []const bool or T == []bool or
         T == []const na.Logical or T == []na.Logical or
         T == []const []const u8 or T == [][]const u8 or
-        T == []const ?[]const u8 or T == []?[]const u8;
+        T == []const ?[]const u8 or T == []?[]const u8 or
+        T == []const complex.Complex or T == []complex.Complex;
 }
 
 fn nearestInputAlternative(comptime T: type) []const u8 {
@@ -612,6 +674,8 @@ fn nearestInputAlternative(comptime T: type) []const u8 {
     if (T == []i32) return "[]const i32 for a borrowed read-only integer vector";
     if (T == []bool) return "[]const bool for a borrowed read-only logical vector";
     if (T == []na.Logical) return "[]const rzig.Logical for a borrowed logical vector that keeps NA";
+    if (T == []complex.Complex) return "[]const rzig.Complex for a borrowed complex vector";
+    if (T == std.math.Complex(f64)) return "rzig.Complex for an R complex scalar (convert with toStd())";
     if (T == []?[]const u8 or T == []const ?[]u8) return "[]const ?[]const u8 for a character vector that keeps NA";
     if (T == []u8) return "[]const u8 for a UTF-8 string";
 
@@ -681,6 +745,9 @@ pub fn toSexp(
     if (comptime T == []const []const u8 or T == [][]const u8) return stringSliceToSexp(stack, value);
     if (comptime T == []const na.Logical or T == []na.Logical) return logicalNaSliceToSexp(stack, value);
     if (comptime T == []const ?[]const u8 or T == []?[]const u8) return stringNaSliceToSexp(stack, value);
+    if (comptime T == complex.Complex) return complexSliceToSexp(stack, &.{value});
+    if (comptime T == []const complex.Complex or T == []complex.Complex) return complexSliceToSexp(stack, value);
+    if (comptime T == complex.Raw) return rawToSexp(stack, value);
     if (comptime attributes.isAttributed(T)) return attributedToSexp(stack, ctx, value);
     if (comptime T == list.List) return listToSexp(stack, ctx, value);
     if (comptime T == sexp.Sexp) return stack.push(sexp.toRaw(value));
@@ -871,6 +938,20 @@ fn logicalSliceToSexp(stack: *protect.Stack, value: []const bool) es.Error!c.SEX
     for (value, c.LOGICAL(result)[0..value.len]) |source, *target| {
         target.* = if (source) c.TRUE else c.FALSE;
     }
+    return result;
+}
+
+fn complexSliceToSexp(stack: *protect.Stack, value: []const complex.Complex) es.Error!c.SEXP {
+    const length = try returnLength(value.len);
+    const result = stack.push(c.Rf_allocVector(c.CPLXSXP, length));
+    for (value, c.COMPLEX(result)[0..value.len]) |source, *target| target.* = .{ .r = source.re, .i = source.im };
+    return result;
+}
+
+fn rawToSexp(stack: *protect.Stack, value: complex.Raw) es.Error!c.SEXP {
+    const length = try returnLength(value.data.len);
+    const result = stack.push(c.Rf_allocVector(c.RAWSXP, length));
+    if (value.data.len > 0) @memcpy(c.RAW(result)[0..value.data.len], value.data);
     return result;
 }
 

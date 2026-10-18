@@ -7,29 +7,12 @@ $repo_dir/examples/rzigcausal/src/rzig/framework"
 mode=${1:---write}
 failed=0
 
-framework_files='alloc.zig
-attributes.zig
-boundary.zig
-compat.zig
-convert.zig
-error_state.zig
-interrupt.zig
-io.zig
-list.zig
-matrix.zig
-na.zig
-panic.zig
-parallel.zig
-progress.zig
-protect.zig
-register.zig
-rmath.zig
-rng.zig
-rzig.zig
-sexp.zig
-unwind.zig
-c/abi.zig
-generated/arity.zig'
+# Every framework source under src/, without the tests, the library entry
+# point used by the repository's own fixture build, the ABI-check generator
+# and the generated manifest (each package has its own).
+framework_files=$(cd "$repo_dir/src" && find . -name '*.zig' \
+    ! -name '*_test.zig' ! -name 'main.zig' ! -path './c/check.zig' \
+    ! -path './generated/manifest.zig' | sed 's|^\./||' | LC_ALL=C sort)
 
 if test "$mode" = "--write"; then
     for framework_dir in $framework_dirs; do

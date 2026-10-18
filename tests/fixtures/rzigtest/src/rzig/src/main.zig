@@ -318,6 +318,37 @@ pub fn simulate_interrupt(ctx: *rzig.Ctx) rzig.Error!void {
     return rzig.internal.interrupt.request();
 }
 
+/// The modulus of each element of a complex vector.
+/// @export
+pub fn complex_modulus(ctx: *rzig.Ctx, values: []const rzig.Complex) rzig.Error![]f64 {
+    const result = try ctx.alloc(f64, values.len);
+    for (values, result) |value, *slot| slot.* = std.math.complex.abs(value.toStd());
+    return result;
+}
+
+/// The complex conjugate of each element.
+/// @export
+pub fn complex_conjugate(ctx: *rzig.Ctx, values: []const rzig.Complex) rzig.Error![]rzig.Complex {
+    const result = try ctx.alloc(rzig.Complex, values.len);
+    for (values, result) |value, *slot| slot.* = .{ .re = value.re, .im = -value.im };
+    return result;
+}
+
+/// Multiply two complex scalars.
+/// @export
+pub fn complex_product(a: rzig.Complex, b: rzig.Complex) rzig.Complex {
+    return rzig.Complex.fromStd(a.toStd().mul(b.toStd()));
+}
+
+/// XOR every byte of a raw vector with `key`.
+/// @export
+pub fn raw_xor(ctx: *rzig.Ctx, bytes: rzig.Raw, key: i32) rzig.Error!rzig.Raw {
+    if (key < 0 or key > 255) return rzig.raise("`key` must be from 0 to 255; got {d}", .{key});
+    const result = try ctx.alloc(u8, bytes.data.len);
+    for (bytes.data, result) |byte, *slot| slot.* = byte ^ @as(u8, @intCast(key));
+    return .{ .data = result };
+}
+
 /// Count the TRUE, FALSE and NA values of a logical vector.
 /// @export
 pub fn logical_tally(ctx: *rzig.Ctx, values: []const rzig.Logical) rzig.Error![]i32 {

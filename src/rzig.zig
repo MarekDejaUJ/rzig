@@ -29,6 +29,10 @@ pub const Rmath = @import("rmath.zig").Rmath;
 pub const NA = @import("na.zig");
 /// One element of an R logical vector: `TRUE`, `FALSE` or `NA`.
 pub const Logical = @import("na.zig").Logical;
+/// One element of an R complex vector, with the layout of `Rcomplex`.
+pub const Complex = @import("complex.zig").Complex;
+/// The bytes of an R raw vector.
+pub const Raw = @import("complex.zig").Raw;
 /// Opaque borrowed R value escape hatch.
 pub const Sexp = @import("sexp.zig").Sexp;
 /// Arena-backed builder materialized as a named R list at the boundary.

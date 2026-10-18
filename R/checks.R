@@ -12,7 +12,7 @@
 .rzig_input_types <- c(
   "f64", "i32", "bool", "usize", "?f64", "?i32", "?bool", "?usize",
   "[]constf64", "[]consti32", "[]constbool", "[]constu8", "[]const[]constu8",
-  "[]constLogical", "[]const?[]constu8", "?[]constu8",
+  "[]constLogical", "[]const?[]constu8", "?[]constu8", "Complex", "[]constComplex", "Raw",
   "Matrix", "IntMatrix", "BoolMatrix", "Sexp",
   "Mut([]f64)", "Mut([]i32)", "Mut(Matrix)", "Mut(IntMatrix)"
 )
@@ -20,11 +20,11 @@
 .rzig_vector_returns <- c(
   "[]f64", "[]constf64", "[]i32", "[]consti32", "[]bool", "[]constbool",
   "[]Logical", "[]constLogical", "[][]constu8", "[]const[]constu8",
-  "[]?[]constu8", "[]const?[]constu8"
+  "[]?[]constu8", "[]const?[]constu8", "[]Complex", "[]constComplex"
 )
 
 .rzig_plain_returns <- c(
-  "void", "f64", "i32", "bool", .rzig_vector_returns, "[]constu8", "List", "Sexp"
+  "void", "f64", "i32", "bool", .rzig_vector_returns, "[]constu8", "Complex", "Raw", "List", "Sexp"
 )
 
 # The prefix `rzig.` goes first: removing the spaces of "[]const rzig.Logical"
@@ -39,7 +39,7 @@
     paste0(
       "^(f(16|32|64|80|128)|[iu][0-9]+|isize|usize|bool|void|anyopaque|",
       "anyerror|noreturn|type|anytype|comptime_int|comptime_float|const|",
-      "c_[a-z]+|Matrix|IntMatrix|BoolMatrix|Logical|Mut|Sexp|List|Attributed|Error|Ctx)$"
+      "c_[a-z]+|Matrix|IntMatrix|BoolMatrix|Logical|Complex|Raw|Mut|Sexp|List|Attributed|Error|Ctx)$"
     ),
     identifier
   )
