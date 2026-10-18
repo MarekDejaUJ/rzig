@@ -241,10 +241,10 @@
   "^src/rzig/zig-out$"
 )
 
-.rzig_add_buildignore <- function(path) {
+.rzig_add_buildignore <- function(path, entries = .rzig_buildignore_entries) {
   file <- file.path(path, ".Rbuildignore")
   existing <- if (file.exists(file)) readLines(file, warn = FALSE) else character()
-  missing <- setdiff(.rzig_buildignore_entries, existing)
+  missing <- setdiff(entries, existing)
   if (length(missing)) writeLines(c(existing, missing), file)
   invisible(file)
 }

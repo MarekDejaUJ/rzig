@@ -1,3 +1,13 @@
+# rzig 0.15.0
+
+## New features
+
+- `use_rzig_ci()` writes a GitHub Actions workflow
+  (`.github/workflows/rzig-check.yaml`) that installs R and Zig and runs
+  `R CMD check --as-cran` for each operating system and Zig version of its
+  matrix (Linux, macOS and Windows; Zig 0.16.0 and 0.17.0 by default), with
+  the Zig tests of `src/rzig/src/tests.zig` first when that file exists.
+
 # rzig 0.14.0
 
 ## New features

@@ -228,6 +228,14 @@ Files that use the `rzig` module call into R and are tested from R
 (`testthat`). Packages scaffolded by an older rzig get the `test` step of
 `build.zig` from `update_rzig(path)`.
 
+## Continuous integration
+
+`use_rzig_ci(path)` writes `.github/workflows/rzig-check.yaml`, a GitHub
+Actions workflow that installs R and Zig 0.16.0 and 0.17.0 and runs
+`R CMD check --as-cran` on Linux, macOS and Windows, after the Zig tests when
+`src/rzig/src/tests.zig` exists. The `zig` and `os` arguments choose the
+matrix.
+
 ## Export options
 
 The marker line and `@default` lines shape the R wrapper:
