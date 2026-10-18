@@ -34,7 +34,7 @@ jobs:
       - run: zig build --release=safe
       - name: Cross-compile the framework for the targets configure maps
         run: |
-          for target in x86_64-linux-musl aarch64-linux-musl aarch64-linux-gnu aarch64-windows-gnu x86_64-windows-gnu x86_64-macos.11.0 aarch64-macos.11.0; do
+          for target in x86_64-linux-musl aarch64-linux-musl aarch64-linux-gnu aarch64-windows-gnu x86_64-windows-gnu x86_64-macos.11.0 aarch64-macos.11.0 wasm32-emscripten; do
             zig build --release=safe -Dtarget="$target" --prefix "$RUNNER_TEMP/cross-$target"
           done
       - run: zig build lint

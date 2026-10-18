@@ -1,3 +1,13 @@
+# rzig 0.40.0
+
+## New features
+
+- `rzig.parallelFor()` and `rzig.parallelReduce()` run the indices in order
+  on the calling thread in single-threaded builds, such as WebAssembly for
+  webR, so that the framework compiles for `wasm32-emscripten` (CI
+  cross-compiles it with Zig 0.16 and 0.17). Packages for webR are not yet
+  supported: building them with webR's toolchain is untested.
+
 # rzig 0.39.0
 
 ## New features

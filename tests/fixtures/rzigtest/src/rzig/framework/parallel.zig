@@ -4,6 +4,7 @@
 //! and an index. It never runs on the thread that entered R.
 
 const std = @import("std");
+const builtin = @import("builtin");
 const compat = @import("compat.zig");
 const Ctx = @import("alloc.zig").Ctx;
 const attributes = @import("attributes.zig");
@@ -107,6 +108,16 @@ fn runIndexed(ctx: *Ctx, count: usize, context: anytype, comptime body: anytype)
     if (count == 0) return;
     if (count == std.math.maxInt(usize)) {
         return es.raise("rzig: parallelFor item count exceeds its safe limit", .{});
+    }
+    if (comptime builtin.single_threaded) {
+        // A single-threaded build (WebAssembly for webR) runs the indices in
+        // order on the calling thread, checking for interrupts in between.
+        var index: usize = 0;
+        while (index < count) : (index += 1) {
+            body(context, index);
+            if (index % 4096 == 4095) try interrupt.checkInterrupt();
+        }
+        return;
     }
     const thread_count = try threadCount(count);
     const threads = try ctx.alloc(std.Thread, thread_count);
