@@ -147,6 +147,75 @@ test_that("exports named like C library functions do not replace them", {
   expect_true("R_init_clashpkg" %in% defined)
 })
 
+inplace_package <- function(name) {
+  path <- local_package(name, env = parent.frame())
+  writeLines(c(
+    paste("Package:", name), "Version: 0.0.1", "Title: In-Place Builds", "License: GPL-3",
+    "Description: Rebuilds after edits of helper Zig files.",
+    "Authors@R: person('A', 'B', email = 'a@example.org', role = c('aut', 'cre'))"
+  ), file.path(path, "DESCRIPTION"))
+  use_rzig(path)
+  writeLines(c(
+    'const std = @import("std");', 'const builtin = @import("builtin");', 'const rzig = @import("rzig");',
+    'const helper = @import("helper.zig");',
+    'pub const panic = if (builtin.is_test) std.debug.FullPanic(std.debug.defaultPanic) else rzig.Panic;',
+    "/// Return the helper constant.", "/// @export", "pub fn value() f64 {",
+    "    return helper.constant();", "}", "comptime {", "    rzig.registerModule(@This());", "}"
+  ), file.path(path, "src", "rzig", "src", "main.zig"))
+  set_constant(path, "1.0")
+  document(path)
+  path
+}
+
+set_constant <- function(path, value) {
+  writeLines(c("pub fn constant() f64 {", paste0("    return ", value, ";"), "}"),
+    file.path(path, "src", "rzig", "src", "helper.zig"))
+}
+
+run_r <- function(code) {
+  out <- suppressWarnings(system2(file.path(R.home("bin"), "Rscript"), c("--vanilla", "-e", shQuote(code)),
+    stdout = TRUE, stderr = TRUE))
+  structure(paste(out, collapse = "\n"), status = attr(out, "status"))
+}
+
+test_that("an in-place installation rebuilds after an edit of a helper Zig file", {
+  skip_on_cran()
+  skip_if_not(isTRUE(find_zig(required = FALSE)$supported), "no supported Zig compiler")
+  path <- inplace_package("inplacepkg")
+  lib <- tempfile("rzig-inplace-lib-")
+  dir.create(lib)
+  on.exit(unlink(lib, recursive = TRUE), add = TRUE)
+  install <- function() {
+    out <- suppressWarnings(system2(file.path(R.home("bin"), "R"),
+      c("CMD", "INSTALL", "--no-multiarch", paste0("--library=", shQuote(lib)), shQuote(path)),
+      stdout = TRUE, stderr = TRUE, env = paste0("ZIG=", find_zig()$path)))
+    expect_null(attr(out, "status"))
+  }
+  value <- function() run_r(sprintf("library(inplacepkg, lib.loc = '%s'); cat(value())", lib))
+  install()
+  expect_identical(as.character(value()), "1")
+  set_constant(path, "2.0")
+  install()
+  expect_identical(as.character(value()), "2")
+})
+
+test_that("devtools::load_all() recompiles after an edit of a helper Zig file", {
+  skip_on_cran()
+  skip_if_not(isTRUE(find_zig(required = FALSE)$supported), "no supported Zig compiler")
+  skip_if_not_installed("pkgload")
+  skip_if_not_installed("pkgbuild")
+  path <- inplace_package("loadallpkg")
+  code <- sprintf(paste(
+    "Sys.setenv(ZIG = '%s')",
+    "pkgload::load_all('%s', quiet = TRUE); a <- value()",
+    "writeLines(c('pub fn constant() f64 {', '    return 3.0;', '}'), file.path('%s', 'src', 'rzig', 'src', 'helper.zig'))",
+    "pkgload::load_all('%s', quiet = TRUE); b <- value()",
+    "cat(a, b)", sep = "; "), find_zig()$path, path, path, path)
+  result <- run_r(code)
+  expect_null(attr(result, "status"))
+  expect_match(as.character(result), "1 3", fixed = TRUE)
+})
+
 test_that("printing a build warns about a package loaded in the session", {
   result <- structure(list(
     ok = TRUE, package = "stats", seconds = 1, library = tempdir(),

@@ -1,3 +1,23 @@
+# rzig 0.3.3
+
+## Bug fixes
+
+- Reinstalling a client package from its source folder (`R CMD INSTALL`,
+  `install.packages(path, repos = NULL)`, the RStudio Install button)
+  rebuilt the Zig library only when `build.zig`, `build.zig.zon` or
+  `main.zig` changed, so an edit of any other Zig file, or of the framework,
+  left the old native code in the package. The generated Makevars now runs
+  `zig build` on every installation; Zig's cache keeps an unchanged build
+  fast.
+- `use_rzig()` lists the Zig sources in the `Config/build/extra-sources`
+  field of `DESCRIPTION` (keeping entries the package author listed), so
+  `devtools::load_all()` recompiles after a change to a Zig file instead of
+  loading the old shared object.
+- `rzig_status()` notes a `DESCRIPTION` whose `SystemRequirements` does not
+  name Zig or whose `Config/build/extra-sources` does not list the Zig
+  sources. A `DESCRIPTION` without a `Version` field no longer stops the
+  check with "subscript out of bounds".
+
 # rzig 0.3.2
 
 ## Bug fixes

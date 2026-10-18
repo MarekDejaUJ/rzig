@@ -366,11 +366,11 @@
     return(.rzig_check_result("no DESCRIPTION file"))
   }
   fields <- tryCatch(read.dcf(file)[1L, ], error = function(error) NULL)
-  if (is.null(fields) || !nzchar(fields[["Package"]] %||% "")) {
+  if (is.null(fields) || !nzchar(.rzig_field(fields, "Package") %||% "")) {
     return(.rzig_check_result("DESCRIPTION has no Package field"))
   }
   problems <- character()
-  version <- fields[["Version"]] %||% ""
+  version <- .rzig_field(fields, "Version") %||% ""
   if (is.na(package_version(version, strict = FALSE))) {
     problems <- c(problems, sprintf("Version \"%s\" is not a valid package version", version))
   }
@@ -380,10 +380,29 @@
   notes <- if (length(missing)) {
     paste("R CMD check also requires", paste(missing, collapse = ", "))
   } else character()
+  if (!grepl("zig", .rzig_field(fields, "SystemRequirements") %||% "", ignore.case = TRUE)) {
+    notes <- c(notes, sprintf(
+      "SystemRequirements does not name Zig; state the supported series, for example \"Zig %s\"",
+      .rzig_zig_series_label()
+    ))
+  }
+  lines <- strsplit(.rzig_normalize_newlines(.rzig_read_text(file)), "\n", fixed = TRUE)[[1L]]
+  listed <- .rzig_description_field(lines, .rzig_extra_sources_field)$entries
+  if (!all(.rzig_extra_sources %in% listed)) {
+    notes <- c(notes, paste0(
+      .rzig_extra_sources_field, " does not list the Zig sources, so devtools::load_all() ",
+      "misses changes to them; use_rzig() adds ", paste(.rzig_extra_sources, collapse = ", ")
+    ))
+  }
   .rzig_check_result(problems, notes)
 }
 
 `%||%` <- function(x, y) if (is.null(x) || (length(x) == 1L && is.na(x))) y else x
+
+# A DESCRIPTION field from read.dcf(), or NA when the field is absent.
+.rzig_field <- function(fields, name) {
+  if (name %in% names(fields)) unname(fields[[name]]) else NA_character_
+}
 
 # ---------------------------------------------------------------------------
 # The C toolchain of R

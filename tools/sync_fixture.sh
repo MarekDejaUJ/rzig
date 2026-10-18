@@ -72,6 +72,22 @@ for relative in configure configure.win; do
     fi
 done
 
+example_dir="$repo_dir/examples/rzigcausal"
+for pair in "Makevars:src/Makevars.in" "Makevars.win:src/Makevars.win.in" \
+            "configure:configure" "configure.win:configure.win" \
+            "cleanup:cleanup" "cleanup.win:cleanup.win"; do
+    template=${pair%%:*}
+    target=${pair#*:}
+    source_file="$repo_dir/inst/templates/$template"
+    example_file="$example_dir/$target"
+    if test "$mode" = "--write"; then
+        cp "$source_file" "$example_file"
+    elif ! cmp -s "$source_file" "$example_file"; then
+        printf 'example copy is stale: %s\n' "$target" >&2
+        failed=1
+    fi
+done
+
 abuse_source="$repo_dir/tests/abuse.R"
 abuse_fixture="$repo_dir/tests/fixtures/rzigtest/tests/testthat/test-abuse.R"
 if test "$mode" = "--write"; then

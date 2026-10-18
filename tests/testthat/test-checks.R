@@ -148,7 +148,13 @@ test_that("an export that masks a base R function is noted", {
 test_that("the DESCRIPTION check separates failures from notes", {
   path <- local_package("descpkg")
   expect_length(rzig:::.rzig_check_description(path)$problems, 0L)
-  expect_match(rzig:::.rzig_check_description(path)$notes, "Title")
+  notes <- rzig:::.rzig_check_description(path)$notes
+  expect_true(any(grepl("requires Title", notes, fixed = TRUE)))
+  expect_true(any(grepl("SystemRequirements does not name Zig", notes, fixed = TRUE)))
+  expect_true(any(grepl("Config/build/extra-sources does not list", notes, fixed = TRUE)))
+  use_rzig(path)
+  notes <- rzig:::.rzig_check_description(path)$notes
+  expect_false(any(grepl("Config/build/extra-sources", notes, fixed = TRUE)))
   writeLines(c("Package: descpkg", "Version: one"), file.path(path, "DESCRIPTION"))
   expect_match(rzig:::.rzig_check_description(path)$problems, "not a valid package version")
 })
@@ -163,4 +169,21 @@ test_that("rzig_status fails the Exports row for an unsupported type", {
   expect_match(status$detail[status$step == "Exports"], "type f32 is not supported; use f64", fixed = TRUE)
   expect_output(print(status), "checks failed")
   expect_true("C toolchain" %in% status$step)
+})
+
+test_that("use_rzig lists the Zig sources for pkgbuild and keeps other entries", {
+  path <- local_package("extrapkg")
+  description <- file.path(path, "DESCRIPTION")
+  writeLines(c(readLines(description), "Config/build/extra-sources: inst/data.txt,",
+    "    tools/gen.R", "Config/testthat/edition: 3"), description)
+  use_rzig(path)
+  fields <- read.dcf(description)
+  entries <- trimws(strsplit(fields[, "Config/build/extra-sources"], ",")[[1L]])
+  expect_identical(entries, c("inst/data.txt", "tools/gen.R", rzig:::.rzig_extra_sources))
+  expect_identical(unname(fields[, "Config/testthat/edition"]), "3")
+  before <- read_bytes(description)
+  use_rzig(path, overwrite = TRUE)
+  expect_identical(read_bytes(description), before)
+  matches <- Sys.glob(file.path(path, rzig:::.rzig_extra_sources))
+  expect_length(matches, length(rzig:::.rzig_extra_sources))
 })

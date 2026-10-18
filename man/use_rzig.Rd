@@ -35,7 +35,9 @@ The files written below the package root are: `configure`,
 `src/rzig/framework`, the package author's Zig source
 `src/rzig/src/main.zig`, the generated `R/rzig-wrappers.R`, and a managed
 block in `NAMESPACE`. Entries for the Zig build caches are added to
-`.Rbuildignore`.
+`.Rbuildignore`, and the Zig sources are listed in the
+`Config/build/extra-sources` field of `DESCRIPTION`, so that
+`devtools::load_all()` recompiles the package after a change to a Zig file.
 }
 \examples{
 package_path <- tempfile("rzig-example-", tmpdir = tempdir())

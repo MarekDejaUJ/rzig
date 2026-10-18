@@ -22,6 +22,9 @@ for file in inst/templates/Makevars inst/templates/Makevars.win; do
     require_line "$file" 'entry.o: entry.c'
     require_line "$file" '$(CC) $(ALL_CPPFLAGS) $(CPICFLAGS) -O2 -Wall -pedantic'
     require_line "$file" 'clean:'
+    require_line "$file" '$(STATLIB): FORCE'
+    require_line "$file" 'FORCE:'
+    require_line "$file" '.PHONY: all clean FORCE'
 done
 
 require_line inst/templates/Makevars 'ZIG_TARGET_ARG = @ZIG_TARGET_ARG@'

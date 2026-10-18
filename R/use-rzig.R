@@ -12,7 +12,9 @@
 #' `src/rzig/framework`, the package author's Zig source
 #' `src/rzig/src/main.zig`, the generated `R/rzig-wrappers.R`, and a managed
 #' block in `NAMESPACE`. Entries for the Zig build caches are added to
-#' `.Rbuildignore`.
+#' `.Rbuildignore`, and the Zig sources are listed in the
+#' `Config/build/extra-sources` field of `DESCRIPTION`, so that
+#' `devtools::load_all()` recompiles the package after a change to a Zig file.
 #'
 #' @param path Path to the package root; the directory must contain a
 #'   `DESCRIPTION` file.
@@ -74,6 +76,7 @@ use_rzig <- function(path, overwrite = FALSE) {
     skip = if (keep_source) "^src/" else NULL
   )
   .rzig_add_buildignore(path)
+  description_changed <- .rzig_add_extra_sources(path)
 
   file.copy(
     file.path(templates, "Makevars"),
@@ -117,7 +120,8 @@ use_rzig <- function(path, overwrite = FALSE) {
     file.path("src", "rzig", written),
     file.path("R", "rzig-wrappers.R"),
     "NAMESPACE",
-    ".Rbuildignore"
+    ".Rbuildignore",
+    if (description_changed) "DESCRIPTION"
   )
   message("Created RZig scaffold for package ", package)
   invisible(structure(

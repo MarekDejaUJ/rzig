@@ -189,6 +189,46 @@
   invisible(destination)
 }
 
+# Files pkgbuild (and so devtools::load_all()) should treat as sources of the
+# shared object; it otherwise watches only C, C++, Fortran and Rust files.
+.rzig_extra_sources <- c(
+  "src/rzig/src", "src/rzig/framework", "src/rzig/build.zig", "src/rzig/build.zig.zon"
+)
+
+.rzig_extra_sources_field <- "Config/build/extra-sources"
+
+# The entries of a comma-separated DESCRIPTION field, or character() when the
+# field is absent. Continuation lines (starting with white space) belong to
+# the field.
+.rzig_description_field <- function(lines, field) {
+  start <- which(startsWith(lines, paste0(field, ":")))
+  if (!length(start)) return(list(start = NA_integer_, end = NA_integer_, entries = character()))
+  start <- start[[1L]]
+  end <- start
+  while (end < length(lines) && grepl("^[ \t]", lines[[end + 1L]])) end <- end + 1L
+  value <- paste(c(substring(lines[[start]], nchar(field) + 2L), lines[seq_len(end - start) + start]), collapse = " ")
+  entries <- trimws(strsplit(value, ",", fixed = TRUE)[[1L]])
+  list(start = start, end = end, entries = entries[nzchar(entries)])
+}
+
+# Add the Zig sources to Config/build/extra-sources, keeping entries the
+# package author listed. Returns TRUE when DESCRIPTION changed.
+.rzig_add_extra_sources <- function(path) {
+  file <- file.path(path, "DESCRIPTION")
+  lines <- strsplit(.rzig_normalize_newlines(.rzig_read_text(file)), "\n", fixed = TRUE)[[1L]]
+  field <- .rzig_description_field(lines, .rzig_extra_sources_field)
+  missing <- setdiff(.rzig_extra_sources, field$entries)
+  if (!length(missing)) return(FALSE)
+  line <- paste0(.rzig_extra_sources_field, ": ", paste(c(field$entries, missing), collapse = ", "))
+  if (is.na(field$start)) {
+    lines <- c(lines, line)
+  } else {
+    lines <- c(lines[seq_len(field$start - 1L)], line, lines[seq.int(field$end + 1L, length.out = length(lines) - field$end)])
+  }
+  .rzig_write_text(paste0(paste(lines, collapse = "\n"), "\n"), file)
+  TRUE
+}
+
 .rzig_buildignore_entries <- c(
   "^src/rzig/\\.zig-cache$",
   "^src/rzig/\\.zig-global-cache$",
