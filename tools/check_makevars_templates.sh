@@ -13,7 +13,7 @@ require_line() {
 for file in inst/templates/Makevars inst/templates/Makevars.win; do
     require_line "$file" 'ZIG = @ZIG@'
     require_line "$file" 'ZIG_DIR = rzig'
-    require_line "$file" 'OBJECTS = entry.o'
+    require_line "$file" '@RZIG_OBJECTS@'
     require_line "$file" 'PKG_LIBS = $(STATLIB)'
     require_line "$file" 'ReleaseSafe) release=--release=safe ;;'
     require_line "$file" 'Debug) release= ;;'
@@ -21,7 +21,7 @@ for file in inst/templates/Makevars inst/templates/Makevars.win; do
     require_line "$file" 'ZIG_GLOBAL_CACHE_DIR="$${RZIG_ZIG_CACHE:-$(CURDIR)/$(ZIG_DIR)/.zig-global-cache}"'
     require_line "$file" '$(SHLIB): $(STATLIB)'
     require_line "$file" 'entry.o: entry.c'
-    require_line "$file" '$(CC) $(ALL_CPPFLAGS) $(ALL_CFLAGS)'
+    require_line "$file" '$(CC) $(ALL_CPPFLAGS) @RZIG_ENTRY_CPPFLAGS@ $(ALL_CFLAGS)'
     require_line "$file" '$$release -j2'
     require_line "$file" 'clean:'
     require_line "$file" '$(STATLIB): FORCE'

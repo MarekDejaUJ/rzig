@@ -5,7 +5,7 @@ ZIG_TARGET_ARG = @ZIG_TARGET_ARG@
 R_INCLUDE_DIR = @R_INCLUDE_DIR@
 ZIG_DIR = rzig
 STATLIB = @STATLIB@
-OBJECTS = entry.o
+@RZIG_OBJECTS@
 PKG_LIBS = $(STATLIB) @RZIG_LAPACK_LIBS@
 
 all: $(SHLIB)
@@ -13,7 +13,7 @@ all: $(SHLIB)
 $(SHLIB): $(STATLIB)
 
 entry.o: entry.c
-	$(CC) $(ALL_CPPFLAGS) $(ALL_CFLAGS) \
+	$(CC) $(ALL_CPPFLAGS) @RZIG_ENTRY_CPPFLAGS@ $(ALL_CFLAGS) \
 	  -c entry.c -o entry.o
 
 # Zig keeps its global cache inside the package unless RZIG_ZIG_CACHE names a

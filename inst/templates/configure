@@ -194,16 +194,31 @@ if grep -Eiq '^Config/rzig/lapack:[[:space:]]*(true|yes)[[:space:]]*$' DESCRIPTI
     lapack_libs='$(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)'
 fi
 
+# Config/rzig/mixed: true in DESCRIPTION (rzig::use_rzig_mixed()) compiles the
+# C, C++ and Fortran sources of src/ with R's compilers next to the Zig
+# library; src/entry.c then leaves R_init_<pkg> to the package, whose own
+# R_init_<pkg> calls rzig_register().
+objects_line='OBJECTS = entry.o'
+entry_cppflags=
+if grep -Eiq '^Config/rzig/mixed:[[:space:]]*(true|yes)[[:space:]]*$' DESCRIPTION 2>/dev/null; then
+    objects_line='# OBJECTS is unset: R compiles every source file of src (Config/rzig/mixed).'
+    entry_cppflags='-DRZIG_MIXED'
+fi
+
 zig_sub=$(escape_sed_replacement "$zig_path")
 target_sub=$(escape_sed_replacement "$zig_target_arg")
 include_sub=$(escape_sed_replacement "$r_include_dir")
 statlib_sub=$(escape_sed_replacement "$statlib")
 lapack_sub=$(escape_sed_replacement "$lapack_libs")
+objects_sub=$(escape_sed_replacement "$objects_line")
+entry_sub=$(escape_sed_replacement "$entry_cppflags")
 sed -e "s|@ZIG@|$zig_sub|g" \
     -e "s|@ZIG_TARGET_ARG@|$target_sub|g" \
     -e "s|@R_INCLUDE_DIR@|$include_sub|g" \
     -e "s|@STATLIB@|$statlib_sub|g" \
     -e "s|@RZIG_LAPACK_LIBS@|$lapack_sub|g" \
+    -e "s|@RZIG_OBJECTS@|$objects_sub|g" \
+    -e "s|@RZIG_ENTRY_CPPFLAGS@|$entry_sub|g" \
     "$makevars_template" > "$makevars_output"
 
 printf 'using Zig %s at %s\n' "$zig_version" "$zig_path"

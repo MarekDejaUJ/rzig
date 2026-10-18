@@ -5,7 +5,7 @@ ZIG_TARGET_ARG = @ZIG_TARGET_ARG@
 R_INCLUDE_DIR = @R_INCLUDE_DIR@
 ZIG_DIR = rzig
 STATLIB = $(ZIG_DIR)/zig-out/lib/zigpkg.lib
-OBJECTS = entry.o
+@RZIG_OBJECTS@
 # Zig's Windows thread runtime calls native NT entry points.
 PKG_LIBS = $(STATLIB) -lntdll @RZIG_LAPACK_LIBS@
 
@@ -14,7 +14,7 @@ all: $(SHLIB)
 $(SHLIB): $(STATLIB)
 
 entry.o: entry.c
-	$(CC) $(ALL_CPPFLAGS) $(ALL_CFLAGS) \
+	$(CC) $(ALL_CPPFLAGS) @RZIG_ENTRY_CPPFLAGS@ $(ALL_CFLAGS) \
 	  -c entry.c -o entry.o
 
 # Zig keeps its global cache inside the package unless RZIG_ZIG_CACHE names a

@@ -4,7 +4,7 @@
 \alias{use_rzig}
 \title{Add RZig to a package}
 \usage{
-use_rzig(path, overwrite = FALSE, force = FALSE)
+use_rzig(path, overwrite = FALSE, force = FALSE, mixed = FALSE)
 }
 \arguments{
 \item{path}{Path to the package root; the directory must contain a
@@ -20,6 +20,10 @@ keeps customized build files and lists them.}
 
 \item{force}{With \code{overwrite = TRUE}, also replace customized build files
 with the templates.}
+
+\item{mixed}{Build the C, C++ and Fortran sources of \verb{src/} with R's
+compilers next to the Zig code; see \code{\link[=use_rzig_mixed]{use_rzig_mixed()}}. Without it,
+\code{use_rzig()} stops when \verb{src/} contains such sources.}
 }
 \value{
 An object of class \code{rzig_scaffold}: a list with \code{path} (the

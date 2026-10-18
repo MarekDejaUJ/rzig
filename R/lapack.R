@@ -23,16 +23,7 @@
 #' @export
 use_rzig_lapack <- function(path) {
   info <- .rzig_package_info(path)
-  file <- file.path(info$path, "DESCRIPTION")
-  lines <- strsplit(.rzig_normalize_newlines(.rzig_read_text(file)), "\n", fixed = TRUE)[[1L]]
-  field <- .rzig_description_field(lines, .rzig_lapack_field)
-  line <- paste0(.rzig_lapack_field, ": true")
-  if (is.na(field$start)) {
-    lines <- c(lines, line)
-  } else {
-    lines <- c(lines[seq_len(field$start - 1L)], line, lines[seq.int(field$end + 1L, length.out = length(lines) - field$end)])
-  }
-  .rzig_write_text(paste0(paste(lines, collapse = "\n"), "\n"), file)
+  file <- .rzig_set_config_true(info$path, .rzig_lapack_field)
   makevars <- .rzig_read_text(file.path(info$path, "src", "Makevars.in")) %||% ""
   if (!grepl("@RZIG_LAPACK_LIBS@", makevars, fixed = TRUE)) {
     warning("src/Makevars.in has no @RZIG_LAPACK_LIBS@; update_rzig(path) installs the Makevars templates ",

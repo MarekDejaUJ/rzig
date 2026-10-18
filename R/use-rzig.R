@@ -27,6 +27,9 @@
 #'   keeps customized build files and lists them.
 #' @param force With `overwrite = TRUE`, also replace customized build files
 #'   with the templates.
+#' @param mixed Build the C, C++ and Fortran sources of `src/` with R's
+#'   compilers next to the Zig code; see [use_rzig_mixed()]. Without it,
+#'   `use_rzig()` stops when `src/` contains such sources.
 #'
 #' @return An object of class `rzig_scaffold`: a list with `path` (the
 #'   normalized package root), `package`, `files` (the paths written,
@@ -42,17 +45,21 @@
 #' file.exists(file.path(package_path, "src", "rzig", "src", "main.zig"))
 #' unlink(package_path, recursive = TRUE)
 #' @export
-use_rzig <- function(path, overwrite = FALSE, force = FALSE) {
+use_rzig <- function(path, overwrite = FALSE, force = FALSE, mixed = FALSE) {
   if (length(overwrite) != 1L || is.na(overwrite)) {
     stop("`overwrite` must be TRUE or FALSE", call. = FALSE)
   }
   if (length(force) != 1L || is.na(force)) {
     stop("`force` must be TRUE or FALSE", call. = FALSE)
   }
+  if (!is.logical(mixed) || length(mixed) != 1L || is.na(mixed)) {
+    stop("`mixed` must be TRUE or FALSE", call. = FALSE)
+  }
   overwrite <- isTRUE(overwrite)
   package_info <- .rzig_package_info(path)
   path <- package_info$path
   package <- package_info$package
+  if (mixed) .rzig_set_config_true(path, .rzig_mixed_field)
 
   zig_assets <- system.file("zig", package = "rzig")
   templates <- system.file("templates", package = "rzig")

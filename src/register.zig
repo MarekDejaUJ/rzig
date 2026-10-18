@@ -53,6 +53,11 @@ pub fn registerModule(comptime M: type) void {
             .linkage = .strong,
             .visibility = .hidden,
         });
+        @export(&Registration.registerWith, .{
+            .name = "rzig_register",
+            .linkage = .strong,
+            .visibility = .hidden,
+        });
     }
 }
 
@@ -67,6 +72,55 @@ fn RegistrationFor(comptime exports: anytype) type {
             _ = c.R_registerRoutines(dll, null, &call_methods, null, null);
             _ = c.R_useDynamicSymbols(dll, c.FALSE);
             _ = c.R_forceSymbols(dll, c.TRUE);
+        }
+
+        /// Called from the package's own R_init_<pkg> in a package with C,
+        /// C++ or Fortran sources (Config/rzig/mixed): registers the
+        /// package's routines and the Zig routines together. R copies the
+        /// tables, so the merged one is released afterwards.
+        fn registerWith(
+            dll: *c.DllInfo,
+            c_methods: ?[*]const c.R_CMethodDef,
+            package_call_methods: ?[*]const c.R_CallMethodDef,
+            fortran_methods: ?[*]const c.R_FortranMethodDef,
+            external_methods: ?[*]const c.R_ExternalMethodDef,
+        ) callconv(.c) void {
+            if (builtin.is_test) return;
+            var count: usize = 0;
+            if (package_call_methods) |methods| {
+                while (methods[count].name != null) count += 1;
+            }
+            const zig_count = call_methods.len - 1;
+            const merged = std.heap.c_allocator.alloc(c.R_CallMethodDef, zig_count + count + 1) catch {
+                c.REprintf("rzig: not enough memory to register the native routines\n");
+                return;
+            };
+            defer std.heap.c_allocator.free(merged);
+            @memcpy(merged[0..zig_count], call_methods[0..zig_count]);
+            var length = zig_count;
+            if (package_call_methods) |methods| {
+                for (methods[0..count]) |method| {
+                    if (isZigRoutine(method.name.?)) {
+                        c.REprintf("rzig: the C routine %s has the name of a Zig export and is not registered\n", method.name.?);
+                        continue;
+                    }
+                    merged[length] = method;
+                    length += 1;
+                }
+            }
+            merged[length] = .{ .name = null, .fun = null, .numArgs = 0 };
+            _ = c.R_registerRoutines(dll, c_methods, merged.ptr, fortran_methods, external_methods);
+            _ = c.R_useDynamicSymbols(dll, c.FALSE);
+            // The R code of such a package may name its C routines by string.
+            _ = c.R_forceSymbols(dll, c.FALSE);
+        }
+
+        fn isZigRoutine(name: [*:0]const u8) bool {
+            const text = std.mem.span(name);
+            inline for (exports) |entry| {
+                if (std.mem.eql(u8, text, entry.name)) return true;
+            }
+            return false;
         }
     };
 }

@@ -237,11 +237,12 @@ print.rzig_update <- function(x, ...) {
     )
   }
   foreign <- .rzig_foreign_sources(path)
-  if (length(foreign)) {
+  if (length(foreign) && !.rzig_is_mixed(path)) {
     stop(
       "src/ contains compiled sources that the rzig build does not compile: ",
-      paste(foreign, collapse = ", "), ". The generated Makevars build the Zig sources and ",
-      "src/entry.c only; keep those sources in another package, or port them to Zig",
+      paste(foreign, collapse = ", "), ". use_rzig(path, mixed = TRUE) or use_rzig_mixed(path) ",
+      "builds them with R's compilers next to the Zig code; the package's R_init_",
+      .rzig_c_identifier(.rzig_package_info(path)$package), "() then calls rzig_register()",
       call. = FALSE
     )
   }

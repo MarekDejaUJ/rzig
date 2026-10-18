@@ -188,9 +188,40 @@ The same workflow applies to an existing package: run `use_rzig()` once, edit
 `src/rzig/src/main.zig`, and run `document()` whenever exported Zig signatures
 or comments change. The scaffolded `cleanup` and `cleanup.win` scripts remove
 generated Makevars and Zig build caches after package installation and checks.
-`use_rzig()` stops when `src/` already holds C, C++ or Fortran sources or a
-hand-written `src/Makevars`, because the generated build compiles only the Zig
-sources and `src/entry.c`.
+`use_rzig()` stops when `src/` already holds C, C++ or Fortran sources (see
+the next section for such packages) or a hand-written `src/Makevars`, whose
+settings belong in `src/Makevars.in` and `src/Makevars.win.in`.
+
+## Packages with C, C++ or Fortran sources
+
+`use_rzig(path, mixed = TRUE)` (or `use_rzig_mixed(path)` in a package that
+already uses rzig) sets `Config/rzig/mixed: true`. R then compiles every C,
+C++ and Fortran source of `src/` with its own compilers and links them with
+the Zig library, and `src/entry.c` leaves `R_init_<pkg>` to the package. The
+package's `R_init_<pkg>` registers its routines with `rzig_register()`, which
+adds the Zig routines to the `.Call` routines:
+
+```c
+#include <R_ext/Rdynload.h>
+
+void rzig_register(DllInfo *dll, const R_CMethodDef *c_methods,
+                   const R_CallMethodDef *call_methods,
+                   const R_FortranMethodDef *fortran_methods,
+                   const R_ExternalMethodDef *external_methods);
+
+static const R_CallMethodDef call_methods[] = {
+    {"legacy_add", (DL_FUNC) &legacy_add, 2},
+    {NULL, NULL, 0}
+};
+
+void R_init_mypkg(DllInfo *dll) {
+    rzig_register(dll, NULL, call_methods, NULL, NULL);
+}
+```
+
+The R code keeps its own `useDynLib()` directive for the C routines and may
+name them by symbol or by string. `rzig_status()` and `build_zig()` report a
+mixed package whose sources do not call `rzig_register()`.
 
 ## Compiling Zig from the R prompt
 

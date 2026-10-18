@@ -79,10 +79,30 @@ require_text "$test_dir/src/Makevars" "R_INCLUDE_DIR = $test_dir/fake-r/include"
         sh ./configure >/dev/null
 )
 require_text "$test_dir/src/Makevars" "R_INCLUDE_DIR = /usr/share/R/include"
+require_text "$test_dir/src/Makevars" 'OBJECTS = entry.o'
 if grep -E -q -- '@[A-Z_]+@' "$test_dir/src/Makevars"; then
     printf '%s\n' 'configure left an unsubstituted Makevars placeholder' >&2
     exit 1
 fi
+
+# Config/rzig/mixed: R compiles every source of src/, and entry.c leaves
+# R_init_<pkg> to the package.
+printf 'Package: mixedcheck\nConfig/rzig/mixed: true\n' > "$test_dir/DESCRIPTION"
+(
+    cd "$test_dir"
+    FAKE_ZIG_VERSION=0.16.0 \
+    FAKE_R_HOME="$test_dir/fake-r" \
+    R_HOME="$test_dir/fake-r" \
+    ZIG="$test_dir/fake tools/zig" \
+    RZIG_CONFIGURE_PLATFORM=Linux \
+        sh ./configure >/dev/null
+)
+if grep -E -q '^OBJECTS' "$test_dir/src/Makevars"; then
+    printf '%s\n' 'configure set OBJECTS for a mixed package' >&2
+    exit 1
+fi
+require_text "$test_dir/src/Makevars" '$(CC) $(ALL_CPPFLAGS) -DRZIG_MIXED $(ALL_CFLAGS)'
+rm -f "$test_dir/DESCRIPTION"
 
 for unsupported in 0.15.2 0.18.0-dev.1234+abcdef 1.0.0 0.17.0-dev.12+abcdef 0.16.0-rc1; do
     if (

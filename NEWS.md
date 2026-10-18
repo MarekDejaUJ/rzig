@@ -1,3 +1,16 @@
+# rzig 0.35.0
+
+## New features
+
+- Packages with C, C++ or Fortran sources: `use_rzig(path, mixed = TRUE)` and
+  `use_rzig_mixed(path)` set `Config/rzig/mixed: true`, so that R compiles the
+  sources of `src/` with its own compilers next to the Zig library. The
+  package's own `R_init_<pkg>` registers its routines with `rzig_register()`,
+  which adds the Zig routines; the checks before compilation report a mixed
+  package whose sources do not call it.
+- `use_rzig()` without `mixed = TRUE` names `use_rzig_mixed()` when `src/`
+  holds other sources.
+
 # rzig 0.34.0
 
 ## New features

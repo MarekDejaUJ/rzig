@@ -372,10 +372,30 @@
     }
   }
   foreign <- .rzig_foreign_sources(path)
-  if (length(foreign)) {
+  if (.rzig_is_mixed(path)) {
+    makevars_in <- .rzig_read_text(file.path(path, "src", "Makevars.in")) %||% ""
+    if (!grepl("@RZIG_OBJECTS@", makevars_in, fixed = TRUE)) {
+      problems <- c(problems, paste0(
+        "Config/rzig/mixed is set, but src/Makevars.in has no @RZIG_OBJECTS@, so only src/entry.c ",
+        "is compiled; update_rzig(path) installs the current templates"
+      ))
+    }
+    if (length(foreign)) {
+      notes <- c(notes, paste0(
+        "compiled by R's compilers (Config/rzig/mixed): ", paste(file.path("src", foreign), collapse = ", ")
+      ))
+    }
+    if (!length(.rzig_register_callers(path))) {
+      problems <- c(problems, paste0(
+        "Config/rzig/mixed leaves R_init_", .rzig_c_identifier(package), "() to the package, but no C or ",
+        "C++ source of src/ calls rzig_register(); see ?use_rzig_mixed"
+      ))
+    }
+  } else if (length(foreign)) {
     problems <- c(problems, paste0(
       "not compiled by the rzig build: ", paste(file.path("src", foreign), collapse = ", "),
-      "; the generated Makevars build the Zig sources and src/entry.c only"
+      "; the generated Makevars build the Zig sources and src/entry.c only; ",
+      "use_rzig_mixed(path) builds them with R's compilers"
     ))
   }
   makevars <- .rzig_foreign_makevars(path)

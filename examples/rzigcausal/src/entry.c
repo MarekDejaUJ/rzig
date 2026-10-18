@@ -10,6 +10,13 @@
  *
  * R_init_rzigcausal must match the package name EXACTLY.
  *
+ * In a package that also has C, C++ or Fortran sources (Config/rzig/mixed:
+ * true in DESCRIPTION, see rzig::use_rzig_mixed()), configure defines
+ * RZIG_MIXED for this file, and the package's own R_init_rzigcausal registers its
+ * routines with rzig_register(dll, c_methods, call_methods, fortran_methods,
+ * external_methods), which adds the Zig routines to call_methods, in place of
+ * R_registerRoutines().
+ *
  * The file includes no R header: some R distributions install the headers
  * without R_ext/Visibility.h, and the entry points need only the default
  * symbol visibility, which the macro below requests from GCC and Clang.
@@ -40,6 +47,7 @@ SEXP R_UnwindProtect(SEXP (*fun)(void *data), void *data,
 
 int RZIG_HIDDEN rzig_unwind_run(SEXP (*body)(void *), void *data, SEXP token, SEXP *result);
 
+#ifndef RZIG_MIXED
 void RZIG_VISIBLE R_init_rzigcausal(DllInfo *dll) {
     rzig_init(dll);
 }
@@ -47,6 +55,7 @@ void RZIG_VISIBLE R_init_rzigcausal(DllInfo *dll) {
 void RZIG_VISIBLE R_unload_rzigcausal(DllInfo *dll) {
     (void) dll;
 }
+#endif
 
 /* R leaves R code by longjmp when it signals an error, delivers an interrupt,
  * or passes control to a condition handler or a restart outside the code. A
