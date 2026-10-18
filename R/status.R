@@ -113,16 +113,20 @@ rzig_status <- function(path, build = FALSE, lib = NULL) {
   }
 
   if (!is.null(exports) && !is.null(info) && scaffold_ok) {
-    bindings <- render_bindings(exports, info$package)
+    roxygen <- .rzig_roxygen_managed(path)
+    bindings <- render_bindings(exports, info$package, roxygen = roxygen)
     manifest <- .rzig_normalize_newlines(.rzig_read_text(.rzig_manifest_path(path)))
     wrappers <- .rzig_normalize_newlines(.rzig_read_text(.rzig_wrapper_path(path)))
     namespace <- .rzig_normalize_newlines(.rzig_read_text(file.path(path, "NAMESPACE")))
     stale <- character()
     if (!identical(manifest, bindings$manifest)) stale <- c(stale, "manifest.zig")
     if (!identical(wrappers, bindings$wrappers)) stale <- c(stale, "R/rzig-wrappers.R")
-    if (is.null(namespace) || !grepl(bindings$namespace, namespace, fixed = TRUE)) {
-      stale <- c(stale, "NAMESPACE")
+    namespace_current <- !is.null(namespace) && if (roxygen) {
+      .rzig_roxygen_namespace_current(namespace, strsplit(bindings$namespace, "\n", fixed = TRUE)[[1L]])
+    } else {
+      grepl(bindings$namespace, namespace, fixed = TRUE)
     }
+    if (!namespace_current) stale <- c(stale, "NAMESPACE")
     add(
       "Bindings",
       if (length(stale)) paste0("out of date: ", paste(stale, collapse = ", "), "; run document()"),

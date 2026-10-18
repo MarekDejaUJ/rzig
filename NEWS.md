@@ -1,3 +1,18 @@
+# rzig 0.6.0
+
+## New features
+
+- Packages whose `NAMESPACE` roxygen2 generates: `document()` writes the
+  `useDynLib` directive of the native routines into `R/rzig-wrappers.R` as a
+  `@rawNamespace` tag and adds the lines roxygen2 writes from the tags to
+  `NAMESPACE`, instead of a block that `roxygen2::roxygenise()` removed. The
+  package works whichever of `rzig::document()`, `roxygenise()` or
+  `devtools::document()` ran last; before, a call of `roxygenise()` after
+  `document()` left `.Call()` without its native symbols ("object
+  'hello_zig_' not found"), which `R CMD check` reported only as a NOTE.
+- `render_bindings()` takes `roxygen`, and `rzig_status()` checks the
+  bindings of both kinds of packages.
+
 # rzig 0.5.0
 
 ## New features
