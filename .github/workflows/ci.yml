@@ -90,6 +90,10 @@ jobs:
           R CMD INSTALL --library="$parity_library" rzig_*.tar.gz
           NOT_CRAN=true ZIG="$(command -v zig)" R_LIBS="$parity_library" Rscript -e 'library(testthat); library(rzig); test_dir("tests/testthat", stop_on_failure = TRUE)'
         shell: bash
+      - name: Check a generated client package with the CRAN settings
+        run: |
+          R_LIBS="$RUNNER_TEMP/rzig-parity-library" ZIG="$(command -v zig)" Rscript tools/check_client_package.R
+        shell: bash
       - name: Check integration fixture
         run: |
           zig version
@@ -203,6 +207,8 @@ jobs:
             exit 1
           fi
         shell: bash
+      - name: Check the declared R entry points against the API of R-devel
+        run: Rscript tools/check_api_symbols.R
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -211,3 +217,41 @@ jobs:
             rzig_*.tar.gz
             rzig.Rcheck/
           if-no-files-found: error
+
+  reverse-pnsbib:
+    strategy:
+      fail-fast: false
+      matrix:
+        zig: ["0.16.0", "0.17.0"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: mlugg/setup-zig@v2
+        with: { version: "${{ matrix.zig }}" }
+      - name: Select the Ubuntu archive mirror
+        run: sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "release"
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::lpSolve
+            any::digest
+            any::testthat
+            any::knitr
+            any::rmarkdown
+          working-directory: .
+      - name: Install rzig from the repository
+        run: |
+          stage_root=".rzig-reverse-stage"
+          root_source="$stage_root/rzig-r-package"
+          mkdir -p "$root_source" "$RUNNER_TEMP/rzig-reverse-library"
+          git archive HEAD | tar -x -C "$root_source"
+          mv "$root_source/src" "$stage_root/rzig-framework-source"
+          R CMD INSTALL --library="$RUNNER_TEMP/rzig-reverse-library" "$root_source"
+        shell: bash
+      - name: Update, build and test pnsbib
+        run: R_LIBS="$RUNNER_TEMP/rzig-reverse-library" ZIG="$(command -v zig)" sh tools/check_reverse_pnsbib.sh
+        shell: bash

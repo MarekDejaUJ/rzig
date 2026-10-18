@@ -17,3 +17,4 @@ NeedsCompilation: yes
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+Config/build/extra-sources: src/rzig/src, src/rzig/framework, src/rzig/build.zig, src/rzig/build.zig.zon

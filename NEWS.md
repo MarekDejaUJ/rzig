@@ -1,3 +1,18 @@
+# rzig 0.10.1
+
+## Continuous integration
+
+- A CRAN-style check of a newly generated client package runs on Linux,
+  macOS and Windows with both Zig series (`tools/check_client_package.R`):
+  `R CMD check --as-cran` with two cores, the CPU-to-elapsed threshold of the
+  installation and a separate temporary directory, failing on any NOTE.
+- A reverse-dependency job updates pnsbib from GitHub with `update_rzig()`,
+  builds it and runs its native and R tests (`tools/check_reverse_pnsbib.sh`).
+- The R-devel job compares the R entry points the framework declares with
+  `tools:::nonAPI` and `tools:::funAPI()` (`tools/check_api_symbols.R`).
+- `rzig_status()` of the example package must report every structural check
+  ok, and the example lists its Zig sources for `devtools::load_all()`.
+
 # rzig 0.10.0
 
 ## New features

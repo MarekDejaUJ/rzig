@@ -109,11 +109,12 @@ test_that("entry.c written by use_rzig matches its template for any package name
   expect_match(rzig:::.rzig_check_scaffold(path, "entry.pkg")$notes, "src/entry.c", fixed = TRUE)
 })
 
-test_that("the example package of the repository passes the scaffold check", {
+test_that("the example package of the repository passes rzig_status", {
   example <- testthat::test_path("..", "..", "examples", "rzigcausal")
   skip_if_not(dir.exists(example), "the examples are only available in the repository")
-  result <- rzig:::.rzig_check_scaffold(normalizePath(example), "rzigcausal")
-  expect_length(result$problems, 0L)
+  status <- rzig_status(normalizePath(example))
+  structural <- c("DESCRIPTION", "Scaffold", "Zig source", "Exports", "Bindings")
+  expect_true(all(status$ok[status$step %in% structural]), info = paste(status$detail, collapse = "\n"))
 })
 
 test_that("use_rzig(overwrite = TRUE) keeps the package author's Zig source", {
