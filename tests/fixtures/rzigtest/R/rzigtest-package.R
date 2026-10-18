@@ -69,6 +69,18 @@ interruptible_count <- function(iterations) {
 #' @param x A numeric vector.
 #' @return The elementwise squares.
 #' @export
+console_lines <- function(count) {
+  invisible(.Call(C_console_lines, count))
+}
+
+console_wide <- function(width) {
+  invisible(.Call(C_console_wide, width))
+}
+
+progress_steps <- function(total, show) {
+  .Call(C_progress_steps, total, show)
+}
+
 parallel_thread_count <- function(count) {
   .Call(C_parallel_thread_count, count)
 }

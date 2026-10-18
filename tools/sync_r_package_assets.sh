@@ -13,11 +13,13 @@ compat.zig
 convert.zig
 error_state.zig
 interrupt.zig
+io.zig
 list.zig
 matrix.zig
 na.zig
 panic.zig
 parallel.zig
+progress.zig
 protect.zig
 register.zig
 rmath.zig

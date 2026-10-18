@@ -89,6 +89,16 @@ pub fn build(b: *std.Build) void {
     const run_rng_tests = b.addRunArtifact(rng_tests);
     test_step.dependOn(&run_rng_tests.step);
 
+    const io_test_module = b.createModule(.{
+        .root_source_file = b.path("src/io_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const io_tests = b.addTest(.{ .root_module = io_test_module });
+    const run_io_tests = b.addRunArtifact(io_tests);
+    test_step.dependOn(&run_io_tests.step);
+
     const parallel_test_module = b.createModule(.{
         .root_source_file = b.path("src/parallel_test.zig"),
         .target = target,

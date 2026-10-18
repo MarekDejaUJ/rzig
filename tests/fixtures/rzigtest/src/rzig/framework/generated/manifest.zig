@@ -189,6 +189,24 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{},
             },
             .{
+                .name = "console_lines",
+                .func = bound_root.console_lines,
+                .doc = "Print `count` numbered lines to R's output and a summary to its message stream.",
+                .parameters = .{"count"},
+            },
+            .{
+                .name = "console_wide",
+                .func = bound_root.console_wide,
+                .doc = "Print one line of `width` characters, longer than any fixed buffer.",
+                .parameters = .{"width"},
+            },
+            .{
+                .name = "progress_steps",
+                .func = bound_root.progress_steps,
+                .doc = "Run `total` steps with a progress bar shown when `show` is true.",
+                .parameters = .{ "total", "show" },
+            },
+            .{
                 .name = "parallel_thread_count",
                 .func = bound_root.parallel_thread_count,
                 .doc = "Report how many worker threads parallelFor uses for `count` indices.",

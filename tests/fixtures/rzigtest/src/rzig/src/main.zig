@@ -318,6 +318,32 @@ pub fn simulate_interrupt(ctx: *rzig.Ctx) rzig.Error!void {
     return rzig.internal.interrupt.request();
 }
 
+/// Print `count` numbered lines to R's output and a summary to its message stream.
+/// @export
+pub fn console_lines(ctx: *rzig.Ctx, count: usize) rzig.Error!void {
+    var line: usize = 1;
+    while (line <= count) : (line += 1) try ctx.print("line {d}\n", .{line});
+    try ctx.eprint("printed {d} lines\n", .{count});
+}
+
+/// Print one line of `width` characters, longer than any fixed buffer.
+/// @export
+pub fn console_wide(ctx: *rzig.Ctx, width: usize) rzig.Error!void {
+    const text = try ctx.alloc(u8, width);
+    @memset(text, 'z');
+    try ctx.print("{s}\n", .{text});
+}
+
+/// Run `total` steps with a progress bar shown when `show` is true.
+/// @export
+pub fn progress_steps(ctx: *rzig.Ctx, total: usize, show: bool) rzig.Error!i32 {
+    var progress = ctx.progress(total, show);
+    var step: usize = 0;
+    while (step < total) : (step += 1) try progress.add(1);
+    try progress.finish();
+    return @intCast(step);
+}
+
 /// Report how many worker threads parallelFor uses for `count` indices.
 /// @export
 pub fn parallel_thread_count(count: usize) rzig.Error!i32 {

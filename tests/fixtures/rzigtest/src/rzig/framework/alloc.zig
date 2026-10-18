@@ -6,6 +6,8 @@
 
 const std = @import("std");
 const es = @import("error_state.zig");
+const io = @import("io.zig");
+const progress_api = @import("progress.zig");
 const rng_api = @import("rng.zig");
 
 /// Per-call storage for Zig-owned scratch memory and intermediate results.
@@ -52,6 +54,27 @@ pub const Ctx = struct {
     /// Repeated calls during one exported invocation reuse the same RNG state.
     pub fn rng(self: *Ctx) es.Error!rng_api.Rng {
         return rng_api.begin(&self.rng_active);
+    }
+
+    /// Print formatted text to R's standard output, as `Rprintf` does, so it
+    /// reaches the console, RStudio and `sink()`. A user interrupt that R
+    /// notices while printing ends the call with an R interrupt.
+    pub fn print(self: *Ctx, comptime format: []const u8, args: anytype) es.Error!void {
+        _ = self;
+        return io.print(.out, format, args);
+    }
+
+    /// Print formatted text to R's message stream, as `REprintf` does.
+    pub fn eprint(self: *Ctx, comptime format: []const u8, args: anytype) es.Error!void {
+        _ = self;
+        return io.print(.err, format, args);
+    }
+
+    /// A progress bar for `total` steps on R's message stream, drawn only when
+    /// `show` is true; its updates also check for a user interrupt.
+    pub fn progress(self: *Ctx, total: usize, show: bool) progress_api.Progress {
+        _ = self;
+        return progress_api.Progress.init(total, show);
     }
 };
 

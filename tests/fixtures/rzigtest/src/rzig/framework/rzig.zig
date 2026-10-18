@@ -21,6 +21,8 @@ pub const parallelFor = @import("parallel.zig").parallelFor;
 pub const parallelThreadCount = @import("parallel.zig").threadCount;
 /// Calling-thread capability for draws controlled by R's `set.seed()`.
 pub const Rng = @import("rng.zig").Rng;
+/// Progress bar on R's message stream, created with `ctx.progress()`.
+pub const Progress = @import("progress.zig").Progress;
 /// Deterministic distribution functions supplied by the linked R runtime.
 pub const Rmath = @import("rmath.zig").Rmath;
 /// Missing-value predicates for R scalar representations.
@@ -44,6 +46,7 @@ pub const internal = struct {
     pub const compat = @import("compat.zig");
     pub const convert = @import("convert.zig");
     pub const interrupt = @import("interrupt.zig");
+    pub const io = @import("io.zig");
     pub const parallel = @import("parallel.zig");
     pub const protect = @import("protect.zig");
     pub const unwind = @import("unwind.zig");

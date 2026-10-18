@@ -211,6 +211,31 @@ for the session, and a compiler error is reported with the line of the code.
 In R Markdown and Quarto documents, a `zig` chunk compiles its code with
 `zig_function()` and later R chunks can call the functions.
 
+## Printing and progress
+
+`ctx.print()` and `ctx.eprint()` format text with Zig's `std.fmt` and write it
+to R's output and message streams (`Rprintf`, `REprintf`), so it reaches the
+console, RStudio and `sink()`. `ctx.progress(total, show)` draws a progress
+bar on the message stream and checks for a user interrupt at each redraw:
+
+```zig
+/// @default verbose interactive()
+/// @export
+pub fn simulate(ctx: *rzig.Ctx, n: usize, verbose: bool) rzig.Error!f64 {
+    var progress = ctx.progress(n, verbose);
+    var total: f64 = 0;
+    for (0..n) |i| {
+        total += @sqrt(@as(f64, @floatFromInt(i)));
+        try progress.add(1);
+    }
+    try progress.finish();
+    return total;
+}
+```
+
+All three need the call context, so they run on the R thread; a progress
+bar in the state of `rzig.parallelFor` workers is a compile error.
+
 ## Debugging builds
 
 Packages build in Zig's `ReleaseSafe` mode: optimized, with the bounds,

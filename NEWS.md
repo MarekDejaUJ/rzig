@@ -1,3 +1,16 @@
+# rzig 0.20.0
+
+## New features
+
+- `ctx.print()` and `ctx.eprint()` write formatted text to R's output and
+  message streams through `Rprintf` and `REprintf`, inside `R_ToplevelExec`,
+  so a user interrupt noticed while printing becomes an R interrupt after Zig
+  cleanup. Text of any length is written in full.
+- `ctx.progress(total, show)` returns an `rzig.Progress` bar on R's message
+  stream that redraws when its percentage changes and checks for a user
+  interrupt at each redraw. A progress bar in the state of `rzig.parallelFor`
+  workers is a compile error.
+
 # rzig 0.19.0
 
 ## New features

@@ -193,7 +193,8 @@ fn validatePlainType(comptime T: type, comptime depth: usize) void {
 fn isRCapability(comptime T: type) bool {
     if (T == Ctx or T == rng.Rng or T == sexp.Sexp or T == matrix.Matrix or T == list.List) return true;
     return switch (@typeInfo(T)) {
-        .@"struct" => @hasDecl(T, "rzig_mut_inner") or @hasDecl(T, "rzig_attributed_inner"),
+        .@"struct" => @hasDecl(T, "rzig_mut_inner") or @hasDecl(T, "rzig_attributed_inner") or
+            @hasDecl(T, "rzig_r_thread_only"),
         else => false,
     };
 }
