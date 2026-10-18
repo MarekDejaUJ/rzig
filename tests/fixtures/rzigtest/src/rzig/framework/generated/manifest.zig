@@ -213,6 +213,18 @@ pub fn Bind(comptime root: type) type {
                 .parameters = .{"value"},
             },
             .{
+                .name = "csc_column_sums",
+                .func = bound_root.csc_column_sums,
+                .doc = "The sum of each column of a sparse matrix.",
+                .parameters = .{"values"},
+            },
+            .{
+                .name = "csc_times_vector",
+                .func = bound_root.csc_times_vector,
+                .doc = "The product of a sparse matrix and a vector.",
+                .parameters = .{ "values", "x" },
+            },
+            .{
                 .name = "rmath_eval",
                 .func = bound_root.rmath_eval,
                 .doc = "Evaluate the density (\"d\"), distribution function (\"p\") or quantile (\"q\")\nof the distribution named `name` with the parameters `values`.",

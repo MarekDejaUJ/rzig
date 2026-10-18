@@ -41,6 +41,8 @@
 \alias{other_new}
 \alias{rmath_eval}
 \alias{rmath_draws}
+\alias{csc_column_sums}
+\alias{csc_times_vector}
 \title{Fixture Functions for the Types and Services of the Boundary}
 \usage{
 parallel_thread_count(count)
@@ -84,6 +86,8 @@ counter_fail_after_create()
 other_new()
 rmath_eval(kind, name, x, values, lower, log)
 rmath_draws(name, count, values)
+csc_column_sums(values)
+csc_times_vector(values, x)
 }
 \arguments{
 \item{count}{A non-negative count.}

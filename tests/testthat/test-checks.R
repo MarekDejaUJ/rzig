@@ -9,7 +9,8 @@ test_that("argument types follow the rules of the boundary", {
                  "rzig.Mut([]i32)", "rzig.Mut(rzig.Matrix)", "rzig.Mut(rzig.IntMatrix)",
                  "[]const rzig.Logical", "[]const ?[]const u8", "?[]const u8",
                  "rzig.Complex", "[]const rzig.Complex", "rzig.Raw", "i64", "?i64", "[]const i64",
-                 "rzig.Record(Options)", "rzig.DataFrame(Columns)", "rzig.Factor", "rzig.External(Model)")) {
+                 "rzig.Record(Options)", "rzig.DataFrame(Columns)", "rzig.Factor", "rzig.External(Model)",
+                 "rzig.CscMatrix")) {
     expect_identical(input(type), "supported", info = type)
   }
   for (type in c("f32", "[]const f32", "u64", "[]f64", "*const f64", "u8", "[]const u64",

@@ -358,6 +358,30 @@ pub fn sexp_element_kinds(ctx: *rzig.Ctx, value: rzig.Sexp) rzig.Error![]const [
     return result;
 }
 
+/// The sum of each column of a sparse matrix.
+/// @export
+pub fn csc_column_sums(ctx: *rzig.Ctx, values: rzig.CscMatrix) rzig.Error![]f64 {
+    const sums = try ctx.alloc(f64, values.ncol);
+    for (sums, 0..) |*sum, column| {
+        sum.* = 0;
+        for (values.column(column).values) |value| sum.* += value;
+    }
+    return sums;
+}
+
+/// The product of a sparse matrix and a vector.
+/// @export
+pub fn csc_times_vector(ctx: *rzig.Ctx, values: rzig.CscMatrix, x: []const f64) rzig.Error![]f64 {
+    if (x.len != values.ncol) return rzig.raise("x has {d} values for {d} columns", .{ x.len, values.ncol });
+    const y = try ctx.alloc(f64, values.nrow);
+    @memset(y, 0);
+    for (0..values.ncol) |column| {
+        const entries = values.column(column);
+        for (entries.rows, entries.values) |row, value| y[@intCast(row)] += value * x[column];
+    }
+    return y;
+}
+
 fn distributionParams(comptime distribution: rzig.Distribution, values: []const f64) rzig.Rmath.Params(distribution) {
     const Params = rzig.Rmath.Params(distribution);
     var params: Params = undefined;

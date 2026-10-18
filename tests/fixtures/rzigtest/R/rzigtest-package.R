@@ -85,6 +85,14 @@ sexp_element_kinds <- function(value) {
   .Call(C_sexp_element_kinds, value)
 }
 
+csc_column_sums <- function(values) {
+  .Call(C_csc_column_sums, values)
+}
+
+csc_times_vector <- function(values, x) {
+  .Call(C_csc_times_vector, values, x)
+}
+
 rmath_eval <- function(kind, name, x, values, lower, log) {
   .Call(C_rmath_eval, kind, name, x, values, lower, log)
 }

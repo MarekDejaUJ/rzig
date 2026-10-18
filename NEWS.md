@@ -1,3 +1,13 @@
+# rzig 0.31.0
+
+## New features
+
+- `rzig.CscMatrix` borrows a `Matrix::dgCMatrix` through its slots `i`, `p`
+  and `x` and its dimensions; every index is checked on arrival (columns in
+  order, rows inside the matrix and increasing within a column), so
+  `column(j)` reads it without further checks. Other sparse classes are
+  rejected with the `as()` call that converts them.
+
 # rzig 0.30.0
 
 ## New features

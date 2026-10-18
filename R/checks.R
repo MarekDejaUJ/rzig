@@ -13,6 +13,7 @@
   "f64", "i32", "bool", "usize", "i64", "?f64", "?i32", "?bool", "?usize", "?i64", "[]consti64",
   "[]constf64", "[]consti32", "[]constbool", "[]constu8", "[]const[]constu8",
   "[]constLogical", "[]const?[]constu8", "?[]constu8", "Complex", "[]constComplex", "Raw", "Factor",
+  "CscMatrix",
   "Matrix", "IntMatrix", "BoolMatrix", "Sexp",
   "Mut([]f64)", "Mut([]i32)", "Mut(Matrix)", "Mut(IntMatrix)"
 )
@@ -40,7 +41,8 @@
     paste0(
       "^(f(16|32|64|80|128)|[iu][0-9]+|isize|usize|bool|void|anyopaque|",
       "anyerror|noreturn|type|anytype|comptime_int|comptime_float|const|",
-      "c_[a-z]+|Matrix|IntMatrix|BoolMatrix|Logical|Complex|Raw|Record|DataFrame|Factor|External|Mut|Sexp|List|",
+      "c_[a-z]+|Matrix|IntMatrix|BoolMatrix|CscMatrix|Logical|Complex|Raw|Record|DataFrame|Factor|External|Mut|",
+      "Sexp|List|",
       "Attributed|Error|Ctx)$"
     ),
     identifier

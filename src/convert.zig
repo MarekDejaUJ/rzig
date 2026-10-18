@@ -9,6 +9,7 @@ const compat = @import("compat.zig");
 const complex = @import("complex.zig");
 const record = @import("record.zig");
 const external = @import("external.zig");
+const sparse = @import("sparse.zig");
 const c = @import("c/abi.zig");
 const es = @import("error_state.zig");
 const list = @import("list.zig");
@@ -123,6 +124,7 @@ pub fn fromSexp(
     if (comptime record.isRecord(T)) return recordFromSexp(T, ctx, x, name);
     if (comptime T == record.Factor) return factorFromSexp(ctx, x, name);
     if (comptime external.isExternal(T)) return externalFromSexp(T, ctx, x, name);
+    if (comptime T == sparse.CscMatrix) return cscFromSexp(x, name);
     if (comptime T == sexp.Sexp) return sexp.fromRaw(x);
 
     return switch (@typeInfo(T)) {
@@ -306,6 +308,42 @@ fn stringSlice(ctx: *Ctx, x: c.SEXP, comptime name: []const u8) es.Error![]const
         slot.* = try ctx.dupe(u8, std.mem.span(translated));
     }
     return result;
+}
+
+/// A borrowed view of a Matrix::dgCMatrix, checked slot by slot.
+fn cscFromSexp(x: c.SEXP, comptime name: []const u8) es.Error!sparse.CscMatrix {
+    if (c.Rf_isS4(x) == c.FALSE or c.Rf_inherits(x, "dgCMatrix") == c.FALSE) {
+        return es.raise(
+            "rzig: {s} must be a Matrix::dgCMatrix; got {s}; use as(as(x, \"generalMatrix\"), \"CsparseMatrix\") in R",
+            .{ name, typeName(x) },
+        );
+    }
+    const i_slot = c.Rf_getAttrib(x, c.Rf_install("i"));
+    const p_slot = c.Rf_getAttrib(x, c.Rf_install("p"));
+    const x_slot = c.Rf_getAttrib(x, c.Rf_install("x"));
+    const dim_slot = c.Rf_getAttrib(x, c.Rf_install("Dim"));
+    if (c.TYPEOF(i_slot) != c.INTSXP or c.TYPEOF(p_slot) != c.INTSXP or c.TYPEOF(x_slot) != c.REALSXP or
+        c.TYPEOF(dim_slot) != c.INTSXP or c.Rf_xlength(dim_slot) != 2)
+    {
+        return es.raise("rzig: {s} is a dgCMatrix with malformed slots", .{name});
+    }
+    const rows = c.INTEGER_ELT(dim_slot, 0);
+    const columns = c.INTEGER_ELT(dim_slot, 1);
+    if (rows < 0 or columns < 0) return es.raise("rzig: {s} has negative dimensions", .{name});
+    const row_indices = c.INTEGER_RO(i_slot)[0..try vectorLength(i_slot, name)];
+    const col_pointers = c.INTEGER_RO(p_slot)[0..try vectorLength(p_slot, name)];
+    const values = c.REAL_RO(x_slot)[0..try vectorLength(x_slot, name)];
+    if (col_pointers.len == 0) return es.raise("rzig: {s} is a dgCMatrix with an empty slot p", .{name});
+    if (sparse.problem(row_indices, col_pointers, values.len, @intCast(rows), @intCast(columns))) |what| {
+        return es.raise("rzig: {s} is a dgCMatrix whose {s}", .{ name, what });
+    }
+    return .{
+        .row_indices = row_indices,
+        .col_pointers = col_pointers,
+        .values = values,
+        .nrow = @intCast(rows),
+        .ncol = @intCast(columns),
+    };
 }
 
 /// The value of an external pointer made by this library for the same type.
@@ -831,6 +869,7 @@ fn isSupportedInput(comptime T: type) bool {
         T == matrix.Matrix or
         T == matrix.IntMatrix or
         T == matrix.BoolMatrix or
+        T == sparse.CscMatrix or
         T == sexp.Sexp)
     {
         return true;

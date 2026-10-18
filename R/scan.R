@@ -823,6 +823,7 @@ print.rzig_exports <- function(x, ...) {
     "[]constComplex" = "complex vector, borrowed",
     "Raw" = "raw vector, borrowed",
     "Factor" = "factor, codes borrowed, levels copied",
+    "CscMatrix" = "Matrix::dgCMatrix, borrowed",
     "[]constu8" = "character, length 1, copied",
     "[]const[]constu8" = "character vector, copied",
     "Matrix" = "double matrix, borrowed",

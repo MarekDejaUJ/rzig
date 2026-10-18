@@ -452,6 +452,7 @@ function. The complete input surface is:
 | `rzig.Record(T)` | named list | entries read into the fields of struct `T` by name; defaults fill missing entries |
 | `rzig.DataFrame(T)` | data frame | columns read into the fields of struct `T`; `.nrow` rows |
 | `rzig.Factor` | factor | `.codes` borrowed, `.levels` copied |
+| `rzig.CscMatrix` | `Matrix::dgCMatrix` | slots `i`, `p`, `x` borrowed and checked; `column(j)` |
 | `?T` | `T`, or `NULL` | `NULL` becomes `null` (scalars also map `NA` to `null`) |
 | `rzig.Matrix` | double matrix | borrowed, read-only, column-major |
 | `rzig.IntMatrix` | integer matrix | borrowed, read-only, column-major; `NA` is `std.math.minInt(i32)` |

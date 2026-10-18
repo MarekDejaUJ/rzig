@@ -37,6 +37,8 @@ pub const Transpose = @import("lapack.zig").Transpose;
 pub const Triangle = @import("lapack.zig").Triangle;
 pub const Side = @import("lapack.zig").Side;
 pub const Diagonal = @import("lapack.zig").Diagonal;
+/// A borrowed view of a Matrix::dgCMatrix (column-compressed sparse matrix).
+pub const CscMatrix = @import("sparse.zig").CscMatrix;
 /// A writable column-major double matrix (`rzig.Mut(rzig.Matrix).data`, `ctx.matrix()`).
 pub const MutableMatrix = @import("matrix.zig").MutableMatrixOf(f64);
 /// NA constants (`NA.real`, `NA.integer`, `NA.logical`) and predicates.
