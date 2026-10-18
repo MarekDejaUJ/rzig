@@ -211,6 +211,16 @@ for the session, and a compiler error is reported with the line of the code.
 In R Markdown and Quarto documents, a `zig` chunk compiles its code with
 `zig_function()` and later R chunks can call the functions.
 
+## Debugging builds
+
+Packages build in Zig's `ReleaseSafe` mode: optimized, with the bounds,
+overflow and `unreachable` checks that the boundary turns into R errors.
+`build_zig(path, optimize = "Debug")`, or `RZIG_OPTIMIZE=Debug` in the
+environment of `R CMD INSTALL`, builds without optimization and with the same
+checks and complete stack traces. `ReleaseFast` and `ReleaseSmall` are
+rejected, because they remove the checks; `@setRuntimeSafety(false)` removes
+them from a single function whose safety the package author has established.
+
 ## Zig tests without R
 
 `test_zig(path)` runs `zig build test` for a package: the `test` blocks of the

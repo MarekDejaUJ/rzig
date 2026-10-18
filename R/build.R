@@ -19,14 +19,22 @@
 #'   `lib.loc = build$library`.
 #' @param preflight If `TRUE`, run the checks of [rzig_status()] first and
 #'   stop before compiling when one of them fails.
+#' @param optimize The optimize mode of the Zig code: `"ReleaseSafe"`
+#'   (optimized, with Zig's safety checks) or `"Debug"` (unoptimized, with the
+#'   same safety checks and complete stack traces, for debugging). The default
+#'   is the environment variable `RZIG_OPTIMIZE`, which the generated
+#'   Makevars also read, or `"ReleaseSafe"`. The modes without safety checks
+#'   (`ReleaseFast`, `ReleaseSmall`) are not available, because the boundary
+#'   turns failed checks into R errors; `@setRuntimeSafety(false)` removes the
+#'   checks of a single function.
 #'
 #' @return An object of class `rzig_build`: a list with `ok` (logical),
 #'   `package`, `step` (`"preflight"`, `"configure"`, `"compile"`,
 #'   `"link"`, `"load"`, `"install"` or `NA` on success), `errors` (a data
 #'   frame with the columns `file`, `line`, `column`, `message` and
 #'   `function_name`), `problems` (failed checks before compilation),
-#'   `library`, `zig` (the [rzig_compiler][find_zig()] used), `seconds` and
-#'   `log` (the complete output of `R CMD INSTALL`). A failed build also
+#'   `library`, `zig` (the [rzig_compiler][find_zig()] used), `optimize`,
+#'   `seconds` and `log` (the complete output of `R CMD INSTALL`). A failed build also
 #'   signals a warning.
 #' @examples
 #' package_path <- tempfile("rzig-build-", tmpdir = tempdir())
@@ -53,10 +61,12 @@
 #' }
 #' unlink(package_path, recursive = TRUE)
 #' @export
-build_zig <- function(path, lib = NULL, preflight = TRUE) {
+build_zig <- function(path, lib = NULL, preflight = TRUE,
+                      optimize = Sys.getenv("RZIG_OPTIMIZE", "ReleaseSafe")) {
   if (length(preflight) != 1L || is.na(preflight)) {
     stop("`preflight` must be TRUE or FALSE", call. = FALSE)
   }
+  optimize <- .rzig_check_optimize(optimize)
   info <- .rzig_package_info(path)
   path <- info$path
   compiler <- find_zig(required = FALSE)
@@ -64,7 +74,8 @@ build_zig <- function(path, lib = NULL, preflight = TRUE) {
     list(
       ok = FALSE, package = info$package, step = NA_character_,
       errors = .rzig_empty_errors(), problems = character(),
-      library = NULL, zig = compiler, seconds = NA_real_, log = character()
+      library = NULL, zig = compiler, optimize = optimize, seconds = NA_real_,
+      log = character()
     ),
     class = "rzig_build"
   )
@@ -97,6 +108,10 @@ build_zig <- function(path, lib = NULL, preflight = TRUE) {
   old <- Sys.getenv("ZIG", unset = NA)
   Sys.setenv(ZIG = compiler$path)
   on.exit(if (is.na(old)) Sys.unsetenv("ZIG") else Sys.setenv(ZIG = old), add = TRUE)
+  old_optimize <- Sys.getenv("RZIG_OPTIMIZE", unset = NA)
+  Sys.setenv(RZIG_OPTIMIZE = optimize)
+  on.exit(if (is.na(old_optimize)) Sys.unsetenv("RZIG_OPTIMIZE") else
+    Sys.setenv(RZIG_OPTIMIZE = old_optimize), add = TRUE)
   started <- Sys.time()
   log <- suppressWarnings(system2(
     file.path(R.home("bin"), "R"),
@@ -116,6 +131,20 @@ build_zig <- function(path, lib = NULL, preflight = TRUE) {
   result$step <- parsed$step
   result$errors <- .rzig_attach_functions(parsed$errors, path, info$package)
   .rzig_build_fail(result)
+}
+
+# The optimize modes the generated Makevars accept (ADR 0030).
+.rzig_optimize_modes <- c("ReleaseSafe", "Debug")
+
+.rzig_check_optimize <- function(optimize) {
+  if (identical(optimize, "")) optimize <- "ReleaseSafe"
+  if (length(optimize) != 1L || is.na(optimize) || !optimize %in% .rzig_optimize_modes) {
+    stop(sprintf(paste0(
+      "`optimize` (or RZIG_OPTIMIZE) must be \"ReleaseSafe\" or \"Debug\"; got %s. ",
+      "ReleaseFast and ReleaseSmall remove the safety checks the boundary turns into R errors"
+    ), paste(deparse(optimize), collapse = " ")), call. = FALSE)
+  }
+  invisible(optimize)
 }
 
 .rzig_build_fail <- function(result) {
@@ -284,6 +313,9 @@ print.rzig_build <- function(x, ...) {
   if (x$ok) {
     cat(sprintf("Build of package %s: succeeded in %.1f seconds\n", x$package, x$seconds))
     cat(sprintf("Zig compiler: %s (version %s)\n", x$zig$path, x$zig$version))
+    if (identical(x$optimize, "Debug")) {
+      cat("Optimize mode: Debug (unoptimized, with safety checks)\n")
+    }
     temporary <- startsWith(x$library, normalizePath(tempdir(), winslash = "/"))
     cat(if (temporary) "Installed into a library in the session temporary directory\n" else
       sprintf("Installed into %s\n", x$library))

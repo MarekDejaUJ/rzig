@@ -4,7 +4,12 @@
 \alias{build_zig}
 \title{Compile and install a Zig-backed package, and report the first errors}
 \usage{
-build_zig(path, lib = NULL, preflight = TRUE)
+build_zig(
+  path,
+  lib = NULL,
+  preflight = TRUE,
+  optimize = Sys.getenv("RZIG_OPTIMIZE", "ReleaseSafe")
+)
 }
 \arguments{
 \item{path}{Path to the package root.}
@@ -15,6 +20,15 @@ session temporary directory; \code{\link[=library]{library()}} then needs
 
 \item{preflight}{If \code{TRUE}, run the checks of \code{\link[=rzig_status]{rzig_status()}} first and
 stop before compiling when one of them fails.}
+
+\item{optimize}{The optimize mode of the Zig code: \code{"ReleaseSafe"}
+(optimized, with Zig's safety checks) or \code{"Debug"} (unoptimized, with the
+same safety checks and complete stack traces, for debugging). The default
+is the environment variable \code{RZIG_OPTIMIZE}, which the generated
+Makevars also read, or \code{"ReleaseSafe"}. The modes without safety checks
+(\code{ReleaseFast}, \code{ReleaseSmall}) are not available, because the boundary
+turns failed checks into R errors; \verb{@setRuntimeSafety(false)} removes the
+checks of a single function.}
 }
 \value{
 An object of class \code{rzig_build}: a list with \code{ok} (logical),
@@ -22,8 +36,8 @@ An object of class \code{rzig_build}: a list with \code{ok} (logical),
 \code{"link"}, \code{"load"}, \code{"install"} or \code{NA} on success), \code{errors} (a data
 frame with the columns \code{file}, \code{line}, \code{column}, \code{message} and
 \code{function_name}), \code{problems} (failed checks before compilation),
-\code{library}, \code{zig} (the \link[=find_zig]{rzig_compiler} used), \code{seconds} and
-\code{log} (the complete output of \verb{R CMD INSTALL}). A failed build also
+\code{library}, \code{zig} (the \link[=find_zig]{rzig_compiler} used), \code{optimize},
+\code{seconds} and \code{log} (the complete output of \verb{R CMD INSTALL}). A failed build also
 signals a warning.
 }
 \description{

@@ -18,10 +18,15 @@ abi_check.o: abi_check.c
 	  -c abi_check.c -o abi_check.o
 
 $(STATLIB): FORCE
+	case "$${RZIG_OPTIMIZE:-ReleaseSafe}" in \
+	  ReleaseSafe) release=--release=safe ;; \
+	  Debug) release= ;; \
+	  *) echo "rzig: RZIG_OPTIMIZE must be ReleaseSafe or Debug; got $${RZIG_OPTIMIZE}" >&2; exit 1 ;; \
+	esac; \
 	cd $(ZIG_DIR) && \
 	ZIG_GLOBAL_CACHE_DIR="$${RZIG_ZIG_CACHE:-$(CURDIR)/$(ZIG_DIR)/.zig-global-cache}" \
 	"$(ZIG)" build \
-	  --release=safe -j2 \
+	  $$release -j2 \
 	  $(ZIG_TARGET_ARG) \
 	  --cache-dir "$(CURDIR)/$(ZIG_DIR)/.zig-cache"
 	@if test "$$(uname -s)" = Darwin; then \

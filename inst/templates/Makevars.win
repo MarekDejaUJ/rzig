@@ -19,11 +19,18 @@ entry.o: entry.c
 
 # Zig keeps its global cache inside the package unless RZIG_ZIG_CACHE names a
 # persistent directory (developer machines; checks leave it unset).
+# RZIG_OPTIMIZE=Debug builds the Zig code without optimization and with the
+# safety checks of the default ReleaseSafe; other modes are rejected.
 $(STATLIB): FORCE
+	case "$${RZIG_OPTIMIZE:-ReleaseSafe}" in \
+	  ReleaseSafe) release=--release=safe ;; \
+	  Debug) release= ;; \
+	  *) echo "rzig: RZIG_OPTIMIZE must be ReleaseSafe or Debug; got $${RZIG_OPTIMIZE}" >&2; exit 1 ;; \
+	esac; \
 	cd $(ZIG_DIR) && \
 	ZIG_GLOBAL_CACHE_DIR="$${RZIG_ZIG_CACHE:-$(CURDIR)/$(ZIG_DIR)/.zig-global-cache}" \
 	"$(ZIG)" build \
-	  --release=safe -j2 \
+	  $$release -j2 \
 	  $(ZIG_TARGET_ARG) \
 	  -Dpkg=$(R_PACKAGE_NAME) \
 	  -Dr-include="$(R_INCLUDE_DIR)" \

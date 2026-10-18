@@ -1,3 +1,14 @@
+# rzig 0.17.0
+
+## New features
+
+- `RZIG_OPTIMIZE=Debug` in the environment of `R CMD INSTALL`, or
+  `build_zig(optimize = "Debug")`, builds the Zig code without optimization
+  and with the safety checks and complete stack traces of Zig's Debug mode.
+  `ReleaseSafe` stays the default; `ReleaseFast` and `ReleaseSmall` are
+  rejected with a message, because the boundary turns failed safety checks
+  into R errors. The printed build result names a Debug build.
+
 # rzig 0.16.1
 
 ## Repository checks

@@ -23,6 +23,7 @@
   ),
   "Makevars" = c(
     "44aec77af5463bba5a1b8b99c07c1f9b",
+    "4ca4a2d2d73f1cd702b7c8a66013d739",
     "64b8a1b3108ba9d8eda099324edb009c",
     "905acae88b6bbad8e85058851c50f071",
     "b55ed8c9d7d4fa89a6df0b7bebaf8ce9",
@@ -39,7 +40,8 @@
     "a68a0fdbcdfdfcf80d98087e7039ed89",
     "b5729bf548d0253838d1a48f35ee82ae",
     "d1aafbf0a524c1a02917fdd58742c491",
-    "e493d99e45b837729e97509fcad95d4f"
+    "e493d99e45b837729e97509fcad95d4f",
+    "f8fe31fc5e4190f5c862e4fff9ed6a10"
   ),
   "entry.c" = c(
     "573d9f05ec530a4dbc0a0e81ec9f3ef2",
