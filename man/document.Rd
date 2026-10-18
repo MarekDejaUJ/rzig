@@ -7,22 +7,22 @@
 document(path)
 }
 \arguments{
-\item{path}{Path to a package previously initialized with [use_rzig()].}
+\item{path}{Path to a package previously initialized with \code{\link[=use_rzig]{use_rzig()}}.}
 }
 \value{
-The [rzig_bindings][render_bindings()] object that was written,
-  with the element `files` naming the files written, invisibly.
+The \link[=render_bindings]{rzig_bindings} object that was written,
+with the element \code{files} naming the files written, invisibly.
 }
 \description{
-Scans the Zig source of the package with [scan_exports()], renders the
-bindings with [render_bindings()], and writes them: the Zig manifest
-`src/rzig/framework/generated/manifest.zig`, the R wrappers
-`R/rzig-wrappers.R`, and a managed block in `NAMESPACE`. Lines of
-`NAMESPACE` outside the block, for example directives written by
+Scans the Zig source of the package with \code{\link[=scan_exports]{scan_exports()}}, renders the
+bindings with \code{\link[=render_bindings]{render_bindings()}}, and writes them: the Zig manifest
+\code{src/rzig/framework/generated/manifest.zig}, the R wrappers
+\code{R/rzig-wrappers.R}, and a managed block in \code{NAMESPACE}. Lines of
+\code{NAMESPACE} outside the block, for example directives written by
 roxygen2, are kept. The function is pure R; no Zig compiler is needed.
 }
 \details{
-Run `document()` after every change to an exported Zig signature or its
+Run \code{document()} after every change to an exported Zig signature or its
 documentation comment, and before installing the package.
 }
 \examples{

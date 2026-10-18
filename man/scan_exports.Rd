@@ -7,31 +7,31 @@
 scan_exports(path)
 }
 \arguments{
-\item{path}{Path to a package previously initialized with [use_rzig()].}
+\item{path}{Path to a package previously initialized with \code{\link[=use_rzig]{use_rzig()}}.}
 }
 \value{
-An object of class `rzig_exports`: a list with one element per
-  exported function, each a list with `name` (the R function name),
-  `identifier` (the Zig identifier as written), `parameters` (the R
-  argument names), `parameter_types` (the Zig types of the R arguments),
-  `return_type` (the Zig return type as written), `doc` (the documentation
-  comment without the `@export` line) and `line` (the line of the
-  declaration). The attributes `package`, `path` and `source` record the
-  package name, its root and the scanned file. [as.data.frame()] turns the
-  object into a table with one row per function.
+An object of class \code{rzig_exports}: a list with one element per
+exported function, each a list with \code{name} (the R function name),
+\code{identifier} (the Zig identifier as written), \code{parameters} (the R
+argument names), \code{parameter_types} (the Zig types of the R arguments),
+\code{return_type} (the Zig return type as written), \code{doc} (the documentation
+comment without the \verb{@export} line) and \code{line} (the line of the
+declaration). The attributes \code{package}, \code{path} and \code{source} record the
+package name, its root and the scanned file. \code{\link[=as.data.frame]{as.data.frame()}} turns the
+object into a table with one row per function.
 }
 \description{
-Reads `src/rzig/src/main.zig` and lists every public top-level Zig function
-whose documentation comment contains a line `/// @export`. The scan is pure
+Reads \code{src/rzig/src/main.zig} and lists every public top-level Zig function
+whose documentation comment contains a line \verb{/// @export}. The scan is pure
 R and needs no Zig compiler; the Zig compiler checks the parameter and
 return types when the package is installed.
 }
 \details{
 A function is found when its declaration starts at the beginning of a line
-with `pub fn` and the lines directly above it are `///` documentation
-comments (blank lines and ordinary `//` comments between the comment block
+with \verb{pub fn} and the lines directly above it are \verb{///} documentation
+comments (blank lines and ordinary \verb{//} comments between the comment block
 and the declaration are ignored). The first parameter is omitted from the
-R signature when its type is `*rzig.Ctx`.
+R signature when its type is \verb{*rzig.Ctx}.
 }
 \examples{
 package_path <- tempfile("rzig-scan-", tmpdir = tempdir())

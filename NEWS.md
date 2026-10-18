@@ -1,3 +1,12 @@
+# rzig 0.3.4
+
+## Documentation
+
+- The help pages render their Markdown: `DESCRIPTION` declares
+  `Roxygen: list(markdown = TRUE)`, so links between the step functions, the
+  bullet lists of `?rzig_status` and code spans appear as intended instead
+  of as literal `[build_zig()]`, `**DESCRIPTION**` and backticks.
+
 # rzig 0.3.3
 
 ## Bug fixes
