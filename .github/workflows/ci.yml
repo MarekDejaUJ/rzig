@@ -72,6 +72,21 @@ jobs:
       - uses: actions/checkout@v7
       - uses: mlugg/setup-zig@v2
         with: { version: "${{ matrix.zig }}" }
+      - name: Record the Zig executable for the R scripts
+        # find_zig() accepts ZIG only when it names the executable file. The
+        # MSYS shell of Windows reports the path without the .exe suffix.
+        run: |
+          zig_path="$(command -v zig)"
+          if [ "$RUNNER_OS" = Windows ]; then
+            zig_path="$(cygpath -m "$zig_path")"
+            case "$zig_path" in
+              *.exe) ;;
+              *) zig_path="$zig_path.exe" ;;
+            esac
+          fi
+          test -f "$zig_path"
+          echo "RZIG_CI_ZIG=$zig_path" >> "$GITHUB_ENV"
+        shell: bash
       - name: Select the Ubuntu archive mirror
         if: runner.os == 'Linux'
         run: sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
@@ -115,7 +130,7 @@ jobs:
           parity_library="$RUNNER_TEMP/rzig-parity-library"
           mkdir -p "$parity_library"
           R CMD INSTALL --library="$parity_library" rzig_*.tar.gz
-          NOT_CRAN=true ZIG="$(command -v zig)" R_LIBS="$parity_library" Rscript -e 'library(testthat); library(rzig); test_dir("tests/testthat", stop_on_failure = TRUE)'
+          NOT_CRAN=true ZIG="$RZIG_CI_ZIG" R_LIBS="$parity_library" Rscript -e 'library(testthat); library(rzig); test_dir("tests/testthat", stop_on_failure = TRUE)'
         shell: bash
       - name: Compare the pinned Zig archives with the Zig download index
         if: runner.os == 'Linux' && matrix.zig == '0.16.0'
@@ -123,11 +138,11 @@ jobs:
         shell: bash
       - name: Check a generated client package with the CRAN settings
         run: |
-          R_LIBS="$RUNNER_TEMP/rzig-parity-library" ZIG="$(command -v zig)" Rscript tools/check_client_package.R
+          R_LIBS="$RUNNER_TEMP/rzig-parity-library" ZIG="$RZIG_CI_ZIG" Rscript tools/check_client_package.R
         shell: bash
       - name: Check a package that imports a Zig module of another package
         run: |
-          R_LIBS="$RUNNER_TEMP/rzig-parity-library" ZIG="$(command -v zig)" Rscript tools/check_module_import.R
+          R_LIBS="$RUNNER_TEMP/rzig-parity-library" ZIG="$RZIG_CI_ZIG" Rscript tools/check_module_import.R
         shell: bash
       - name: Check integration fixture
         run: |
@@ -171,15 +186,15 @@ jobs:
         shell: bash
       - name: Verify installation with a read-only home
         if: runner.os == 'Linux'
-        run: ZIG="$(command -v zig)" sh tools/check_readonly_home.sh rzigtest_*.tar.gz
+        run: ZIG="$RZIG_CI_ZIG" sh tools/check_readonly_home.sh rzigtest_*.tar.gz
         shell: bash
       - name: Verify use_rzig scaffolding
         if: runner.os == 'Linux'
-        run: ZIG="$(command -v zig)" sh tools/check_use_rzig.sh
+        run: ZIG="$RZIG_CI_ZIG" sh tools/check_use_rzig.sh
         shell: bash
       - name: Verify README onboarding under ten minutes
         if: runner.os == 'Linux'
-        run: ZIG="$(command -v zig)" sh tools/check_readme_onboarding.sh
+        run: ZIG="$RZIG_CI_ZIG" sh tools/check_readme_onboarding.sh
         shell: bash
       - name: Preserve real interrupt conditions
         if: runner.os != 'Windows'
