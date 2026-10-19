@@ -4,12 +4,6 @@ set -eu
 repo_dir=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
 case_dir="$repo_dir/tests/compile_fail"
 zig_path=${ZIG:-zig}
-# zig build sets ZIG to its own executable. A build cache restored from an
-# earlier CI run can carry the path of a removed installation, so the Zig on
-# PATH takes over when ZIG names no executable.
-if ! command -v "$zig_path" >/dev/null 2>&1; then
-    zig_path=zig
-fi
 failed=0
 
 for source in "$case_dir"/*.zig; do
