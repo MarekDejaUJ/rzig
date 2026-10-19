@@ -1032,5 +1032,6 @@ rzig) show further packages.
 
 ## License
 
-GPL-3. See [COPYING](COPYING) for the full license text. RZig 0.2.3 and
-earlier releases on CRAN were published under the MIT license.
+GPL-3. See [COPYING](https://github.com/MarekDejaUJ/rzig/blob/main/COPYING)
+for the full license text. RZig 0.2.3 and earlier releases on CRAN were
+published under the MIT license.
