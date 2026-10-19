@@ -11,7 +11,7 @@ when a supported Zig compiler is found (this copy ran them).
 
 path <- file.path(tempdir(), "exportspkg")
 create_rzig_package(path, tests = FALSE)
-#> Created package exportspkg at /tmp/RtmpGhnj82/exportspkg
+#> Created package exportspkg at /tmp/Rtmptoz72m/exportspkg
 #> Write Zig functions in src/rzig/src/main.zig, then run rzig::document(path) and rzig::build_zig(path)
 main_zig <- file.path(path, "src", "rzig", "src", "main.zig")
 ```

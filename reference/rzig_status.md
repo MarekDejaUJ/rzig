@@ -90,7 +90,7 @@ rzig_status(package_path)
 #>   [ok] Zig source    src/rzig/src/main.zig
 #>   [ok] Exports       1 function: hello_zig
 #>   [ok] Bindings      generated files match the exports
-#>   [ok] Zig compiler  /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig
+#>   [ok] Zig compiler  /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig
 #>                        (version 0.16.0)
 #>   [ok] C toolchain   C compiler gcc
 main <- file.path(package_path, "src", "rzig", "src", "main.zig")
@@ -109,7 +109,7 @@ rzig_status(package_path)
 #>                      `half`: return type f32 is not supported
 #>   [--] Bindings      out of date: manifest.zig, R/rzig-wrappers.R, NAMESPACE,
 #>                        man/half.Rd; run document()
-#>   [ok] Zig compiler  /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig
+#>   [ok] Zig compiler  /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig
 #>                        (version 0.16.0)
 #>   [ok] C toolchain   C compiler gcc
 #> 2 of 7 checks failed: Exports, Bindings

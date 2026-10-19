@@ -199,7 +199,7 @@ rzig_status(package_path)
 #>   [ok] Zig source    src/rzig/src/main.zig
 #>   [ok] Exports       1 function: axpy
 #>   [ok] Bindings      generated files match the exports
-#>   [ok] Zig compiler  /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig
+#>   [ok] Zig compiler  /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig
 #>                        (version 0.16.0)
 #>   [ok] C toolchain   C compiler gcc
 ```
@@ -235,7 +235,7 @@ rzig_status(broken_path)
 #>                      `half`: return type f32 is not supported
 #>   [--] Bindings      out of date: manifest.zig, R/rzig-wrappers.R, NAMESPACE,
 #>                        man/half.Rd; run document()
-#>   [ok] Zig compiler  /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig
+#>   [ok] Zig compiler  /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig
 #>                        (version 0.16.0)
 #>   [ok] C toolchain   C compiler gcc
 #> 2 of 7 checks failed: Exports, Bindings
@@ -258,8 +258,8 @@ finds one; this rendered copy of the vignette ran them.
 
 build <- build_zig(package_path)
 build
-#> Build of package yourpackage: succeeded in 11.2 seconds
-#> Zig compiler: /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig (version 0.16.0)
+#> Build of package yourpackage: succeeded in 9.2 seconds
+#> Zig compiler: /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig (version 0.16.0)
 #> Installed into a library in the session temporary directory
 package_name <- "yourpackage"
 loadNamespace(package_name, lib.loc = build$library)

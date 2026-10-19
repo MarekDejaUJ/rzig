@@ -80,7 +80,7 @@ and translates the header into a Zig module; nothing is downloaded:
 ``` r
 clib <- file.path(root, "clibpkg")
 create_rzig_package(clib, tests = FALSE)
-Created package clibpkg at /tmp/Rtmpw5HUzP/sharing/clibpkg
+Created package clibpkg at /tmp/RtmpxRUiPx/sharing/clibpkg
 Write Zig functions in src/rzig/src/main.zig, then run rzig::document(path) and rzig::build_zig(path)
 vendor <- file.path(clib, "src", "rzig", "vendor", "smooth")
 dir.create(vendor, recursive = TRUE)
@@ -143,7 +143,7 @@ run:
 ``` r
 provider <- file.path(root, "kernelpkg")
 create_rzig_package(provider, tests = FALSE)
-Created package kernelpkg at /tmp/Rtmpw5HUzP/sharing/kernelpkg
+Created package kernelpkg at /tmp/RtmpxRUiPx/sharing/kernelpkg
 Write Zig functions in src/rzig/src/main.zig, then run rzig::document(path) and rzig::build_zig(path)
 use_rzig_module(provider, "kernels")
 Package kernelpkg provides the Zig module kernels in inst/zig/kernels/root.zig
@@ -165,7 +165,7 @@ test "sum" {
 }
 consumer <- file.path(root, "userpkg")
 create_rzig_package(consumer, tests = FALSE)
-Created package userpkg at /tmp/Rtmpw5HUzP/sharing/userpkg
+Created package userpkg at /tmp/RtmpxRUiPx/sharing/userpkg
 Write Zig functions in src/rzig/src/main.zig, then run rzig::document(path) and rzig::build_zig(path)
 use_rzig_import(consumer, "kernelpkg", "kernels")
 Package userpkg imports the Zig module kernels of package kernelpkg
@@ -212,7 +212,7 @@ callers check because R checks neither signatures nor versions:
 ``` r
 callee <- file.path(root, "calleepkg")
 create_rzig_package(callee, tests = FALSE)
-Created package calleepkg at /tmp/Rtmpw5HUzP/sharing/calleepkg
+Created package calleepkg at /tmp/RtmpxRUiPx/sharing/calleepkg
 Write Zig functions in src/rzig/src/main.zig, then run rzig::document(path) and rzig::build_zig(path)
 writeLines(c(header,
   "fn clamp(x: f64, low: f64, high: f64) callconv(.c) f64 {",
@@ -233,7 +233,7 @@ document(callee)
 Generated RZig bindings for calleepkg: 1 exported function
 caller <- file.path(root, "callerpkg")
 create_rzig_package(caller, tests = FALSE)
-Created package callerpkg at /tmp/Rtmpw5HUzP/sharing/callerpkg
+Created package callerpkg at /tmp/RtmpxRUiPx/sharing/callerpkg
 Write Zig functions in src/rzig/src/main.zig, then run rzig::document(path) and rzig::build_zig(path)
 writeLines(c(header,
   "const Clamp = fn (f64, f64, f64) callconv(.c) f64;",

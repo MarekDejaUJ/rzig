@@ -101,8 +101,8 @@ if (isTRUE(find_zig(required = FALSE)$supported)) {
   result
 }
 #> Generated RZig bindings for examplepkg: 2 exported functions
-#> Build of package examplepkg: succeeded in 11.5 seconds
-#> Zig compiler: /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig (version 0.16.0)
+#> Build of package examplepkg: succeeded in 11.9 seconds
+#> Zig compiler: /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig (version 0.16.0)
 #> Installed into a library in the session temporary directory
 # }
 unlink(package_path, recursive = TRUE)

@@ -20,7 +20,7 @@ notes a `DESCRIPTION` without it:
 
 path <- file.path(tempdir(), "distpkg")
 create_rzig_package(path, tests = FALSE)
-#> Created package distpkg at /tmp/RtmpbmQ3hi/distpkg
+#> Created package distpkg at /tmp/RtmpaTz25a/distpkg
 #> Write Zig functions in src/rzig/src/main.zig, then run rzig::document(path) and rzig::build_zig(path)
 read.dcf(file.path(path, "DESCRIPTION"), fields = "SystemRequirements")
 #>      SystemRequirements    
@@ -45,7 +45,7 @@ rzig, where `configure` finds it:
 ``` r
 
 find_zig(required = FALSE)
-#> Zig compiler: /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig (version 0.16.0, supported)
+#> Zig compiler: /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig (version 0.16.0, supported)
 #> rzig supports Zig 0.16.x or 0.17.x.
 ```
 

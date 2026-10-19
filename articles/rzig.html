@@ -86,7 +86,7 @@ With <code>required = FALSE</code>, a missing compiler is a result and
 not an error:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">compiler</span></span>
-<span><span class="co">#&gt; Zig compiler: /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig (version 0.16.0, supported)</span></span>
+<span><span class="co">#&gt; Zig compiler: /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig (version 0.16.0, supported)</span></span>
 <span><span class="co">#&gt; rzig supports Zig 0.16.x or 0.17.x.</span></span></code></pre></div>
 <p>A user without Zig can install a verified release with
 <code><a href="../reference/install_zig.html">install_zig()</a></code>, which downloads it into the user cache
@@ -105,7 +105,7 @@ R’s temporary directory:</p>
 <span>  Title <span class="op">=</span> <span class="st">"Greetings from Zig"</span>,</span>
 <span>  Description <span class="op">=</span> <span class="st">"Shows the workflow of 'rzig'."</span></span>
 <span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Created package hellozig at /tmp/Rtmp3XBTl0/hellozig</span></span>
+<span><span class="co">#&gt; Created package hellozig at /tmp/RtmpEtatYD/hellozig</span></span>
 <span><span class="co">#&gt; Write Zig functions in src/rzig/src/main.zig, then run rzig::document(path) and rzig::build_zig(path)</span></span></code></pre></div>
 <p>The Zig code lives in <code>src/rzig/src/main.zig</code>. The starter
 function shows the three parts of an export: documentation comments,
@@ -223,7 +223,7 @@ exports, the generated files and the toolchain:</p>
 <span><span class="co">#&gt;   [ok] Zig source    src/rzig/src/main.zig</span></span>
 <span><span class="co">#&gt;   [ok] Exports       2 functions: hello_zig, cumulative</span></span>
 <span><span class="co">#&gt;   [ok] Bindings      generated files match the exports</span></span>
-<span><span class="co">#&gt;   [ok] Zig compiler  /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig</span></span>
+<span><span class="co">#&gt;   [ok] Zig compiler  /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig</span></span>
 <span><span class="co">#&gt;                        (version 0.16.0)</span></span>
 <span><span class="co">#&gt;   [ok] C toolchain   C compiler gcc</span></span></code></pre></div>
 </div>
@@ -236,8 +236,8 @@ line:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">build</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_zig.html">build_zig</a></span><span class="op">(</span><span class="va">path</span><span class="op">)</span></span>
 <span><span class="va">build</span></span>
-<span><span class="co">#&gt; Build of package hellozig: succeeded in 11.6 seconds</span></span>
-<span><span class="co">#&gt; Zig compiler: /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig (version 0.16.0)</span></span>
+<span><span class="co">#&gt; Build of package hellozig: succeeded in 9.4 seconds</span></span>
+<span><span class="co">#&gt; Zig compiler: /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig (version 0.16.0)</span></span>
 <span><span class="co">#&gt; Installed into a library in the session temporary directory</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">build</span><span class="op">$</span><span class="va">package</span>, character.only <span class="op">=</span> <span class="cn">TRUE</span>, lib.loc <span class="op">=</span> <span class="va">build</span><span class="op">$</span><span class="va">library</span><span class="op">)</span></span>
 <span><span class="fu">hello_zig</span><span class="op">(</span><span class="st">"R"</span><span class="op">)</span></span>
@@ -272,7 +272,7 @@ with Zig’s own test runner, without R. <code><a href="../reference/test_zig.ht
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tests</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/test_zig.html">test_zig</a></span><span class="op">(</span><span class="va">path</span><span class="op">)</span></span>
 <span><span class="va">tests</span></span>
-<span><span class="co">#&gt; Zig tests passed in 6.4 seconds</span></span></code></pre></div>
+<span><span class="co">#&gt; Zig tests passed in 5.0 seconds</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="try-zig-from-the-r-prompt">Try Zig from the R prompt<a class="anchor" aria-label="anchor" href="#try-zig-from-the-r-prompt"></a>

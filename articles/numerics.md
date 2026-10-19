@@ -15,7 +15,7 @@ copy ran them).
 
 path <- file.path(tempdir(), "numericspkg")
 create_rzig_package(path, tests = FALSE)
-#> Created package numericspkg at /tmp/Rtmp6GH18B/numericspkg
+#> Created package numericspkg at /tmp/Rtmp6ulCiq/numericspkg
 #> Write Zig functions in src/rzig/src/main.zig, then run rzig::document(path) and rzig::build_zig(path)
 main_zig <- file.path(path, "src", "rzig", "src", "main.zig")
 use_rzig_lapack(path)

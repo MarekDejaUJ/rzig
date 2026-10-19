@@ -53,7 +53,7 @@ contains (another field value is the package author's choice).
 ``` r
 package_path <- file.path(tempdir(), "zigstats")
 create_rzig_package(package_path)
-#> Created package zigstats at /tmp/Rtmpj2bSj2/zigstats
+#> Created package zigstats at /tmp/Rtmp7FFeHY/zigstats
 #> Write Zig functions in src/rzig/src/main.zig, then run rzig::document(path) and rzig::build_zig(path)
 list.files(package_path, recursive = TRUE)
 #>  [1] "DESCRIPTION"                              

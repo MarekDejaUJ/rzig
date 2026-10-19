@@ -144,7 +144,7 @@ package and translates the header into a Zig module; nothing is
 downloaded:</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>clib <span class="ot">&lt;-</span> <span class="fu">file.path</span>(root, <span class="st">"clibpkg"</span>)</span>
 <span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">create_rzig_package</span>(clib, <span class="at">tests =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>Created package clibpkg at <span class="sc">/</span>tmp<span class="sc">/</span>Rtmpw5HUzP<span class="sc">/</span>sharing<span class="sc">/</span>clibpkg</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>Created package clibpkg at <span class="sc">/</span>tmp<span class="sc">/</span>RtmpxRUiPx<span class="sc">/</span>sharing<span class="sc">/</span>clibpkg</span>
 <span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>Write Zig functions <span class="cf">in</span> src<span class="sc">/</span>rzig<span class="sc">/</span>src<span class="sc">/</span>main.zig, then run rzig<span class="sc">::</span><span class="fu">document</span>(path) and rzig<span class="sc">::</span><span class="fu">build_zig</span>(path)</span>
 <span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>vendor <span class="ot">&lt;-</span> <span class="fu">file.path</span>(clib, <span class="st">"src"</span>, <span class="st">"rzig"</span>, <span class="st">"vendor"</span>, <span class="st">"smooth"</span>)</span>
 <span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="fu">dir.create</span>(vendor, <span class="at">recursive =</span> <span class="cn">TRUE</span>)</span>
@@ -202,7 +202,7 @@ importing package compiles the module, so the two packages share no code
 when they run:</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>provider <span class="ot">&lt;-</span> <span class="fu">file.path</span>(root, <span class="st">"kernelpkg"</span>)</span>
 <span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">create_rzig_package</span>(provider, <span class="at">tests =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>Created package kernelpkg at <span class="sc">/</span>tmp<span class="sc">/</span>Rtmpw5HUzP<span class="sc">/</span>sharing<span class="sc">/</span>kernelpkg</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>Created package kernelpkg at <span class="sc">/</span>tmp<span class="sc">/</span>RtmpxRUiPx<span class="sc">/</span>sharing<span class="sc">/</span>kernelpkg</span>
 <span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>Write Zig functions <span class="cf">in</span> src<span class="sc">/</span>rzig<span class="sc">/</span>src<span class="sc">/</span>main.zig, then run rzig<span class="sc">::</span><span class="fu">document</span>(path) and rzig<span class="sc">::</span><span class="fu">build_zig</span>(path)</span>
 <span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="fu">use_rzig_module</span>(provider, <span class="st">"kernels"</span>)</span>
 <span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>Package kernelpkg provides the Zig module kernels <span class="cf">in</span> inst<span class="sc">/</span>zig<span class="sc">/</span>kernels<span class="sc">/</span>root.zig</span>
@@ -224,7 +224,7 @@ when they run:</p>
 <span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a>}</span>
 <span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a>consumer <span class="ot">&lt;-</span> <span class="fu">file.path</span>(root, <span class="st">"userpkg"</span>)</span>
 <span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a><span class="fu">create_rzig_package</span>(consumer, <span class="at">tests =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb5-25"><a href="#cb5-25" tabindex="-1"></a>Created package userpkg at <span class="sc">/</span>tmp<span class="sc">/</span>Rtmpw5HUzP<span class="sc">/</span>sharing<span class="sc">/</span>userpkg</span>
+<span id="cb5-25"><a href="#cb5-25" tabindex="-1"></a>Created package userpkg at <span class="sc">/</span>tmp<span class="sc">/</span>RtmpxRUiPx<span class="sc">/</span>sharing<span class="sc">/</span>userpkg</span>
 <span id="cb5-26"><a href="#cb5-26" tabindex="-1"></a>Write Zig functions <span class="cf">in</span> src<span class="sc">/</span>rzig<span class="sc">/</span>src<span class="sc">/</span>main.zig, then run rzig<span class="sc">::</span><span class="fu">document</span>(path) and rzig<span class="sc">::</span><span class="fu">build_zig</span>(path)</span>
 <span id="cb5-27"><a href="#cb5-27" tabindex="-1"></a><span class="fu">use_rzig_import</span>(consumer, <span class="st">"kernelpkg"</span>, <span class="st">"kernels"</span>)</span>
 <span id="cb5-28"><a href="#cb5-28" tabindex="-1"></a>Package userpkg imports the Zig module kernels of package kernelpkg</span>
@@ -267,7 +267,7 @@ interface version, which callers check because R checks neither
 signatures nor versions:</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>callee <span class="ot">&lt;-</span> <span class="fu">file.path</span>(root, <span class="st">"calleepkg"</span>)</span>
 <span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="fu">create_rzig_package</span>(callee, <span class="at">tests =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>Created package calleepkg at <span class="sc">/</span>tmp<span class="sc">/</span>Rtmpw5HUzP<span class="sc">/</span>sharing<span class="sc">/</span>calleepkg</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>Created package calleepkg at <span class="sc">/</span>tmp<span class="sc">/</span>RtmpxRUiPx<span class="sc">/</span>sharing<span class="sc">/</span>calleepkg</span>
 <span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>Write Zig functions <span class="cf">in</span> src<span class="sc">/</span>rzig<span class="sc">/</span>src<span class="sc">/</span>main.zig, then run rzig<span class="sc">::</span><span class="fu">document</span>(path) and rzig<span class="sc">::</span><span class="fu">build_zig</span>(path)</span>
 <span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="fu">writeLines</span>(<span class="fu">c</span>(header,</span>
 <span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>  <span class="st">"fn clamp(x: f64, low: f64, high: f64) callconv(.c) f64 {"</span>,</span>
@@ -288,7 +288,7 @@ signatures nor versions:</p>
 <span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a>Generated RZig bindings <span class="cf">for</span> calleepkg<span class="sc">:</span> <span class="dv">1</span> exported <span class="cf">function</span></span>
 <span id="cb7-22"><a href="#cb7-22" tabindex="-1"></a>caller <span class="ot">&lt;-</span> <span class="fu">file.path</span>(root, <span class="st">"callerpkg"</span>)</span>
 <span id="cb7-23"><a href="#cb7-23" tabindex="-1"></a><span class="fu">create_rzig_package</span>(caller, <span class="at">tests =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb7-24"><a href="#cb7-24" tabindex="-1"></a>Created package callerpkg at <span class="sc">/</span>tmp<span class="sc">/</span>Rtmpw5HUzP<span class="sc">/</span>sharing<span class="sc">/</span>callerpkg</span>
+<span id="cb7-24"><a href="#cb7-24" tabindex="-1"></a>Created package callerpkg at <span class="sc">/</span>tmp<span class="sc">/</span>RtmpxRUiPx<span class="sc">/</span>sharing<span class="sc">/</span>callerpkg</span>
 <span id="cb7-25"><a href="#cb7-25" tabindex="-1"></a>Write Zig functions <span class="cf">in</span> src<span class="sc">/</span>rzig<span class="sc">/</span>src<span class="sc">/</span>main.zig, then run rzig<span class="sc">::</span><span class="fu">document</span>(path) and rzig<span class="sc">::</span><span class="fu">build_zig</span>(path)</span>
 <span id="cb7-26"><a href="#cb7-26" tabindex="-1"></a><span class="fu">writeLines</span>(<span class="fu">c</span>(header,</span>
 <span id="cb7-27"><a href="#cb7-27" tabindex="-1"></a>  <span class="st">"const Clamp = fn (f64, f64, f64) callconv(.c) f64;"</span>,</span>

@@ -83,7 +83,7 @@ a <code>DESCRIPTION</code> without it:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"distpkg"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/create_rzig_package.html">create_rzig_package</a></span><span class="op">(</span><span class="va">path</span>, tests <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Created package distpkg at /tmp/RtmpbmQ3hi/distpkg</span></span>
+<span><span class="co">#&gt; Created package distpkg at /tmp/RtmpaTz25a/distpkg</span></span>
 <span><span class="co">#&gt; Write Zig functions in src/rzig/src/main.zig, then run rzig::document(path) and rzig::build_zig(path)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/dcf.html" class="external-link">read.dcf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">path</span>, <span class="st">"DESCRIPTION"</span><span class="op">)</span>, fields <span class="op">=</span> <span class="st">"SystemRequirements"</span><span class="op">)</span></span>
 <span><span class="co">#&gt;      SystemRequirements    </span></span>
@@ -104,7 +104,7 @@ the user cache folder of rzig, where <code>configure</code> finds
 it:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/find_zig.html">find_zig</a></span><span class="op">(</span>required <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Zig compiler: /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig (version 0.16.0, supported)</span></span>
+<span><span class="co">#&gt; Zig compiler: /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig (version 0.16.0, supported)</span></span>
 <span><span class="co">#&gt; rzig supports Zig 0.16.x or 0.17.x.</span></span></code></pre></div>
 <p>Alternatives are a download from <a href="https://ziglang.org/download/" class="external-link uri">https://ziglang.org/download/</a>, with the compiler on
 <code>PATH</code> or named by <code>ZIG</code>, or

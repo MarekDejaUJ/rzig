@@ -13,7 +13,7 @@ them; the build and the calls run when a supported Zig compiler is found
 
 path <- file.path(tempdir(), "parallelpkg")
 create_rzig_package(path, tests = FALSE)
-#> Created package parallelpkg at /tmp/RtmpNPzl9E/parallelpkg
+#> Created package parallelpkg at /tmp/Rtmp4m79gM/parallelpkg
 #> Write Zig functions in src/rzig/src/main.zig, then run rzig::document(path) and rzig::build_zig(path)
 main_zig <- file.path(path, "src", "rzig", "src", "main.zig")
 ```

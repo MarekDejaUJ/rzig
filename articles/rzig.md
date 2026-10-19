@@ -21,7 +21,7 @@ compiler is a result and not an error:
 ``` r
 
 compiler
-#> Zig compiler: /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig (version 0.16.0, supported)
+#> Zig compiler: /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig (version 0.16.0, supported)
 #> rzig supports Zig 0.16.x or 0.17.x.
 ```
 
@@ -46,7 +46,7 @@ create_rzig_package(path, fields = list(
   Title = "Greetings from Zig",
   Description = "Shows the workflow of 'rzig'."
 ))
-#> Created package hellozig at /tmp/Rtmp3XBTl0/hellozig
+#> Created package hellozig at /tmp/RtmpEtatYD/hellozig
 #> Write Zig functions in src/rzig/src/main.zig, then run rzig::document(path) and rzig::build_zig(path)
 ```
 
@@ -183,7 +183,7 @@ rzig_status(path)
 #>   [ok] Zig source    src/rzig/src/main.zig
 #>   [ok] Exports       2 functions: hello_zig, cumulative
 #>   [ok] Bindings      generated files match the exports
-#>   [ok] Zig compiler  /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig
+#>   [ok] Zig compiler  /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig
 #>                        (version 0.16.0)
 #>   [ok] C toolchain   C compiler gcc
 ```
@@ -198,8 +198,8 @@ and reports compiler errors by file and line:
 
 build <- build_zig(path)
 build
-#> Build of package hellozig: succeeded in 11.6 seconds
-#> Zig compiler: /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig (version 0.16.0)
+#> Build of package hellozig: succeeded in 9.4 seconds
+#> Zig compiler: /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig (version 0.16.0)
 #> Installed into a library in the session temporary directory
 library(build$package, character.only = TRUE, lib.loc = build$library)
 hello_zig("R")
@@ -243,7 +243,7 @@ writeLines(c(
 
 tests <- test_zig(path)
 tests
-#> Zig tests passed in 6.4 seconds
+#> Zig tests passed in 5.0 seconds
 ```
 
 ## Try Zig from the R prompt

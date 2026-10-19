@@ -248,7 +248,7 @@ Zig compiler is available for the installation:</p>
 <span><span class="co">#&gt;   [ok] Zig source    src/rzig/src/main.zig</span></span>
 <span><span class="co">#&gt;   [ok] Exports       1 function: axpy</span></span>
 <span><span class="co">#&gt;   [ok] Bindings      generated files match the exports</span></span>
-<span><span class="co">#&gt;   [ok] Zig compiler  /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig</span></span>
+<span><span class="co">#&gt;   [ok] Zig compiler  /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig</span></span>
 <span><span class="co">#&gt;                        (version 0.16.0)</span></span>
 <span><span class="co">#&gt;   [ok] C toolchain   C compiler gcc</span></span></code></pre></div>
 </div>
@@ -282,7 +282,7 @@ one such case:</p>
 <span><span class="co">#&gt;                      `half`: return type f32 is not supported</span></span>
 <span><span class="co">#&gt;   [--] Bindings      out of date: manifest.zig, R/rzig-wrappers.R, NAMESPACE,</span></span>
 <span><span class="co">#&gt;                        man/half.Rd; run document()</span></span>
-<span><span class="co">#&gt;   [ok] Zig compiler  /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig</span></span>
+<span><span class="co">#&gt;   [ok] Zig compiler  /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig</span></span>
 <span><span class="co">#&gt;                        (version 0.16.0)</span></span>
 <span><span class="co">#&gt;   [ok] C toolchain   C compiler gcc</span></span>
 <span><span class="co">#&gt; 2 of 7 checks failed: Exports, Bindings</span></span></code></pre></div>
@@ -301,8 +301,8 @@ the vignette ran them.</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">build</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_zig.html">build_zig</a></span><span class="op">(</span><span class="va">package_path</span><span class="op">)</span></span>
 <span><span class="va">build</span></span>
-<span><span class="co">#&gt; Build of package yourpackage: succeeded in 11.2 seconds</span></span>
-<span><span class="co">#&gt; Zig compiler: /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig (version 0.16.0)</span></span>
+<span><span class="co">#&gt; Build of package yourpackage: succeeded in 9.2 seconds</span></span>
+<span><span class="co">#&gt; Zig compiler: /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig (version 0.16.0)</span></span>
 <span><span class="co">#&gt; Installed into a library in the session temporary directory</span></span>
 <span><span class="va">package_name</span> <span class="op">&lt;-</span> <span class="st">"yourpackage"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">loadNamespace</a></span><span class="op">(</span><span class="va">package_name</span>, lib.loc <span class="op">=</span> <span class="va">build</span><span class="op">$</span><span class="va">library</span><span class="op">)</span></span>

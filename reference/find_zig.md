@@ -48,6 +48,6 @@ their language and standard library can differ from the release.
 
 ``` r
 find_zig(required = FALSE)
-#> Zig compiler: /home/runner/work/_temp/9e0fe227-0da4-4767-900a-44012cf37f43/zig-x86_64-linux-0.16.0/zig (version 0.16.0, supported)
+#> Zig compiler: /home/runner/work/_temp/0beafb3f-08c9-475d-9a85-dbeb3ad24ddb/zig-x86_64-linux-0.16.0/zig (version 0.16.0, supported)
 #> rzig supports Zig 0.16.x or 0.17.x.
 ```

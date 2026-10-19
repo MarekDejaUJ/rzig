@@ -17,7 +17,7 @@ is plain R and needs no Zig compiler.
 
 path <- file.path(tempdir(), "updatedpkg")
 create_rzig_package(path, tests = FALSE)
-#> Created package updatedpkg at /tmp/RtmpHzdwMC/updatedpkg
+#> Created package updatedpkg at /tmp/RtmpRBIK9m/updatedpkg
 #> Write Zig functions in src/rzig/src/main.zig, then run rzig::document(path) and rzig::build_zig(path)
 ```
 
