@@ -4,38 +4,51 @@
 \alias{use_rzig}
 \title{Add RZig to a package}
 \usage{
-use_rzig(path, overwrite = FALSE)
+use_rzig(path, overwrite = FALSE, force = FALSE, mixed = FALSE)
 }
 \arguments{
 \item{path}{Path to the package root; the directory must contain a
-`DESCRIPTION` file.}
+\code{DESCRIPTION} file.}
 
-\item{overwrite}{Replace files previously managed by RZig. The package
-author's Zig sources in `src/rzig/src` are kept, so
-`use_rzig(path, overwrite = TRUE)` updates the framework sources and build
-files of a package to the installed version of rzig.}
+\item{overwrite}{Allow \code{use_rzig()} on a package that already has RZig
+files. The framework sources and every build file that still matches an
+rzig template are then replaced, as with \code{\link[=update_rzig]{update_rzig()}}; the package
+author's Zig sources in \code{src/rzig/src} and files rzig does not know are
+kept. A build file the package author changed stops the call unless
+\code{force = TRUE}. \code{\link[=update_rzig]{update_rzig()}} is the usual way to update a package: it
+keeps customized build files and lists them.}
+
+\item{force}{With \code{overwrite = TRUE}, also replace customized build files
+with the templates.}
+
+\item{mixed}{Build the C, C++ and Fortran sources of \verb{src/} with R's
+compilers next to the Zig code; see \code{\link[=use_rzig_mixed]{use_rzig_mixed()}}. Without it,
+\code{use_rzig()} stops when \verb{src/} contains such sources.}
 }
 \value{
-An object of class `rzig_scaffold`: a list with `path` (the
-  normalized package root), `package`, `files` (the paths written,
-  relative to the root) and `exports` (the [rzig_exports][scan_exports()]
-  found in `main.zig`), invisibly.
+An object of class \code{rzig_scaffold}: a list with \code{path} (the
+normalized package root), \code{package}, \code{files} (the paths written,
+relative to the root) and \code{exports} (the \link[=scan_exports]{rzig_exports}
+found in \code{main.zig}), invisibly.
 }
 \description{
 Creates the Zig source tree, the portable build files, the native entry
-stub and a working `hello_zig()` example in an existing package, then
-generates the bindings with [document()]. The function is pure R; a Zig
-compiler of the supported release series (see [find_zig()]) is needed
+stub and a working \code{hello_zig()} example in an existing package, then
+generates the bindings with \code{\link[=document]{document()}}. The function is pure R; a Zig
+compiler of the supported release series (see \code{\link[=find_zig]{find_zig()}}) is needed
 only when the package is installed.
 }
 \details{
-The files written below the package root are: `configure`,
-`configure.win`, `cleanup`, `cleanup.win`, `src/entry.c`,
-`src/Makevars.in`, `src/Makevars.win.in`, the framework sources under
-`src/rzig/framework`, the package author's Zig source
-`src/rzig/src/main.zig`, the generated `R/rzig-wrappers.R`, and a managed
-block in `NAMESPACE`. Entries for the Zig build caches are added to
-`.Rbuildignore`.
+The files written below the package root are: \code{configure},
+\code{configure.win}, \code{cleanup}, \code{cleanup.win}, \code{src/entry.c},
+\code{src/Makevars.in}, \code{src/Makevars.win.in}, the framework sources under
+\code{src/rzig/framework}, the list of vendored C libraries
+\code{src/rzig/c_libraries.zon} (empty), the package author's Zig source
+\code{src/rzig/src/main.zig}, the generated \code{R/rzig-wrappers.R}, and a managed
+block in \code{NAMESPACE}. Entries for the Zig build caches are added to
+\code{.Rbuildignore}, and the Zig sources are listed in the
+\code{Config/build/extra-sources} field of \code{DESCRIPTION}, so that
+\code{devtools::load_all()} recompiles the package after a change to a Zig file.
 }
 \examples{
 package_path <- tempfile("rzig-example-", tmpdir = tempdir())

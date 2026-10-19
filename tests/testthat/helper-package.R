@@ -29,3 +29,19 @@ with_fake_zig <- function(version, code) {
   }, add = TRUE)
   force(code)
 }
+
+# Run R code in a fresh R process; the result keeps the exit status.
+run_r <- function(code) {
+  out <- suppressWarnings(system2(file.path(R.home("bin"), "Rscript"), c("--vanilla", "-e", shQuote(code)),
+    stdout = TRUE, stderr = TRUE))
+  structure(paste(out, collapse = "\n"), status = attr(out, "status"))
+}
+
+# An empty temporary directory removed when the calling test ends.
+local_tempdir <- function(env = parent.frame()) {
+  path <- tempfile("rzig-test-", tmpdir = tempdir())
+  dir.create(path)
+  do.call(on.exit, list(substitute(unlink(path, recursive = TRUE, force = TRUE), list(path = path)),
+    add = TRUE), envir = env)
+  path
+}

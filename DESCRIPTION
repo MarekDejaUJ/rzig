@@ -1,7 +1,7 @@
 Package: rzig
 Type: Package
 Title: Safe Zig Bindings
-Version: 0.3.0
+Version: 1.0.0
 Authors@R: person("Marek", "Deja", email = "marek.deja@uj.edu.pl",
     role = c("aut", "cre"),
     comment = c(ORCID = "0000-0003-0015-2322"))
@@ -17,16 +17,21 @@ Description: Scaffolds packages backed by Zig and generates a safe native
     Zig compiler is needed only to build a package created with the
     scaffold.
 License: GPL-3
-URL: https://github.com/MarekDejaUJ/rzig
+URL: https://marekdejauj.github.io/rzig/, https://github.com/MarekDejaUJ/rzig
 BugReports: https://github.com/MarekDejaUJ/rzig/issues
 Encoding: UTF-8
 SystemRequirements: Zig 0.16.x or 0.17.x (https://ziglang.org/download/), needed to
     install packages created with rzig
 NeedsCompilation: no
 Suggests:
+    digest,
     knitr,
+    pkgload,
     rmarkdown,
-    testthat (>= 3.0.0)
+    roxygen2,
+    testthat (>= 3.0.0),
+    yaml
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
 Config/roxygen2/version: 8.1.0

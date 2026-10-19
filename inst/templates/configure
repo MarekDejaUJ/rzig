@@ -3,48 +3,29 @@ set -eu
 
 ZIG_SERIES="0.16 0.17"
 
-zig_path=${ZIG:-}
-if test -n "$zig_path" && test ! -x "$zig_path"; then
-    printf 'ZIG does not name an executable: %s\n' "$zig_path" >&2
-    exit 1
-fi
-if test -z "$zig_path"; then
-    zig_path=$(command -v zig || true)
-fi
-if test -z "$zig_path" && test -n "${HOME:-}"; then
-    for candidate in "$HOME/.local/share/zig/"*/zig "$HOME/zig/zig"; do
-        if test -x "$candidate"; then
-            zig_path=$candidate
-            break
-        fi
-    done
-fi
-if test -z "$zig_path"; then
-    printf '%s\n' \
-        "Zig 0.16.x or 0.17.x is required to install this package." \
-        "Download it from https://ziglang.org/download/, add it to PATH," \
-        "or reinstall with ZIG=/absolute/path/to/zig." >&2
-    exit 1
-fi
-
-zig_version=$("$zig_path" version) || {
-    printf 'could not run Zig at %s\n' "$zig_path" >&2
-    exit 1
+# A Zig release of a supported series: exactly MAJOR.MINOR.PATCH, so that
+# development builds (0.17.0-dev.N+hash) are rejected.
+zig_supported() {
+    awk -v got="$1" -v series="$ZIG_SERIES" 'BEGIN {
+        if (got !~ /^[0-9]+\.[0-9]+\.[0-9]+$/) exit 1
+        split(got, g, ".")
+        n = split(series, list, " ")
+        for (i = 1; i <= n; i++) {
+            if (split(list[i], s, ".") < 2) continue
+            if ((g[1] + 0) == (s[1] + 0) && (g[2] + 0) == (s[2] + 0)) exit 0
+        }
+        exit 1
+    }'
 }
-if ! awk -v got="$zig_version" -v series="$ZIG_SERIES" 'BEGIN {
-    if (split(got, g, ".") < 3) exit 1
-    if (g[1] !~ /^[0-9]+$/ || g[2] !~ /^[0-9]+$/) exit 1
-    n = split(series, list, " ")
-    for (i = 1; i <= n; i++) {
-        if (split(list[i], s, ".") < 2) continue
-        if ((g[1] + 0) == (s[1] + 0) && (g[2] + 0) == (s[2] + 0)) exit 0
-    }
-    exit 1
-}'; then
-    printf 'Zig %s found at %s, but this package requires Zig 0.16.x or 0.17.x.\n' "$zig_version" "$zig_path" >&2
-    printf '%s\n' 'Download a supported release from https://ziglang.org/download/ and set ZIG=/absolute/path/to/zig.' >&2
-    exit 1
-fi
+
+zig_rejected() {
+    case "$2" in
+        *-*) build_kind='a development build' ;;
+        *) build_kind='an unsupported release series' ;;
+    esac
+    printf 'Zig %s found at %s is %s; this package requires a Zig 0.16.x or 0.17.x release.\n' "$2" "$1" "$build_kind" >&2
+    printf '%s\n' 'Install one with rzig::install_zig() in R, or download a release from https://ziglang.org/download/ and set ZIG=/absolute/path/to/zig.' >&2
+}
 
 r_bin=
 if test -n "${R_HOME:-}" && test -x "$R_HOME/bin/R"; then
@@ -56,8 +37,123 @@ if test -z "$r_bin"; then
     printf '%s\n' 'R is required to configure this package.' >&2
     exit 1
 fi
+
+zig_path=
+zig_version=
+if test -n "${ZIG:-}"; then
+    # An explicit ZIG is used as given.
+    if test ! -x "$ZIG"; then
+        printf 'ZIG does not name an executable: %s\n' "$ZIG" >&2
+        exit 1
+    fi
+    zig_version=$("$ZIG" version) || {
+        printf 'could not run Zig at %s\n' "$ZIG" >&2
+        exit 1
+    }
+    if ! zig_supported "$zig_version"; then
+        zig_rejected "$ZIG" "$zig_version"
+        exit 1
+    fi
+    zig_path=$ZIG
+else
+    # Otherwise the first supported compiler among PATH and the usual install
+    # locations is used, so an old zig on PATH does not hide a supported one.
+    first_path=
+    first_version=
+    try_candidate() {
+        test -x "$1" || return 1
+        candidate_version=$("$1" version 2>/dev/null) || return 1
+        if test -z "$first_path"; then
+            first_path=$1
+            first_version=$candidate_version
+        fi
+        if zig_supported "$candidate_version"; then
+            zig_path=$1
+            zig_version=$candidate_version
+            return 0
+        fi
+        return 1
+    }
+    path_zig=$(command -v zig || true)
+    if test -z "$path_zig" || ! try_candidate "$path_zig"; then
+        # The folder of rzig::install_zig(): RZIG_ZIG_HOME, or zig in the user
+        # cache folder of rzig.
+        zig_home=${RZIG_ZIG_HOME:-}
+        if test -z "$zig_home"; then
+            zig_home=$("$r_bin" --no-echo --vanilla -e 'cat(normalizePath(file.path(tools::R_user_dir("rzig", "cache"), "zig"), winslash = "/", mustWork = FALSE))' 2>/dev/null) || zig_home=
+        fi
+        if test -n "$zig_home"; then
+            for candidate in "$zig_home"/zig-*/zig "$zig_home"/zig-*/zig.exe; do
+                if try_candidate "$candidate"; then
+                    break
+                fi
+            done
+        fi
+        if test -z "$zig_path" && test -n "${HOME:-}"; then
+            for candidate in "$HOME/.local/share/zig/"*/zig "$HOME/.local/share/zig/"*/zig.exe \
+                             "$HOME/zig/zig" "$HOME/zig/zig.exe"; do
+                if try_candidate "$candidate"; then
+                    break
+                fi
+            done
+        fi
+    fi
+    # With RZIG_DOWNLOAD_ZIG=true (the user's request), a missing compiler is
+    # downloaded, verified against the pinned SHA-256 and kept in the
+    # install_zig() folder. Config/rzig/download-zig: true in DESCRIPTION (the
+    # package author's request, for GitHub and r-universe; CRAN requires its
+    # consent) downloads into the build folder of the package instead.
+    if test -z "$zig_path"; then
+        download_reason=
+        case "${RZIG_DOWNLOAD_ZIG:-}" in
+            true | TRUE | yes | 1) download_reason=RZIG_DOWNLOAD_ZIG ;;
+        esac
+        if test -z "$download_reason" && grep -Eiq '^Config/rzig/download-zig:[[:space:]]*(true|yes)[[:space:]]*$' DESCRIPTION 2>/dev/null; then
+            download_reason=Config/rzig/download-zig
+        fi
+        if test -n "$download_reason"; then
+            download_version=${RZIG_ZIG_VERSION:-0.16.0}
+            if test "$download_reason" = RZIG_DOWNLOAD_ZIG; then
+                download_dir=${zig_home:-$(pwd)/src/rzig/.zig-download}
+            else
+                download_dir=$(pwd)/src/rzig/.zig-download
+            fi
+            if test ! -f src/rzig/tools/fetch_zig.R; then
+                printf '%s is set, but src/rzig/tools/fetch_zig.R is missing; update the package with rzig::update_rzig().\n' "$download_reason" >&2
+                exit 1
+            fi
+            printf 'downloading Zig %s into %s (%s)\n' "$download_version" "$download_dir" "$download_reason"
+            downloaded=$("$r_bin" --no-echo --vanilla -f src/rzig/tools/fetch_zig.R --args "$download_version" "$download_dir") || downloaded=
+            # The path of the executable is the last line of the output.
+            downloaded=$(printf '%s\n' "$downloaded" | sed -n '$p')
+            if test -z "$downloaded" || ! try_candidate "$downloaded"; then
+                printf 'could not download a verified Zig %s; see the messages above.\n' "$download_version" >&2
+                exit 1
+            fi
+        fi
+    fi
+    if test -z "$zig_path"; then
+        if test -n "$first_path"; then
+            zig_rejected "$first_path" "$first_version"
+        else
+            printf '%s\n' \
+                "Zig 0.16.x or 0.17.x is required to install this package." \
+                "Install it with rzig::install_zig() in R, or download it from" \
+                "https://ziglang.org/download/ and add it to PATH or reinstall with" \
+                "ZIG=/absolute/path/to/zig. With RZIG_DOWNLOAD_ZIG=true, the" \
+                "installation downloads a verified Zig release itself." >&2
+        fi
+        exit 1
+    fi
+fi
+
 r_home=$("$r_bin" RHOME)
-r_include_dir=$r_home/include
+# Ask R for its include directory: Linux distributions can install the R
+# headers outside R_HOME (for example /usr/share/R/include).
+r_include_dir=$("$r_bin" --no-echo --vanilla -e 'cat(R.home("include"))' 2>/dev/null) || r_include_dir=
+if test -z "$r_include_dir"; then
+    r_include_dir=$r_home/include
+fi
 r_cc=$("$r_bin" CMD config CC)
 
 machine=$(uname -m)
@@ -84,13 +180,48 @@ zig_target_arg=
 # Keep these Make expressions literal while substituting the template.
 statlib='$(ZIG_DIR)/zig-out/lib/libzigpkg.a'
 case "$platform" in
-    Darwin) zig_target_arg="-Dtarget=$zig_arch-macos.13.0" ;;
-    Linux) zig_target_arg="-Dtarget=$zig_arch-linux-gnu" ;;
+    Darwin)
+        # The macOS version that R links for: MACOSX_DEPLOYMENT_TARGET when it
+        # is set, otherwise the minimum version of libR.dylib, so that the
+        # linker never sees Zig objects built for a newer macOS.
+        macos_target=${MACOSX_DEPLOYMENT_TARGET:-}
+        if test -z "$macos_target" && command -v otool >/dev/null 2>&1 && test -f "$r_home/lib/libR.dylib"; then
+            macos_target=$(otool -l "$r_home/lib/libR.dylib" 2>/dev/null | awk '
+                /LC_BUILD_VERSION|LC_VERSION_MIN_MACOSX/ { found = 1 }
+                found && ($1 == "minos" || $1 == "version") { print $2; exit }') || macos_target=
+        fi
+        case "$macos_target" in
+            [0-9]*.[0-9]* | [0-9]*) ;;
+            *) macos_target=13.0 ;;
+        esac
+        zig_target_arg="-Dtarget=$zig_arch-macos.$macos_target"
+        ;;
+    Linux)
+        # musl-based distributions (Alpine) have no getconf GNU_LIBC_VERSION.
+        zig_abi=gnu
+        if ! getconf GNU_LIBC_VERSION >/dev/null 2>&1; then
+            if (ldd --version 2>&1 || true) | grep -qi musl || ls /lib/ld-musl-* >/dev/null 2>&1; then
+                zig_abi=musl
+            fi
+        fi
+        zig_target_arg="-Dtarget=$zig_arch-linux-$zig_abi"
+        ;;
     windows | MINGW* | MSYS* | CYGWIN*)
         zig_target_arg="-Dtarget=$zig_arch-windows-gnu"
         statlib='$(ZIG_DIR)/zig-out/lib/zigpkg.lib'
         ;;
 esac
+# RZIG_ZIG_TARGET names the Zig target when the detection is wrong, for
+# example RZIG_ZIG_TARGET=x86_64-linux-musl.
+if test -n "${RZIG_ZIG_TARGET:-}"; then
+    case "$RZIG_ZIG_TARGET" in
+        *[!A-Za-z0-9._-]*)
+            printf 'RZIG_ZIG_TARGET is not a Zig target: %s\n' "$RZIG_ZIG_TARGET" >&2
+            exit 1
+            ;;
+    esac
+    zig_target_arg="-Dtarget=$RZIG_ZIG_TARGET"
+fi
 
 makevars_template=${RZIG_MAKEVARS_TEMPLATE:-src/Makevars.in}
 makevars_output=${RZIG_MAKEVARS_OUTPUT:-src/Makevars}
@@ -103,14 +234,57 @@ escape_sed_replacement() {
     printf '%s' "$1" | sed 's/[\\&|]/\\&/g'
 }
 
+# Config/rzig/lapack: true in DESCRIPTION (rzig::use_rzig_lapack()) links the
+# LAPACK and BLAS that R uses, and the Fortran runtime they need.
+lapack_libs=
+if grep -Eiq '^Config/rzig/lapack:[[:space:]]*(true|yes)[[:space:]]*$' DESCRIPTION 2>/dev/null; then
+    lapack_libs='$(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)'
+fi
+
+# Config/rzig/mixed: true in DESCRIPTION (rzig::use_rzig_mixed()) compiles the
+# C, C++ and Fortran sources of src/ with R's compilers next to the Zig
+# library; src/entry.c then leaves R_init_<pkg> to the package, whose own
+# R_init_<pkg> calls rzig_register().
+objects_line='OBJECTS = entry.o'
+entry_cppflags=
+if grep -Eiq '^Config/rzig/mixed:[[:space:]]*(true|yes)[[:space:]]*$' DESCRIPTION 2>/dev/null; then
+    objects_line='# OBJECTS is unset: R compiles every source file of src (Config/rzig/mixed).'
+    entry_cppflags='-DRZIG_MIXED'
+fi
+
+# Config/rzig/imports in DESCRIPTION (rzig::use_rzig_import()) names Zig
+# modules of installed R packages (listed in LinkingTo) or of this package's
+# inst/zig; src/rzig/tools/imports.R resolves them to their root files.
+rzig_imports=
+if grep -Eq '^Config/rzig/imports:' DESCRIPTION 2>/dev/null; then
+    if test ! -f src/rzig/tools/imports.R; then
+        printf '%s\n' 'DESCRIPTION has Config/rzig/imports, but src/rzig/tools/imports.R is missing; update the package with rzig::update_rzig().' >&2
+        exit 1
+    fi
+    rzig_imports=$("$r_bin" --no-echo --no-restore --no-save --no-init-file -f src/rzig/tools/imports.R) || {
+        printf '%s\n' 'could not resolve the Zig modules of Config/rzig/imports; see the message above.' >&2
+        exit 1
+    }
+    rzig_imports=$(printf '%s\n' "$rzig_imports" | sed -n '$p')
+    printf 'importing Zig modules: %s\n' "$rzig_imports"
+fi
+
 zig_sub=$(escape_sed_replacement "$zig_path")
 target_sub=$(escape_sed_replacement "$zig_target_arg")
 include_sub=$(escape_sed_replacement "$r_include_dir")
 statlib_sub=$(escape_sed_replacement "$statlib")
+lapack_sub=$(escape_sed_replacement "$lapack_libs")
+objects_sub=$(escape_sed_replacement "$objects_line")
+imports_sub=$(escape_sed_replacement "$rzig_imports")
+entry_sub=$(escape_sed_replacement "$entry_cppflags")
 sed -e "s|@ZIG@|$zig_sub|g" \
     -e "s|@ZIG_TARGET_ARG@|$target_sub|g" \
     -e "s|@R_INCLUDE_DIR@|$include_sub|g" \
     -e "s|@STATLIB@|$statlib_sub|g" \
+    -e "s|@RZIG_LAPACK_LIBS@|$lapack_sub|g" \
+    -e "s|@RZIG_OBJECTS@|$objects_sub|g" \
+    -e "s|@RZIG_IMPORTS@|$imports_sub|g" \
+    -e "s|@RZIG_ENTRY_CPPFLAGS@|$entry_sub|g" \
     "$makevars_template" > "$makevars_output"
 
 printf 'using Zig %s at %s\n' "$zig_version" "$zig_path"

@@ -53,4 +53,19 @@ if [ -n "$BAD_UNWIND" ]; then
   exit 1
 fi
 
-echo "lint: error-exit, interrupt, and unwind-boundary rules OK"
+BAD_RESUME=$(grep -rn --include='*.zig' --exclude='*_test.zig' \
+      -E '\b(R_ContinueUnwind|rzig_unwind_run)\b' src \
+      | grep -v '^src/c/abi\.zig:' \
+      | grep -v '^src/rcall\.zig:' \
+      | grep -v '^src/boundary\.zig:' \
+      | awk -F':' '{ rest = $0; sub(/^[^:]*:[0-9]+:/, "", rest);
+                     gsub(/^[ \t]+/, "", rest);
+                     if (rest !~ /^\/\//) print }' || true)
+
+if [ -n "$BAD_RESUME" ]; then
+  echo "lint: stopping or resuming a jump of R outside rcall.zig and the boundary:"
+  echo "$BAD_RESUME"
+  exit 1
+fi
+
+echo "lint: error-exit, interrupt, unwind-boundary and jump-resume rules OK"

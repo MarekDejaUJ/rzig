@@ -22,6 +22,16 @@ test {
     _ = @import("boundary.zig");
     _ = @import("c/check.zig");
     _ = @import("error_state.zig");
+    _ = @import("complex.zig");
+    _ = @import("matrix.zig");
+    _ = @import("na.zig");
+    _ = @import("record.zig");
+    _ = @import("external.zig");
+    _ = @import("class.zig");
+    _ = @import("sparse.zig");
+    _ = @import("thread_identity.zig");
+    _ = @import("rcall.zig");
+    _ = @import("callable.zig");
     _ = @import("panic.zig");
     _ = @import("protect.zig");
     _ = @import("sexp.zig");

@@ -4,8 +4,11 @@
   paste(sprintf("%d.%d.x", .rzig_zig_series$major, .rzig_zig_series$minor), collapse = " or ")
 }
 
+# A Zig release of a supported series. The version must be exactly
+# MAJOR.MINOR.PATCH: development builds (0.17.0-dev.N+hash) are rejected,
+# because their language and standard library can differ from the release.
 .rzig_zig_supported <- function(version) {
-  match <- regmatches(version, regexec("^([0-9]+)\\.([0-9]+)\\.([0-9]+)", version))[[1L]]
+  match <- regmatches(version, regexec("^([0-9]+)\\.([0-9]+)\\.([0-9]+)$", version))[[1L]]
   if (length(match) != 4L) {
     return(FALSE)
   }
@@ -14,19 +17,17 @@
     found[[2L]] %in% .rzig_zig_series$minor
 }
 
+# Compilers searched when ZIG is unset, in order.
 .rzig_zig_candidates <- function() {
   candidates <- character()
-  zig <- Sys.getenv("ZIG", unset = "")
-  if (nzchar(zig)) {
-    candidates <- c(candidates, path.expand(zig))
-  }
   on_path <- unname(Sys.which("zig"))
   if (nzchar(on_path)) {
     candidates <- c(candidates, on_path)
   }
+  executable <- if (.Platform$OS.type == "windows") "zig.exe" else "zig"
+  candidates <- c(candidates, sort(Sys.glob(file.path(zig_home(), "zig-*", executable))))
   home <- Sys.getenv("HOME", unset = "")
   if (nzchar(home)) {
-    executable <- if (.Platform$OS.type == "windows") "zig.exe" else "zig"
     candidates <- c(
       candidates,
       Sys.glob(file.path(home, ".local", "share", "zig", "*", executable)),
@@ -38,17 +39,20 @@
 
 #' Locate a supported Zig compiler
 #'
-#' Searches the environment variable `ZIG`, the `PATH`,
-#' `~/.local/share/zig/*/zig` and `~/zig/zig`, in that order, and reports the
-#' first Zig executable found, its version and whether rzig supports that
-#' version. rzig itself runs without Zig: [use_rzig()], [scan_exports()] and
+#' Uses the compiler named by the environment variable `ZIG` when it is set.
+#' Otherwise searches the `PATH`, the installations of [install_zig()] in
+#' [zig_home()], `~/.local/share/zig/*/zig` and `~/zig/zig`, in that order,
+#' and reports the first compiler of a supported release series; when none is supported, it reports the first compiler found and why
+#' it is rejected. rzig itself runs without Zig: [use_rzig()], [scan_exports()] and
 #' [document()] are pure R. A Zig compiler of the supported release series is
 #' needed to install a package created with [use_rzig()].
 #'
-#' rzig 0.3.0 supports the Zig 0.16 and 0.17 release series (versions
+#' rzig supports the Zig 0.16 and 0.17 release series (versions
 #' `0.16.x` and `0.17.x`). Zig changes its language and standard library
 #' between release series, so a newer or older compiler is reported as
-#' unsupported.
+#' unsupported. Development builds such as `0.17.0-dev.1234+abcdef` are
+#' unsupported too: their language and standard library can differ from the
+#' release.
 #'
 #' @param required If `TRUE`, a missing or unsupported compiler is an error.
 #'   If `FALSE`, the returned object records the problem instead.
@@ -72,9 +76,13 @@ find_zig <- function(required = TRUE) {
   class(result) <- "rzig_compiler"
 
   explicit <- Sys.getenv("ZIG", unset = "")
-  if (nzchar(explicit) && file.access(path.expand(explicit), mode = 1L) != 0L) {
-    result$problem <- paste0("ZIG does not name an executable: ", explicit)
-    return(.rzig_compiler_result(result, required))
+  if (nzchar(explicit)) {
+    explicit <- path.expand(explicit)
+    if (file.access(explicit, mode = 1L) != 0L) {
+      result$problem <- paste0("ZIG does not name an executable: ", explicit)
+      return(.rzig_compiler_result(result, required))
+    }
+    return(.rzig_compiler_result(.rzig_compiler_probe(result, explicit), required))
   }
 
   candidates <- .rzig_zig_candidates()
@@ -82,33 +90,53 @@ find_zig <- function(required = TRUE) {
   if (!length(candidates)) {
     result$problem <- paste0(
       "no Zig compiler found. rzig supports Zig ", result$series,
-      "; download it from https://ziglang.org/download/, add it to PATH, ",
-      "or set ZIG=/absolute/path/to/zig"
+      "; install it with install_zig(), or download it from https://ziglang.org/download/ ",
+      "and add it to PATH or set ZIG=/absolute/path/to/zig"
     )
     return(.rzig_compiler_result(result, required))
   }
 
-  zig <- candidates[[1L]]
+  # The first supported compiler wins, so an old zig on PATH does not hide a
+  # supported one in the usual install locations.
+  probes <- list()
+  for (zig in candidates) {
+    probe <- .rzig_compiler_probe(result, zig)
+    if (isTRUE(probe$supported)) return(.rzig_compiler_result(probe, required))
+    probes[[length(probes) + 1L]] <- probe
+  }
+  result <- probes[[1L]]
+  if (length(probes) > 1L) {
+    others <- vapply(probes[-1L], function(probe) {
+      sprintf("%s (%s)", probe$path, if (is.null(probe$version)) "no version" else probe$version)
+    }, character(1L))
+    result$problem <- paste0(result$problem, ". Other compilers found: ", paste(others, collapse = ", "))
+  }
+  .rzig_compiler_result(result, required)
+}
+
+# Run `zig version` and record the version and whether it is supported.
+.rzig_compiler_probe <- function(result, zig) {
   version_output <- tryCatch(
     suppressWarnings(system2(zig, "version", stdout = TRUE, stderr = TRUE, timeout = 30)),
     error = function(error) character()
   )
   version <- if (length(version_output)) trimws(version_output[[1L]]) else ""
   result$path <- zig
-  if (!nzchar(version)) {
+  if (!nzchar(version) || !is.null(attr(version_output, "status"))) {
     result$problem <- paste0("Zig at ", zig, " did not report a version")
-    return(.rzig_compiler_result(result, required))
+    return(result)
   }
   result$version <- version
   result$supported <- .rzig_zig_supported(version)
   if (!result$supported) {
+    kind <- if (grepl("-", version, fixed = TRUE)) "a development build" else "an unsupported release series"
     result$problem <- paste0(
-      "Zig ", version, " found at ", zig, ", but rzig supports Zig ",
+      "Zig ", version, " found at ", zig, " is ", kind, "; rzig supports releases of Zig ",
       result$series, ". Download a supported release from ",
       "https://ziglang.org/download/ and set ZIG=/absolute/path/to/zig"
     )
   }
-  .rzig_compiler_result(result, required)
+  result
 }
 
 .rzig_compiler_result <- function(result, required) {

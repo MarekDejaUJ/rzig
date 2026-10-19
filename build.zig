@@ -89,6 +89,16 @@ pub fn build(b: *std.Build) void {
     const run_rng_tests = b.addRunArtifact(rng_tests);
     test_step.dependOn(&run_rng_tests.step);
 
+    const io_test_module = b.createModule(.{
+        .root_source_file = b.path("src/io_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const io_tests = b.addTest(.{ .root_module = io_test_module });
+    const run_io_tests = b.addRunArtifact(io_tests);
+    test_step.dependOn(&run_io_tests.step);
+
     const parallel_test_module = b.createModule(.{
         .root_source_file = b.path("src/parallel_test.zig"),
         .target = target,
@@ -98,6 +108,16 @@ pub fn build(b: *std.Build) void {
     const parallel_tests = b.addTest(.{ .root_module = parallel_test_module });
     const run_parallel_tests = b.addRunArtifact(parallel_tests);
     test_step.dependOn(&run_parallel_tests.step);
+
+    const rcall_test_module = b.createModule(.{
+        .root_source_file = b.path("src/rcall_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const rcall_tests = b.addTest(.{ .root_module = rcall_test_module });
+    const run_rcall_tests = b.addRunArtifact(rcall_tests);
+    test_step.dependOn(&run_rcall_tests.step);
 
     const unwind_test_module = b.createModule(.{
         .root_source_file = b.path("src/unwind_test.zig"),
@@ -169,7 +189,7 @@ pub fn build(b: *std.Build) void {
         .root_module = scan_module,
     });
     const run_scan = b.addRunArtifact(scan);
-    run_scan.addArgs(&.{ "src/main.zig", "src/generated/manifest.zig" });
+    run_scan.addArgs(&.{ "src/main.zig", "src/generated/manifest.zig", pkg_name });
     const fmt_manifest = b.addSystemCommand(&.{ b.graph.zig_exe, "fmt", "src/generated/manifest.zig" });
     fmt_manifest.step.dependOn(&run_scan.step);
 
@@ -177,6 +197,7 @@ pub fn build(b: *std.Build) void {
     run_fixture_scan.addArgs(&.{
         "tests/fixtures/rzigtest/src/rzig/src/main.zig",
         "tests/fixtures/rzigtest/src/rzig/framework/generated/manifest.zig",
+        "rzigtest",
     });
     const fmt_fixture_manifest = b.addSystemCommand(&.{
         b.graph.zig_exe,
@@ -189,6 +210,7 @@ pub fn build(b: *std.Build) void {
     run_causal_scan.addArgs(&.{
         "examples/rzigcausal/src/rzig/src/main.zig",
         "examples/rzigcausal/src/rzig/framework/generated/manifest.zig",
+        "rzigcausal",
     });
     const fmt_causal_manifest = b.addSystemCommand(&.{
         b.graph.zig_exe,

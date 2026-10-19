@@ -4,41 +4,49 @@
 \alias{rzig_status}
 \title{Report the state of a Zig-backed package}
 \usage{
-rzig_status(path, build = FALSE)
+rzig_status(path, build = FALSE, lib = NULL)
 }
 \arguments{
 \item{path}{Path to the package root.}
 
-\item{build}{If `TRUE`, also compile and install the package with
-[build_zig()] when every other check passes.}
+\item{build}{If \code{TRUE}, also compile and install the package with
+\code{\link[=build_zig]{build_zig()}} when every other check passes.}
+
+\item{lib}{With \code{build = TRUE}, the library to install into; see
+\code{\link[=build_zig]{build_zig()}}.}
 }
 \value{
-An object of class `rzig_status`: a data frame with the columns
-  `step`, `ok` and `detail`, one row per check, with the attributes
-  `path`, `package` and, with `build = TRUE`, `build` (the
-  [rzig_build][build_zig()] object).
+An object of class \code{rzig_status}: a data frame with the columns
+\code{step}, \code{ok} and \code{detail}, one row per check, with the attributes
+\code{path}, \code{package} and, with \code{build = TRUE}, \code{build} (the
+\link[=build_zig]{rzig_build} object).
 }
 \description{
 Checks each step of the RZig workflow in a package and reports what is
 present, what is missing and what would make the installation fail:
 }
 \details{
-* **DESCRIPTION**: the package name and a valid version.
-* **Scaffold**: the files written by [use_rzig()], framework sources that
-  match the installed rzig, and executable `configure` and `cleanup`
-  scripts.
-* **Zig source**: `src/rzig/src/main.zig` with the registration block and
-  the panic handler of rzig.
-* **Exports**: the exported functions found by [scan_exports()], with
-  every argument and return type that the boundary rejects, more than 32
-  arguments, misuse of `rzig.Mut([]f64)`, error sets other than
-  `rzig.Error`, and R functions of the same name elsewhere in `R/`.
-* **Bindings**: whether the files written by [document()] match the
-  exports.
-* **Zig compiler**: a compiler of a supported release series
-  ([find_zig()]).
-* **C toolchain**: the C compiler of R, `make` and the R headers.
-* **Build** (only with `build = TRUE`): the result of [build_zig()].
+\itemize{
+\item \strong{DESCRIPTION}: the package name and a valid version.
+\item \strong{Scaffold}: the files written by \code{\link[=use_rzig]{use_rzig()}}, framework sources that
+match the installed rzig, and executable \code{configure} and \code{cleanup}
+scripts. Build files that differ from the rzig templates (\code{configure},
+the Makevars, \code{entry.c}, \code{build.zig}, \code{build.zig.zon}, \verb{tools/}) are
+noted, since a package may extend them.
+\item \strong{Zig source}: \code{src/rzig/src/main.zig} with the registration block and
+the panic handler of rzig.
+\item \strong{Exports}: the exported functions found by \code{\link[=scan_exports]{scan_exports()}}, with
+every argument and return type that the boundary rejects, more than 32
+arguments, misuse of \verb{rzig.Mut([]f64)}, error sets other than
+\code{rzig.Error}, and R functions of the same name elsewhere in \verb{R/}. An
+export that masks a function of base R (for example \code{log}) is noted.
+\item \strong{Bindings}: whether the files written by \code{\link[=document]{document()}} match the
+exports.
+\item \strong{Zig compiler}: a compiler of a supported release series
+(\code{\link[=find_zig]{find_zig()}}).
+\item \strong{C toolchain}: the C compiler of R, \code{make} and the R headers.
+\item \strong{Build} (only with \code{build = TRUE}): the result of \code{\link[=build_zig]{build_zig()}}.
+}
 
 Every check except the build runs in R without compiling anything.
 }

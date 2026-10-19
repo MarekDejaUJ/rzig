@@ -4,36 +4,50 @@ ZIG = @ZIG@
 ZIG_TARGET_ARG = @ZIG_TARGET_ARG@
 R_INCLUDE_DIR = @R_INCLUDE_DIR@
 ZIG_DIR = rzig
+ZIG_IMPORTS = @RZIG_IMPORTS@
 STATLIB = @STATLIB@
-OBJECTS = entry.o
-PKG_LIBS = $(STATLIB)
+@RZIG_OBJECTS@
+PKG_LIBS = $(STATLIB) @RZIG_LAPACK_LIBS@
 
 all: $(SHLIB)
 
 $(SHLIB): $(STATLIB)
 
 entry.o: entry.c
-	$(CC) $(ALL_CPPFLAGS) $(CPICFLAGS) -O2 -Wall -pedantic \
+	$(CC) $(ALL_CPPFLAGS) @RZIG_ENTRY_CPPFLAGS@ $(ALL_CFLAGS) \
 	  -c entry.c -o entry.o
 
-$(STATLIB): $(ZIG_DIR)/build.zig $(ZIG_DIR)/build.zig.zon \
-            $(ZIG_DIR)/src/main.zig
+# Zig keeps its global cache inside the package unless RZIG_ZIG_CACHE names a
+# persistent directory (developer machines; checks leave it unset).
+# RZIG_OPTIMIZE=Debug builds the Zig code without optimization and with the
+# safety checks of the default ReleaseSafe; other modes are rejected.
+$(STATLIB): FORCE
+	case "$${RZIG_OPTIMIZE:-ReleaseSafe}" in \
+	  ReleaseSafe) release=--release=safe ;; \
+	  Debug) release= ;; \
+	  *) echo "rzig: RZIG_OPTIMIZE must be ReleaseSafe or Debug; got $${RZIG_OPTIMIZE}" >&2; exit 1 ;; \
+	esac; \
 	cd $(ZIG_DIR) && \
-	ZIG_GLOBAL_CACHE_DIR="$(CURDIR)/$(ZIG_DIR)/.zig-global-cache" \
+	ZIG_GLOBAL_CACHE_DIR="$${RZIG_ZIG_CACHE:-$(CURDIR)/$(ZIG_DIR)/.zig-global-cache}" \
 	"$(ZIG)" build \
-	  --release=safe \
+	  $$release -j2 \
 	  $(ZIG_TARGET_ARG) \
 	  -Dpkg=$(R_PACKAGE_NAME) \
 	  -Dr-include="$(R_INCLUDE_DIR)" \
+	  -Drzig-imports="$(ZIG_IMPORTS)" \
 	  --cache-dir "$(CURDIR)/$(ZIG_DIR)/.zig-cache"
 	@if test "$$(uname -s)" = Darwin && \
 	    test -f "$(ZIG_DIR)/tools/repack_macos_archive.sh"; then \
 	  sh "$(ZIG_DIR)/tools/repack_macos_archive.sh" "$(STATLIB)"; \
 	fi
 
+# make cannot see the Zig sources under $(ZIG_DIR), so `zig build` runs on
+# every installation; Zig's own cache keeps an unchanged build fast.
+FORCE:
+
 clean:
 	rm -rf $(SHLIB) $(OBJECTS) \
 	       $(ZIG_DIR)/zig-out $(ZIG_DIR)/.zig-cache \
 	       $(ZIG_DIR)/.zig-global-cache
 
-.PHONY: all clean
+.PHONY: all clean FORCE

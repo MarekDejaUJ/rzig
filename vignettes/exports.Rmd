@@ -1,0 +1,185 @@
+---
+title: "Exports, internal routines and classes"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Exports, internal routines and classes}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(rzig)
+compiler <- find_zig(required = FALSE)
+has_zig <- isTRUE(compiler$supported)
+```
+
+The marker `/// @export` makes a public Zig function an R function. Options of
+the marker and the documentation lines decide the name, the defaults and the
+visibility of the R function; `/// @class` makes a struct an R class. This
+vignette shows each form in one package. The scan and the generated files are
+plain R; the build and the calls run when a supported Zig compiler is found
+(this copy `r if (has_zig) "ran" else "skipped"` them).
+
+```{r create}
+path <- file.path(tempdir(), "exportspkg")
+create_rzig_package(path, tests = FALSE)
+main_zig <- file.path(path, "src", "rzig", "src", "main.zig")
+```
+
+## Names, defaults and invisible results
+
+`name=` gives the R function another name than the Zig function, `@default`
+gives an argument a default value written in R, and `invisible` returns the
+result invisibly:
+
+```{r options, comment = ""}
+cat(
+  "",
+  "/// Shrink values towards zero.",
+  "/// @param x A numeric vector.",
+  "/// @param amount The amount to subtract from each absolute value.",
+  "/// @default amount 0.5",
+  "/// @return The shrunk values, invisibly.",
+  "/// @export name=shrink invisible",
+  "pub fn shrink_zig(ctx: *rzig.Ctx, x: []const f64, amount: f64) rzig.Error![]f64 {",
+  "    const out = try ctx.alloc(f64, x.len);",
+  "    for (x, out) |value, *slot| {",
+  "        const size = @max(@abs(value) - amount, 0);",
+  "        slot.* = if (value < 0) -size else size;",
+  "    }",
+  "    return out;",
+  "}",
+  sep = "\n", file = main_zig, append = TRUE
+)
+```
+
+## Internal routines
+
+A routine that only the package's own R code calls is marked
+`/// @export internal`: it gets an R wrapper, which the package does not
+export and which gets no help page. The exported R function checks its
+arguments in R and calls it:
+
+```{r internal, comment = ""}
+cat(
+  "",
+  "/// The weighted mean, for weighted_mean().",
+  "/// @export internal",
+  "pub fn weighted_mean_zig(x: []const f64, w: []const f64) rzig.Error!f64 {",
+  "    if (x.len != w.len) return rzig.raise(\"x and w differ in length\", .{});",
+  "    var total: f64 = 0;",
+  "    var weights: f64 = 0;",
+  "    for (x, w) |value, weight| {",
+  "        total += value * weight;",
+  "        weights += weight;",
+  "    }",
+  "    return total / weights;",
+  "}",
+  sep = "\n", file = main_zig, append = TRUE
+)
+writeLines(c(
+  "#' The weighted mean",
+  "#'",
+  "#' @param x A numeric vector.",
+  "#' @param w Non-negative weights of the same length.",
+  "#' @return A number.",
+  "#' @export",
+  "weighted_mean <- function(x, w = rep(1, length(x))) {",
+  "  stopifnot(is.numeric(x), is.numeric(w), all(w >= 0))",
+  "  weighted_mean_zig(as.double(x), as.double(w))",
+  "}"
+), file.path(path, "R", "weighted.R"))
+```
+
+## Classes
+
+A struct marked `/// @class` becomes an R class. Its `init` function is the
+constructor, exported under the struct's name, and each public function that
+takes the struct as its first parameter is a method, called with `$`. The
+object owns the Zig value, which R's garbage collector releases:
+
+```{r class, comment = ""}
+cat(
+  "",
+  "/// A running mean.",
+  "/// @class",
+  "pub const RunningMean = struct {",
+  "    total: f64 = 0,",
+  "    count: usize = 0,",
+  "",
+  "    /// Create an empty running mean.",
+  "    pub fn init() RunningMean {",
+  "        return .{};",
+  "    }",
+  "",
+  "    /// Add values.",
+  "    pub fn add(self: *RunningMean, values: []const f64) void {",
+  "        for (values) |value| self.total += value;",
+  "        self.count += values.len;",
+  "    }",
+  "",
+  "    /// The mean of the values added so far.",
+  "    pub fn mean(self: *const RunningMean) f64 {",
+  "        return self.total / @as(f64, @floatFromInt(self.count));",
+  "    }",
+  "};",
+  sep = "\n", file = main_zig, append = TRUE
+)
+```
+
+## What R sees
+
+The scan lists every export with its R arguments, the internal routine marked
+as such, and the constructor and methods of the class:
+
+```{r scan}
+scan_exports(path)
+```
+
+`document()` writes the wrappers; the generated R code shows the default, the
+invisible result and the internal routine:
+
+```{r document}
+bindings <- document(path)
+cat(bindings$wrappers)
+```
+
+The `NAMESPACE` of the package has a block that `document()` manages; the
+lines outside it belong to the package author, here the export of the R
+function `weighted_mean()`:
+
+```{r namespace}
+cat("export(weighted_mean)\n", file = file.path(path, "NAMESPACE"), append = TRUE)
+cat(readLines(file.path(path, "NAMESPACE")), sep = "\n")
+```
+
+## Build and use
+
+```{r build, eval = has_zig}
+build <- build_zig(path)
+library(build$package, character.only = TRUE, lib.loc = build$library)
+shrink(c(-2, 0.2, 3))
+print(shrink(c(-2, 0.2, 3), amount = 1))
+weighted_mean(c(1, 2, 3), c(1, 1, 2))
+exists("weighted_mean_zig", envir = asNamespace("exportspkg"))
+"weighted_mean_zig" %in% getNamespaceExports("exportspkg")
+m <- RunningMean()
+m$add(c(1, 2, 3))
+m$add(10)
+m$mean()
+m
+```
+
+## Customized build files
+
+The build files of the scaffold are templates that the package author may
+extend, for example `src/Makevars.in` with additional flags. `update_rzig()`
+keeps such a file and lists it, and `rzig_status()` notes it; the vignette on
+updating rzig shows both. The framework files under `src/rzig/framework`
+belong to rzig and are replaced by every update.
+
+```{r cleanup, include = FALSE}
+if (has_zig) unloadNamespace("exportspkg")
+unlink(path, recursive = TRUE)
+```

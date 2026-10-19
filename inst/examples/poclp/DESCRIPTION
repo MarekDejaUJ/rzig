@@ -1,0 +1,13 @@
+Package: poclp
+Type: Package
+Title: Probabilities of Causation by Linear Programming
+Version: 0.1.0
+Authors@R: person("Marek", "Deja", email = "marek.deja@uj.edu.pl",
+    role = c("aut", "cre"), comment = c(ORCID = "0000-0003-0015-2322"))
+Description: Computes sharp bounds on the probability of necessity and
+    sufficiency, the probability of necessity and the probability of
+    sufficiency from observational and experimental distributions by the
+    response-type linear program, solved in Zig through the rzig package.
+License: GPL-3
+Encoding: UTF-8
+SystemRequirements: Zig 0.16.x or 0.17.x

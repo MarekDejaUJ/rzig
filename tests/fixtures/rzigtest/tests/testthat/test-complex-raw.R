@@ -1,0 +1,20 @@
+test_that("complex vectors are read and returned in R's layout", {
+  values <- complex(real = c(3, 0), imaginary = c(4, -2))
+  expect_identical(complex_modulus(values), c(5, 2))
+  expect_identical(complex_conjugate(values), Conj(values))
+  expect_identical(complex_conjugate(complex()), complex())
+  expect_identical(complex_product(1+2i, 3-1i), (1+2i) * (3-1i))
+  expect_identical(complex_product(2, 1i), 2i)
+  expect_error(complex_product(NA_complex_, 1i), "cannot be NA")
+  expect_error(complex_modulus(c(1, 2)), "as.complex()", fixed = TRUE)
+  expect_true(is.na(complex_modulus(complex(real = NA, imaginary = 1))))
+})
+
+test_that("raw vectors are borrowed and returned as raw", {
+  bytes <- as.raw(c(0x00, 0x0f, 0xff))
+  expect_identical(raw_xor(bytes, 255L), as.raw(c(0xff, 0xf0, 0x00)))
+  expect_identical(raw_xor(raw(), 1L), raw())
+  expect_identical(rawToChar(raw_xor(raw_xor(charToRaw("rzig"), 7L), 7L)), "rzig")
+  expect_error(raw_xor("abc", 1L), "charToRaw()", fixed = TRUE)
+  expect_error(raw_xor(bytes, 256L), "from 0 to 255")
+})

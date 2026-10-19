@@ -1,0 +1,16 @@
+// C libraries that Zig compiles into the package from sources shipped in
+// src/rzig, for example under src/rzig/vendor; nothing is downloaded. Each
+// entry names the Zig module of the translated header (imported in the Zig
+// sources with @import("name")), the header, the C sources, the include
+// directories and the compiler flags. Paths are relative to src/rzig:
+//
+//     .{
+//         .name = "answer",
+//         .header = "vendor/answer/answer.h",
+//         .sources = .{"vendor/answer/answer.c"},
+//         .include = .{"vendor/answer"},
+//         .flags = .{"-std=c99"},
+//     },
+//
+// rzig::update_rzig() never replaces this file.
+.{}

@@ -264,14 +264,14 @@ test_that("R errors release resources through unwind cleanup", {
 
 test_that("malformed inputs always become R errors and the session stays alive", {
   cases <- list(
-    list(function() echo_f64("a"), c("argument 1", "echo_f64")),
-    list(function() echo_f64(NULL), c("argument 1", "echo_f64")),
+    list(function() echo_f64("a"), c("argument `value` of echo_f64")),
+    list(function() echo_f64(NULL), c("argument `value` of echo_f64")),
     list(function() echo_f64(numeric()), c("length 0")),
     list(function() echo_f64(c(1, 2)), c("length 2")),
     list(function() echo_f64(NA_real_), c("cannot be NA")),
 
-    list(function() echo_i32("a"), c("argument 1", "echo_i32")),
-    list(function() echo_i32(NULL), c("argument 1", "echo_i32")),
+    list(function() echo_i32("a"), c("argument `value` of echo_i32")),
+    list(function() echo_i32(NULL), c("argument `value` of echo_i32")),
     list(function() echo_i32(integer()), c("length 0")),
     list(function() echo_i32(c(1L, 2L)), c("length 2")),
     list(function() echo_i32(NA_integer_), c("cannot be NA")),
@@ -286,8 +286,8 @@ test_that("malformed inputs always become R errors and the session stays alive",
     list(function() echo_bool(c(TRUE, FALSE)), c("length 2")),
     list(function() echo_bool(NA), c("cannot be NA")),
 
-    list(function() echo_usize("a"), c("argument 1", "echo_usize")),
-    list(function() echo_usize(NULL), c("argument 1", "echo_usize")),
+    list(function() echo_usize("a"), c("argument `value` of echo_usize")),
+    list(function() echo_usize(NULL), c("argument `value` of echo_usize")),
     list(function() echo_usize(integer()), c("length 0")),
     list(function() echo_usize(c(1L, 2L)), c("length 2")),
     list(function() echo_usize(NA_integer_), c("cannot be NA")),
@@ -295,7 +295,7 @@ test_that("malformed inputs always become R errors and the session stays alive",
     list(function() echo_usize(1.5), c("whole number")),
     list(function() echo_usize(2147483648), c("0 to 2147483647")),
 
-    list(function() echo_optional("a"), c("argument 1", "echo_optional")),
+    list(function() echo_optional("a"), c("argument `value` of echo_optional")),
     list(function() echo_optional(numeric()), c("length 0")),
     list(function() echo_optional(c(1, 2)), c("length 2")),
 
@@ -345,10 +345,117 @@ test_that("malformed inputs always become R errors and the session stays alive",
   expect_gte(calls, 100L)
 })
 
-test_that("byte-encoded strings fail safely if R cannot translate them", {
+test_that("S4 objects and classed vectors follow the type of their data", {
+  probe <- methods::setClass("RzigProbe", representation(x = "numeric"), where = environment())
+  numeric_s4 <- methods::setClass("RzigNumeric", contains = "numeric", where = environment())
+  object <- probe(x = c(1, 2))
+  expect_true(isS4(object))
+  expect_error_live(function() echo_f64(object), c("argument `value` of echo_f64"))
+  expect_error_live(function() echo_reals(object), c("numeric vector"))
+  expect_error_live(function() integer_length(object), c("integer vector"))
+  expect_error_live(function() logical_count(object), c("logical vector"))
+  expect_error_live(function() echo_string(object), c("character vector"))
+  expect_error_live(function() add_vectors(object, c(1, 2)), c("numeric vector"))
+  expect_identical(identity_sexp(object), object)
+  # An S4 object whose data part is a double vector is a double vector.
+  expect_identical(echo_reals(numeric_s4(c(1.5, 2.5))), c(1.5, 2.5))
+  # Attributes of classed vectors are not carried into Zig.
+  expect_identical(echo_reals(structure(c(1.5, 2.5), class = "units")), c(1.5, 2.5))
+  expect_identical(echo_reals(as.Date("2026-01-01")), as.numeric(as.Date("2026-01-01")))
+  expect_error_live(function() echo_reals(data.frame(a = 1)), c("numeric vector"))
+  expect_identical(echo_i32(11L), 11L)
+})
+
+test_that("byte-encoded strings fail with an error naming the argument", {
   bytes <- rawToChar(as.raw(255L))
   Encoding(bytes) <- "bytes"
   condition <- tryCatch(echo_string(bytes), error = identity)
   expect_s3_class(condition, "error")
+  expect_match(conditionMessage(condition), "argument `value` of echo_string", fixed = TRUE)
+  expect_match(conditionMessage(condition), "\"bytes\" encoding", fixed = TRUE)
+  expect_error(echo_strings(c("a", bytes)), "\"bytes\" encoding", fixed = TRUE)
   expect_identical(echo_i32(11L), 11L)
+})
+
+test_that("hostile matrix inputs fail before Zig reads them", {
+  numbers <- matrix(1:4, 2L)
+  cases <- list(
+    list(function() int_matrix_sum(NULL), c("argument `values` of int_matrix_sum", "integer matrix")),
+    list(function() int_matrix_sum(list(1L)), c("integer matrix")),
+    list(function() int_matrix_sum(data.frame(a = 1:2)), c("integer matrix")),
+    list(function() int_matrix_sum(array(1:8, c(2L, 2L, 2L))), c("integer array with 3 dimensions")),
+    list(function() int_matrix_sum(matrix(c("a", "b"), 1L)), c("storage.mode")),
+    list(function() bool_matrix_row_counts(matrix(c(TRUE, NA), 2L)), c("NA")),
+    list(function() bool_matrix_row_counts(numbers), c("storage.mode(x) <- \"logical\"")),
+    list(function() matrix_add_column_index(numbers, 1), c("storage.mode(x) <- \"double\"")),
+    list(function() matrix_add_column_index(c(1, 2), 1), c("without dimensions")),
+    list(function() int_matrix_negate_diagonal(matrix(c(1, 2), 1L)), c("storage.mode(x) <- \"integer\"")),
+    list(function() int_add_in_place(c(1, 2), 1L), c("as.integer()")),
+    list(function() named_matrix(2L, 2L, c("a", NA), character()), c("NA")),
+    list(function() named_matrix(-1L, 1L, character(), character()), c("non-negative"))
+  )
+  for (case in cases) expect_error_live(case[[1L]], case[[2L]])
+  expect_identical(numbers, matrix(1:4, 2L))
+})
+
+test_that("hostile inputs to NA-keeping types fail cleanly", {
+  cases <- list(
+    list(function() logical_tally(NULL), c("argument `values` of logical_tally", "logical vector")),
+    list(function() logical_tally(list(TRUE)), c("logical vector")),
+    list(function() logical_tally("TRUE"), c("logical vector")),
+    list(function() upper_or_na(1:2), c("character vector")),
+    list(function() upper_or_na(list("a")), c("character vector")),
+    list(function() label_or_default(TRUE), c("character vector")),
+    list(function() label_or_default(c(NA, NA)), c("character vector"))
+  )
+  for (case in cases) expect_error_live(case[[1L]], case[[2L]])
+  expect_identical(logical_not(c(NA, TRUE)), c(NA, FALSE))
+})
+
+test_that("hostile complex and raw inputs fail cleanly", {
+  cases <- list(
+    list(function() complex_modulus(NULL), c("argument `values` of complex_modulus", "complex vector")),
+    list(function() complex_modulus(list(1i)), c("complex vector")),
+    list(function() complex_product("1i", 1i), c("complex, double, or integer")),
+    list(function() complex_product(c(1i, 2i), 1i), c("length 1")),
+    list(function() complex_product(complex(), 1i), c("length 1")),
+    list(function() raw_xor(NULL, 1L), c("raw vector")),
+    list(function() raw_xor(1:3, 1L), c("raw vector")),
+    list(function() raw_xor(as.raw(1), NA_integer_), c("cannot be NA"))
+  )
+  for (case in cases) expect_error_live(case[[1L]], case[[2L]])
+  expect_identical(complex_product(1i, 1i), -1+0i)
+})
+
+test_that("integer64 values never reach double or integer parameters", {
+  value <- structure(readBin(as.raw(c(5, 0, 0, 0, 0, 0, 0, 0)), "double", size = 8L, endian = "little"),
+    class = "integer64")
+  cases <- list(
+    list(function() echo_f64(value), c("bit64::integer64")),
+    list(function() echo_i32(value), c("bit64::integer64")),
+    list(function() echo_reals(value), c("bit64::integer64")),
+    list(function() echo_usize(value), c("bit64::integer64")),
+    list(function() int64_sum("1"), c("bit64::as.integer64()"))
+  )
+  for (case in cases) expect_error_live(case[[1L]], case[[2L]])
+})
+
+test_that("hostile lists, data frames and factors fail cleanly", {
+  cases <- list(
+    list(function() record_options(NULL), c("argument `options` of record_options", "named list")),
+    list(function() record_options("tolerance"), c("named list")),
+    list(function() record_options(list(tolerance = c(1, 2))), c("entry `tolerance`", "length 1")),
+    list(function() record_options(list(method = NA_character_)), c("entry `method`", "NA")),
+    list(function() record_options(list(weights = "x")), c("entry `weights`", "numeric vector")),
+    list(function() frame_group_means(NULL), c("data frame")),
+    list(function() frame_group_means(structure(list(value = 1:2, group = factor("a")), class = "data.frame",
+      row.names = 1:2)), c("column `value`")),
+    list(function() frame_group_means(structure(list(value = c(1, 2), group = factor("a")), class = "data.frame",
+      row.names = 1:2)), c("column `group` has 1 values for 2 rows")),
+    list(function() factor_reverse_levels(structure(1L, levels = NA_character_, class = "factor")), c("NA")),
+    list(function() factor_reverse_levels(structure(0L, levels = "a", class = "factor")), c("outside its 1 levels")),
+    list(function() factor_reverse_levels(structure(1:2, levels = c("a", "b"), class = "grouping")),
+      c("must be a factor"))
+  )
+  for (case in cases) expect_error_live(case[[1L]], case[[2L]])
 })

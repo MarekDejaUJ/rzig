@@ -4,24 +4,34 @@
 \alias{render_bindings}
 \title{Render the generated bindings for a set of exported functions}
 \usage{
-render_bindings(exports, package = attr(exports, "package", exact = TRUE))
+render_bindings(
+  exports,
+  package = attr(exports, "package", exact = TRUE),
+  roxygen = FALSE
+)
 }
 \arguments{
-\item{exports}{An object returned by [scan_exports()].}
+\item{exports}{An object returned by \code{\link[=scan_exports]{scan_exports()}}.}
 
-\item{package}{The package name; by default taken from `exports`.}
+\item{package}{The package name; by default taken from \code{exports}.}
+
+\item{roxygen}{Render for a package whose \code{NAMESPACE} roxygen2 generates:
+the wrappers then carry the \code{useDynLib} directive as a \verb{@rawNamespace}
+tag, and \code{namespace} holds the lines roxygen2 writes for them.}
 }
 \value{
-An object of class `rzig_bindings`: a list with the character
-  strings `manifest` (`src/rzig/framework/generated/manifest.zig`),
-  `wrappers` (`R/rzig-wrappers.R`) and `namespace` (the generated
-  `NAMESPACE` block), and the `exports` the texts were rendered from.
+An object of class \code{rzig_bindings}: a list with the character
+strings \code{manifest} (\code{src/rzig/framework/generated/manifest.zig}),
+\code{wrappers} (\code{R/rzig-wrappers.R}) and \code{namespace} (the generated
+\code{NAMESPACE} block, or with \code{roxygen = TRUE} the \code{NAMESPACE} lines that
+roxygen2 writes for the wrappers), and the \code{exports} the texts were
+rendered from.
 }
 \description{
-Produces the three texts that [document()] writes into a package, without
+Produces the three texts that \code{\link[=document]{document()}} writes into a package, without
 writing anything: the Zig manifest that registers the exported functions,
-the R wrappers that call them, and the `NAMESPACE` block that resolves the
-native symbols. Use the function to inspect what [document()] will
+the R wrappers that call them, and the \code{NAMESPACE} block that resolves the
+native symbols. Use the function to inspect what \code{\link[=document]{document()}} will
 generate.
 }
 \examples{

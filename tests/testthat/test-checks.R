@@ -5,10 +5,16 @@ output <- function(type) rzig:::.rzig_classify_return(key(type))
 test_that("argument types follow the rules of the boundary", {
   for (type in c("f64", "i32", "bool", "usize", "?f64", "[]const f64", "[]const i32",
                  "[]const bool", "[]const u8", "[]const []const u8", "rzig.Matrix",
-                 "rzig.Sexp", "rzig.Mut([]f64)")) {
+                 "rzig.IntMatrix", "rzig.BoolMatrix", "rzig.Sexp", "rzig.Mut([]f64)",
+                 "rzig.Mut([]i32)", "rzig.Mut(rzig.Matrix)", "rzig.Mut(rzig.IntMatrix)",
+                 "[]const rzig.Logical", "[]const ?[]const u8", "?[]const u8",
+                 "rzig.Complex", "[]const rzig.Complex", "rzig.Raw", "i64", "?i64", "[]const i64",
+                 "rzig.Record(Options)", "rzig.DataFrame(Columns)", "rzig.Factor", "rzig.External(Model)",
+                 "rzig.CscMatrix")) {
     expect_identical(input(type), "supported", info = type)
   }
-  for (type in c("f32", "[]const f32", "i64", "[]f64", "*const f64", "u8", "[]const i64")) {
+  for (type in c("f32", "[]const f32", "u64", "[]f64", "*const f64", "u8", "[]const u64",
+                 "rzig.Mut([]bool)", "rzig.Mut(rzig.BoolMatrix)")) {
     expect_identical(input(type), "unsupported", info = type)
   }
   expect_identical(input("Vec"), "local")
@@ -17,10 +23,14 @@ test_that("argument types follow the rules of the boundary", {
 
 test_that("return types follow the rules of the boundary", {
   for (type in c("void", "f64", "[]f64", "[]const u8", "?[]const u8", "rzig.List",
-                 "rzig.Attributed([]f64)", "[][]const u8")) {
+                 "rzig.Attributed([]f64)", "[][]const u8", "[]rzig.Logical", "[]const rzig.Logical",
+                 "[]?[]const u8", "rzig.Attributed([]rzig.Logical)", "rzig.Attributed([]const ?[]const u8)",
+                 "rzig.Complex", "[]rzig.Complex", "rzig.Raw", "rzig.Attributed([]rzig.Complex)",
+                 "i64", "[]i64", "[]const i64", "rzig.Record(Out)", "rzig.DataFrame(Out)", "rzig.Factor",
+                 "rzig.External(Model)")) {
     expect_identical(output(type), "supported", info = type)
   }
-  for (type in c("f32", "usize", "rzig.Attributed([]const u8)", "rzig.Mut([]f64)")) {
+  for (type in c("f32", "usize", "rzig.Attributed([]const u8)", "rzig.Mut([]f64)", "rzig.Attributed(rzig.Raw)")) {
     expect_identical(output(type), "unsupported", info = type)
   }
 })
@@ -36,6 +46,13 @@ test_that("signature rules are checked before compilation", {
   expect_match(check("two", c("x", "y"), rep("rzig.Mut([]f64)", 2L), "void")$problems, "at most one")
   expect_match(check("ret", "x", "rzig.Mut([]f64)", "[]f64")$problems, "must return void")
   expect_length(check("ok", "x", "rzig.Mut([]f64)", "rzig.Error!void")$problems, 0L)
+  expect_match(check("mats", c("x", "y"), c("rzig.Mut(rzig.Matrix)", "rzig.Mut([]i32)"), "void")$problems,
+    "2 rzig.Mut arguments")
+  expect_match(check("matret", "x", "rzig.Mut(rzig.IntMatrix)", "f64")$problems, "must return void")
+  expect_match(check("intvec", "x", "[]i32", "void")$problems, "rzig.Mut([]i32)", fixed = TRUE)
+  expect_match(check("boolmut", "x", "rzig.Mut([]bool)", "void")$problems, "rzig.Mut(rzig.IntMatrix)", fixed = TRUE)
+  expect_length(check("optvec", c("x", "m"), c("?[]const f64", "?rzig.Matrix"), "f64")$problems, 0L)
+  expect_length(check("optmut", "x", "?rzig.Mut([]f64)", "void")$problems, 1L)
   expect_match(check("generic", "x", "anytype", "f64")$problems, "anytype")
   expect_match(check("inferred", "x", "f64", "!f64")$problems, "rzig.Error!T")
   expect_match(check("anyerr", "x", "f64", "anyerror!f64")$problems, "rzig.Error!T")
@@ -81,6 +98,42 @@ test_that("framework files from another version and blocked scripts are reported
   expect_match(rzig:::.rzig_check_scaffold(path, "scaffoldpkg")$problems, "configure not executable")
 })
 
+test_that("customized build files are notes and missing ones are failures", {
+  path <- local_package("custompkg")
+  use_rzig(path)
+  zig_dir <- file.path(path, "src", "rzig")
+  zon <- file.path(zig_dir, "build.zig.zon")
+  writeLines(sub('.version = "0.0.1"', '.version = "0.1.0"', readLines(zon), fixed = TRUE), zon)
+  cat("// a package-specific build step\n", file = file.path(zig_dir, "build.zig"), append = TRUE)
+  cat("# local change\n", file = file.path(zig_dir, "tools", "repack_macos_archive.sh"), append = TRUE)
+  result <- rzig:::.rzig_check_scaffold(path, "custompkg")
+  expect_length(result$problems, 0L)
+  for (file in c("src/rzig/build.zig.zon", "src/rzig/build.zig", "src/rzig/tools/repack_macos_archive.sh")) {
+    expect_match(result$notes, file, fixed = TRUE)
+  }
+  unlink(file.path(zig_dir, "build.zig"))
+  expect_match(rzig:::.rzig_check_scaffold(path, "custompkg")$problems, "missing: src/rzig/build.zig", fixed = TRUE)
+})
+
+test_that("entry.c written by use_rzig matches its template for any package name", {
+  path <- local_package("entry.pkg")
+  use_rzig(path)
+  expect_true(any(grepl("R_init_entry_pkg", readLines(file.path(path, "src", "entry.c")), fixed = TRUE)))
+  result <- rzig:::.rzig_check_scaffold(path, "entry.pkg")
+  expect_length(result$problems, 0L)
+  expect_length(result$notes, 0L)
+  cat("/* local */\n", file = file.path(path, "src", "entry.c"), append = TRUE)
+  expect_match(rzig:::.rzig_check_scaffold(path, "entry.pkg")$notes, "src/entry.c", fixed = TRUE)
+})
+
+test_that("the example package of the repository passes rzig_status", {
+  example <- testthat::test_path("..", "..", "examples", "rzigcausal")
+  skip_if_not(dir.exists(example), "the examples are only available in the repository")
+  status <- rzig_status(normalizePath(example))
+  structural <- c("DESCRIPTION", "Scaffold", "Zig source", "Exports", "Bindings")
+  expect_true(all(status$ok[status$step %in% structural]), info = paste(status$detail, collapse = "\n"))
+})
+
 test_that("use_rzig(overwrite = TRUE) keeps the package author's Zig source", {
   path <- local_package("keeppkg")
   use_rzig(path)
@@ -97,10 +150,29 @@ test_that("use_rzig(overwrite = TRUE) keeps the package author's Zig source", {
   expect_identical(sum(readLines(file.path(path, ".Rbuildignore")) == "^src/rzig/zig-out$"), 1L)
 })
 
+test_that("an export that masks a base R function is noted", {
+  masking <- rzig:::.rzig_check_masking(list(
+    export_record("log", "x", "f64", "f64"),
+    export_record("sd", "x", "[]const f64", "f64"),
+    export_record("add_vectors", c("a", "b"), c("[]const f64", "[]const f64"), "[]f64")
+  ))
+  expect_length(masking$problems, 0L)
+  expect_identical(masking$notes, c(
+    "`log` masks base::log when the package is attached",
+    "`sd` masks stats::sd when the package is attached"
+  ))
+})
+
 test_that("the DESCRIPTION check separates failures from notes", {
   path <- local_package("descpkg")
   expect_length(rzig:::.rzig_check_description(path)$problems, 0L)
-  expect_match(rzig:::.rzig_check_description(path)$notes, "Title")
+  notes <- rzig:::.rzig_check_description(path)$notes
+  expect_true(any(grepl("requires Title", notes, fixed = TRUE)))
+  expect_true(any(grepl("SystemRequirements does not name Zig", notes, fixed = TRUE)))
+  expect_true(any(grepl("Config/build/extra-sources does not list", notes, fixed = TRUE)))
+  use_rzig(path)
+  notes <- rzig:::.rzig_check_description(path)$notes
+  expect_false(any(grepl("Config/build/extra-sources", notes, fixed = TRUE)))
   writeLines(c("Package: descpkg", "Version: one"), file.path(path, "DESCRIPTION"))
   expect_match(rzig:::.rzig_check_description(path)$problems, "not a valid package version")
 })
@@ -115,4 +187,61 @@ test_that("rzig_status fails the Exports row for an unsupported type", {
   expect_match(status$detail[status$step == "Exports"], "type f32 is not supported; use f64", fixed = TRUE)
   expect_output(print(status), "checks failed")
   expect_true("C toolchain" %in% status$step)
+})
+
+test_that("use_rzig lists the Zig sources for pkgbuild and keeps other entries", {
+  path <- local_package("extrapkg")
+  description <- file.path(path, "DESCRIPTION")
+  writeLines(c(readLines(description), "Config/build/extra-sources: inst/data.txt,",
+    "    tools/gen.R", "Config/testthat/edition: 3"), description)
+  use_rzig(path)
+  fields <- read.dcf(description)
+  entries <- trimws(strsplit(fields[, "Config/build/extra-sources"], ",")[[1L]])
+  expect_identical(entries, c("inst/data.txt", "tools/gen.R", rzig:::.rzig_extra_sources))
+  expect_identical(unname(fields[, "Config/testthat/edition"]), "3")
+  before <- read_bytes(description)
+  use_rzig(path, overwrite = TRUE)
+  expect_identical(read_bytes(description), before)
+  matches <- Sys.glob(file.path(path, rzig:::.rzig_extra_sources))
+  expect_length(matches, length(rzig:::.rzig_extra_sources))
+})
+
+test_that("use_rzig stops on a hand-written Makevars and on other compiled sources", {
+  path <- local_package("mkpkg")
+  dir.create(file.path(path, "src"))
+  writeLines("PKG_LIBS = -lm", file.path(path, "src", "Makevars"))
+  expect_error(use_rzig(path), "src/Makevars exists", fixed = TRUE)
+  unlink(file.path(path, "src", "Makevars"))
+  writeLines("int extra_one(void) { return 1; }", file.path(path, "src", "extra.c"))
+  expect_error(use_rzig(path), "extra.c", fixed = TRUE)
+  unlink(file.path(path, "src", "extra.c"))
+  suppressMessages(use_rzig(path))
+  file.copy(file.path(path, "src", "Makevars.in"), file.path(path, "src", "Makevars"))
+  expect_length(rzig:::.rzig_check_scaffold(path, "mkpkg")$problems, 0L)
+  writeLines("PKG_LIBS = -lm", file.path(path, "src", "Makevars"))
+  expect_match(rzig:::.rzig_check_scaffold(path, "mkpkg")$problems, "written by hand", fixed = TRUE)
+  unlink(file.path(path, "src", "Makevars"))
+  writeLines("int extra_one(void) { return 1; }", file.path(path, "src", "extra.c"))
+  expect_match(rzig:::.rzig_check_scaffold(path, "mkpkg")$problems,
+    "not compiled by the rzig build: src/extra.c", fixed = TRUE)
+  cat("OBJECTS += extra.o\n", file = file.path(path, "src", "Makevars.in"), append = TRUE)
+  expect_false(any(grepl("not compiled", rzig:::.rzig_check_scaffold(path, "mkpkg")$problems)))
+})
+
+test_that("document keeps a useDynLib directive unless rzig 0.1 wrote it", {
+  path <- local_package("dynpkg")
+  directive <- 'useDynLib(dynpkg, .registration = TRUE, .fixes = "C_")'
+  writeLines(c(directive, "export(other)"), file.path(path, "NAMESPACE"))
+  suppressMessages(use_rzig(path))
+  expect_true(directive %in% readLines(file.path(path, "NAMESPACE")))
+  legacy <- local_package("legacypkg")
+  writeLines(c('useDynLib(legacypkg, .registration = TRUE, .fixes = "C_")', "export(hello_zig)"),
+    file.path(legacy, "NAMESPACE"))
+  dir.create(file.path(legacy, "R"))
+  writeLines(c("hello_zig <- function(name) {", "  .Call(C_hello_zig, name)", "}"),
+    file.path(legacy, "R", "rzig-wrappers.R"))
+  suppressMessages(use_rzig(legacy, overwrite = TRUE))
+  namespace <- readLines(file.path(legacy, "NAMESPACE"))
+  expect_false(any(grepl(".fixes", namespace, fixed = TRUE)))
+  expect_identical(sum(grepl("hello_zig", namespace, fixed = TRUE)), 2L)
 })

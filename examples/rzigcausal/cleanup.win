@@ -2,4 +2,4 @@
 set -eu
 
 rm -f src/Makevars src/Makevars.win
-rm -rf src/rzig/.zig-cache src/rzig/.zig-global-cache src/rzig/zig-out
+rm -rf src/rzig/.zig-cache src/rzig/.zig-global-cache src/rzig/zig-out src/rzig/.zig-download

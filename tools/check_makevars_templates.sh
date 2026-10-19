@@ -13,22 +13,30 @@ require_line() {
 for file in inst/templates/Makevars inst/templates/Makevars.win; do
     require_line "$file" 'ZIG = @ZIG@'
     require_line "$file" 'ZIG_DIR = rzig'
-    require_line "$file" 'OBJECTS = entry.o'
+    require_line "$file" '@RZIG_OBJECTS@'
+    require_line "$file" 'ZIG_IMPORTS = @RZIG_IMPORTS@'
+    require_line "$file" '-Drzig-imports="$(ZIG_IMPORTS)"'
     require_line "$file" 'PKG_LIBS = $(STATLIB)'
-    require_line "$file" '--release=safe'
+    require_line "$file" 'ReleaseSafe) release=--release=safe ;;'
+    require_line "$file" 'Debug) release= ;;'
     require_line "$file" '--cache-dir "$(CURDIR)/$(ZIG_DIR)/.zig-cache"'
-    require_line "$file" 'ZIG_GLOBAL_CACHE_DIR="$(CURDIR)/$(ZIG_DIR)/.zig-global-cache"'
+    require_line "$file" 'ZIG_GLOBAL_CACHE_DIR="$${RZIG_ZIG_CACHE:-$(CURDIR)/$(ZIG_DIR)/.zig-global-cache}"'
     require_line "$file" '$(SHLIB): $(STATLIB)'
     require_line "$file" 'entry.o: entry.c'
-    require_line "$file" '$(CC) $(ALL_CPPFLAGS) $(CPICFLAGS) -O2 -Wall -pedantic'
+    require_line "$file" '$(CC) $(ALL_CPPFLAGS) @RZIG_ENTRY_CPPFLAGS@ $(ALL_CFLAGS)'
+    require_line "$file" '$$release -j2'
     require_line "$file" 'clean:'
+    require_line "$file" '$(STATLIB): FORCE'
+    require_line "$file" 'FORCE:'
+    require_line "$file" '.PHONY: all clean FORCE'
 done
 
 require_line inst/templates/Makevars 'ZIG_TARGET_ARG = @ZIG_TARGET_ARG@'
 require_line inst/templates/Makevars 'STATLIB = @STATLIB@'
 require_line inst/templates/Makevars.win 'ZIG_TARGET_ARG = @ZIG_TARGET_ARG@'
 require_line inst/templates/Makevars.win 'STATLIB = $(ZIG_DIR)/zig-out/lib/zigpkg.lib'
-require_line inst/templates/Makevars.win 'PKG_LIBS = $(STATLIB) -lntdll'
+require_line inst/templates/Makevars.win 'PKG_LIBS = $(STATLIB) -lntdll @RZIG_LAPACK_LIBS@'
+require_line inst/templates/Makevars 'PKG_LIBS = $(STATLIB) @RZIG_LAPACK_LIBS@'
 
 if grep -F -q 'libzigpkg.a' inst/templates/Makevars.win; then
     printf '%s\n' 'Makevars.win must use Zig 0.16 Windows archive naming' >&2

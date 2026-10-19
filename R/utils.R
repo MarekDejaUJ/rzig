@@ -90,11 +90,17 @@
   if (length(starts) == 1L) {
     existing <- existing[-seq.int(starts, ends)]
   } else {
+    # rzig 0.1 wrote `useDynLib(<pkg>, .registration = TRUE, .fixes = "C_")`
+    # and wrappers calling `.Call(C_<name>, ...)`. Remove that directive only
+    # when the old wrapper file shows it was rzig's; a package author's own
+    # directive for C routines stays.
     legacy <- sprintf(
       "useDynLib(%s, .registration = TRUE, .fixes = \"C_\")",
       package
     )
-    existing <- existing[trimws(existing) != legacy]
+    if (any(grepl(".Call(C_", old_wrapper, fixed = TRUE))) {
+      existing <- existing[trimws(existing) != legacy]
+    }
 
     wrapper_matches <- regexec(
       "^([A-Za-z.][A-Za-z0-9._]*)[[:space:]]*<-[[:space:]]*function\\(",
@@ -189,16 +195,135 @@
   invisible(destination)
 }
 
+# Files pkgbuild (and so devtools::load_all()) should treat as sources of the
+# shared object; it otherwise watches only C, C++, Fortran and Rust files.
+.rzig_extra_sources <- c(
+  "src/rzig/src", "src/rzig/framework", "src/rzig/build.zig", "src/rzig/build.zig.zon",
+  "src/rzig/c_libraries.zon"
+)
+
+.rzig_extra_sources_field <- "Config/build/extra-sources"
+
+# The entries of a comma-separated DESCRIPTION field, or character() when the
+# field is absent. Continuation lines (starting with white space) belong to
+# the field.
+.rzig_description_field <- function(lines, field) {
+  start <- which(startsWith(lines, paste0(field, ":")))
+  if (!length(start)) return(list(start = NA_integer_, end = NA_integer_, entries = character()))
+  start <- start[[1L]]
+  end <- start
+  while (end < length(lines) && grepl("^[ \t]", lines[[end + 1L]])) end <- end + 1L
+  value <- paste(c(substring(lines[[start]], nchar(field) + 2L), lines[seq_len(end - start) + start]), collapse = " ")
+  entries <- trimws(strsplit(value, ",", fixed = TRUE)[[1L]])
+  list(start = start, end = end, entries = entries[nzchar(entries)])
+}
+
+# Add the Zig sources to Config/build/extra-sources, keeping entries the
+# package author listed. Returns TRUE when DESCRIPTION changed.
+.rzig_add_extra_sources <- function(path) {
+  file <- file.path(path, "DESCRIPTION")
+  lines <- strsplit(.rzig_normalize_newlines(.rzig_read_text(file)), "\n", fixed = TRUE)[[1L]]
+  field <- .rzig_description_field(lines, .rzig_extra_sources_field)
+  missing <- setdiff(.rzig_extra_sources, field$entries)
+  if (!length(missing)) return(FALSE)
+  line <- paste0(.rzig_extra_sources_field, ": ", paste(c(field$entries, missing), collapse = ", "))
+  if (is.na(field$start)) {
+    lines <- c(lines, line)
+  } else {
+    lines <- c(lines[seq_len(field$start - 1L)], line, lines[seq.int(field$end + 1L, length.out = length(lines) - field$end)])
+  }
+  .rzig_write_text(paste0(paste(lines, collapse = "\n"), "\n"), file)
+  TRUE
+}
+
 .rzig_buildignore_entries <- c(
   "^src/rzig/\\.zig-cache$",
   "^src/rzig/\\.zig-global-cache$",
-  "^src/rzig/zig-out$"
+  "^src/rzig/zig-out$",
+  "^src/rzig/\\.zig-download$"
 )
 
-.rzig_add_buildignore <- function(path) {
+.rzig_add_buildignore <- function(path, entries = .rzig_buildignore_entries) {
   file <- file.path(path, ".Rbuildignore")
   existing <- if (file.exists(file)) readLines(file, warn = FALSE) else character()
-  missing <- setdiff(.rzig_buildignore_entries, existing)
+  missing <- setdiff(entries, existing)
   if (length(missing)) writeLines(c(existing, missing), file)
   invisible(file)
+}
+
+# Compiled sources in src/ that the rzig build does not compile: the generated
+# Makevars build the Zig library and src/entry.c only. A source whose object
+# file is listed in a customized src/Makevars.in is considered handled.
+.rzig_foreign_sources <- function(path) {
+  sources <- list.files(file.path(path, "src"),
+    pattern = "\\.(c|cc|cpp|cxx|C|f|f90|f95|m|mm|M)$", full.names = FALSE)
+  sources <- setdiff(sources, "entry.c")
+  if (!length(sources)) return(character())
+  makevars <- .rzig_read_text(file.path(path, "src", "Makevars.in")) %||% ""
+  objects <- sub("\\.[^.]+$", ".o", sources)
+  sources[!vapply(objects, function(object) grepl(object, makevars, fixed = TRUE), logical(1L))]
+}
+
+# A src/Makevars or src/Makevars.win written by the package author. configure
+# generates both from the .in templates during installation, keeping their
+# first line, so a file without its template or with another first line is
+# the author's.
+.rzig_foreign_makevars <- function(path) {
+  files <- c("Makevars", "Makevars.win")
+  first_line <- function(text) strsplit(.rzig_normalize_newlines(text), "\n", fixed = TRUE)[[1L]][1L]
+  foreign <- vapply(files, function(file) {
+    text <- .rzig_read_text(file.path(path, "src", file))
+    if (is.null(text)) return(FALSE)
+    template <- .rzig_read_text(file.path(path, "src", paste0(file, ".in")))
+    is.null(template) || !identical(first_line(text), first_line(template))
+  }, logical(1L))
+  file.path("src", files[foreign])
+}
+
+.rzig_roxygen_header <- "# Generated by roxygen2: do not edit by hand"
+
+# Whether roxygen2 generates the package's NAMESPACE.
+.rzig_roxygen_managed <- function(path) {
+  file <- file.path(path, "NAMESPACE")
+  if (!file.exists(file)) return(FALSE)
+  first <- readLines(file, n = 1L, warn = FALSE)
+  length(first) == 1L && identical(trimws(first), .rzig_roxygen_header)
+}
+
+# Merge the NAMESPACE lines of the generated wrappers into a NAMESPACE that
+# roxygen2 generates. rzig owns its `useDynLib("<pkg>", ...)` line (roxygen2
+# writes the same line from the @rawNamespace tag) and the export() lines of
+# the functions its wrapper file defines; every other line stays. A block
+# written by rzig before the package used roxygen2 is removed.
+.rzig_merge_namespace_roxygen <- function(existing, generated, package, old_wrapper) {
+  begin <- which(trimws(existing) == "# Generated by rzig::document(): begin")
+  end <- which(trimws(existing) == "# Generated by rzig::document(): end")
+  if (length(begin) == 1L && length(end) == 1L && end > begin) {
+    existing <- existing[-seq.int(begin, end)]
+  }
+  dynlib_prefix <- paste0("useDynLib(", .rzig_r_string(package))
+  existing <- existing[!startsWith(trimws(existing), dynlib_prefix)]
+  wrapper_matches <- regmatches(old_wrapper, regexec(
+    "^`?([A-Za-z.][A-Za-z0-9._]*)`?[[:space:]]*<-[[:space:]]*function\\(", old_wrapper
+  ))
+  old_names <- vapply(wrapper_matches[lengths(wrapper_matches) > 1L], function(match) match[2L], character(1L))
+  stale <- c(sprintf("export(%s)", old_names), sprintf("export(\"%s\")", old_names))
+  existing <- existing[!trimws(existing) %in% stale]
+  missing <- generated[!generated %in% trimws(existing)]
+  while (length(existing) && !nzchar(existing[[length(existing)]])) {
+    existing <- existing[-length(existing)]
+  }
+  if (!length(existing)) existing <- .rzig_roxygen_header
+  c(existing, missing)
+}
+
+# Whether a NAMESPACE contains the lines rzig needs in roxygen mode.
+.rzig_roxygen_namespace_current <- function(namespace, generated) {
+  lines <- trimws(strsplit(.rzig_normalize_newlines(namespace), "\n", fixed = TRUE)[[1L]])
+  all(vapply(generated, function(line) {
+    if (line %in% lines) return(TRUE)
+    # roxygen2 and rzig may quote an export differently.
+    name <- sub("^export\\(\"?([^\"]*)\"?\\)$", "\\1", line)
+    startsWith(line, "export(") && any(lines %in% c(sprintf("export(%s)", name), sprintf("export(\"%s\")", name)))
+  }, logical(1L)))
 }

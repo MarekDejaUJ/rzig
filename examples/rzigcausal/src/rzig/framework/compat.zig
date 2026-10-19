@@ -39,9 +39,39 @@ pub fn pointerIsAllowzero(comptime info: Type.Pointer) bool {
     return if (@hasField(Type.Pointer, "attrs")) info.attrs.@"allowzero" else info.is_allowzero;
 }
 
+/// Whether a function description has the C calling convention
+/// (`calling_convention` in Zig 0.16, `attrs.callconv` in Zig 0.17).
+pub fn hasCCallingConvention(comptime info: Type.Fn) bool {
+    const reference = @typeInfo(fn () callconv(.c) void).@"fn";
+    if (comptime @hasField(Type.Fn, "attrs")) {
+        return std.meta.activeTag(info.attrs.@"callconv") == std.meta.activeTag(reference.attrs.@"callconv");
+    }
+    return std.meta.activeTag(info.calling_convention) == std.meta.activeTag(reference.calling_convention);
+}
+
 /// Number of fields of a struct or union description.
 pub fn fieldCount(comptime info: anytype) usize {
     return if (@hasField(@TypeOf(info), "field_names")) info.field_names.len else info.fields.len;
+}
+
+/// Field names of a struct description, in declaration order.
+pub fn fieldNames(comptime info: anytype) []const [:0]const u8 {
+    if (@hasField(@TypeOf(info), "field_names")) return info.field_names;
+    comptime var names: [info.fields.len][:0]const u8 = undefined;
+    inline for (info.fields, 0..) |field, index| names[index] = field.name;
+    const result = names;
+    return &result;
+}
+
+/// The default value of field `index` of a struct description, or `null`.
+pub fn fieldDefault(comptime info: anytype, comptime index: usize) ?fieldTypes(info)[index] {
+    const Field = fieldTypes(info)[index];
+    const pointer = if (@hasField(@TypeOf(info), "field_attrs"))
+        info.field_attrs[index].default_value_ptr
+    else
+        info.fields[index].default_value_ptr;
+    const typed: *const Field = @ptrCast(@alignCast(pointer orelse return null));
+    return typed.*;
 }
 
 /// Field types of a struct or union description, in declaration order.
@@ -66,6 +96,14 @@ test "pointer descriptions" {
     try std.testing.expect(!pointerIsConst(@typeInfo(*u8).pointer));
     try std.testing.expect(pointerIsAllowzero(@typeInfo(*allowzero u8).pointer));
     try std.testing.expect(!pointerIsAllowzero(@typeInfo(*u8).pointer));
+}
+
+test "field names and defaults" {
+    const S = struct { a: u8 = 7, b: f64 };
+    const info = @typeInfo(S).@"struct";
+    try std.testing.expectEqualStrings("b", comptime fieldNames(info)[1]);
+    try std.testing.expectEqual(@as(?u8, 7), comptime fieldDefault(info, 0));
+    try std.testing.expectEqual(@as(?f64, null), comptime fieldDefault(info, 1));
 }
 
 test "field descriptions" {

@@ -7,27 +7,12 @@ $repo_dir/examples/rzigcausal/src/rzig/framework"
 mode=${1:---write}
 failed=0
 
-framework_files='alloc.zig
-attributes.zig
-boundary.zig
-compat.zig
-convert.zig
-error_state.zig
-interrupt.zig
-list.zig
-matrix.zig
-na.zig
-panic.zig
-parallel.zig
-protect.zig
-register.zig
-rmath.zig
-rng.zig
-rzig.zig
-sexp.zig
-unwind.zig
-c/abi.zig
-generated/arity.zig'
+# Every framework source under src/, without the tests, the library entry
+# point used by the repository's own fixture build, the ABI-check generator
+# and the generated manifest (each package has its own).
+framework_files=$(cd "$repo_dir/src" && find . -name '*.zig' \
+    ! -name '*_test.zig' ! -name 'main.zig' ! -path './c/check.zig' \
+    ! -path './generated/manifest.zig' | sed 's|^\./||' | LC_ALL=C sort)
 
 if test "$mode" = "--write"; then
     for framework_dir in $framework_dirs; do
@@ -52,14 +37,37 @@ for framework_dir in $framework_dirs; do
 done
 
 repack_source="$repo_dir/tools/repack_macos_archive.sh"
-repack_fixture="$repo_dir/tests/fixtures/rzigtest/src/rzig/tools/repack_macos_archive.sh"
-if test "$mode" = "--write"; then
-    cp "$repack_source" "$repack_fixture"
-    chmod +x "$repack_fixture"
-elif ! cmp -s "$repack_source" "$repack_fixture"; then
-    printf '%s\n' 'fixture copy is stale: tools/repack_macos_archive.sh' >&2
-    failed=1
-fi
+for repack_fixture in "$repo_dir/tests/fixtures/rzigtest/src/rzig/tools/repack_macos_archive.sh" \
+                      "$repo_dir/examples/rzigcausal/src/rzig/tools/repack_macos_archive.sh"; do
+    if test "$mode" = "--write"; then
+        cp "$repack_source" "$repack_fixture"
+        chmod +x "$repack_fixture"
+    elif ! cmp -s "$repack_source" "$repack_fixture"; then
+        printf 'copy is stale: %s\n' "$repack_fixture" >&2
+        failed=1
+    fi
+done
+
+for imports_copy in "$repo_dir/tests/fixtures/rzigtest/src/rzig/tools/imports.R" \
+                    "$repo_dir/examples/rzigcausal/src/rzig/tools/imports.R"; do
+    if test "$mode" = "--write"; then
+        cp "$repo_dir/inst/zig/tools/imports.R" "$imports_copy"
+    elif ! cmp -s "$repo_dir/inst/zig/tools/imports.R" "$imports_copy"; then
+        printf 'copy is stale: %s\n' "$imports_copy" >&2
+        failed=1
+    fi
+done
+
+fetch_source="$repo_dir/inst/zig/tools/fetch_zig.R"
+for fetch_copy in "$repo_dir/tests/fixtures/rzigtest/src/rzig/tools/fetch_zig.R" \
+                  "$repo_dir/examples/rzigcausal/src/rzig/tools/fetch_zig.R"; do
+    if test "$mode" = "--write"; then
+        cp "$fetch_source" "$fetch_copy"
+    elif ! cmp -s "$fetch_source" "$fetch_copy"; then
+        printf 'copy is stale: %s\n' "$fetch_copy" >&2
+        failed=1
+    fi
+done
 
 for relative in configure configure.win; do
     source_file="$repo_dir/inst/templates/$relative"
@@ -68,6 +76,47 @@ for relative in configure configure.win; do
         cp "$source_file" "$fixture_file"
     elif ! cmp -s "$source_file" "$fixture_file"; then
         printf 'fixture copy is stale: %s\n' "$relative" >&2
+        failed=1
+    fi
+done
+
+example_dir="$repo_dir/examples/rzigcausal"
+for pair in "Makevars:src/Makevars.in" "Makevars.win:src/Makevars.win.in" \
+            "configure:configure" "configure.win:configure.win" \
+            "cleanup:cleanup" "cleanup.win:cleanup.win"; do
+    template=${pair%%:*}
+    target=${pair#*:}
+    source_file="$repo_dir/inst/templates/$template"
+    example_file="$example_dir/$target"
+    if test "$mode" = "--write"; then
+        cp "$source_file" "$example_file"
+    elif ! cmp -s "$source_file" "$example_file"; then
+        printf 'example copy is stale: %s\n' "$target" >&2
+        failed=1
+    fi
+done
+
+# src/entry.c of the fixture and the example: the template with the package name.
+for pair in "tests/fixtures/rzigtest:rzigtest" "examples/rzigcausal:rzigcausal"; do
+    package_dir=${pair%%:*}
+    package=${pair#*:}
+    entry_file="$repo_dir/$package_dir/src/entry.c"
+    if test "$mode" = "--write"; then
+        sed "s/@PKG@/$package/g" "$repo_dir/inst/templates/entry.c" > "$entry_file"
+    elif ! sed "s/@PKG@/$package/g" "$repo_dir/inst/templates/entry.c" | cmp -s - "$entry_file"; then
+        printf 'copy is stale: %s\n' "$entry_file" >&2
+        failed=1
+    fi
+done
+
+# The example uses the template build.zig and the empty c_libraries.zon.
+for relative in build.zig c_libraries.zon; do
+    source_file="$repo_dir/inst/zig/$relative"
+    example_file="$repo_dir/examples/rzigcausal/src/rzig/$relative"
+    if test "$mode" = "--write"; then
+        cp "$source_file" "$example_file"
+    elif ! cmp -s "$source_file" "$example_file"; then
+        printf 'example copy is stale: src/rzig/%s\n' "$relative" >&2
         failed=1
     fi
 done

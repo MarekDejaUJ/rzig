@@ -68,12 +68,83 @@ chmod +x "$test_dir/configure" "$test_dir/configure.win" \
 require_text "$test_dir/src/Makevars" "ZIG = $test_dir/fake tools/zig"
 require_text "$test_dir/src/Makevars" 'ZIG_TARGET_ARG = -Dtarget=x86_64-linux-gnu'
 require_text "$test_dir/src/Makevars" "R_INCLUDE_DIR = $test_dir/fake-r/include"
+(
+    cd "$test_dir"
+    FAKE_ZIG_VERSION=0.16.0 \
+    FAKE_R_HOME="$test_dir/fake-r" \
+    FAKE_R_INCLUDE=/usr/share/R/include \
+    R_HOME="$test_dir/fake-r" \
+    ZIG="$test_dir/fake tools/zig" \
+    RZIG_CONFIGURE_PLATFORM=Linux \
+        sh ./configure >/dev/null
+)
+require_text "$test_dir/src/Makevars" "R_INCLUDE_DIR = /usr/share/R/include"
+require_text "$test_dir/src/Makevars" 'OBJECTS = entry.o'
 if grep -E -q -- '@[A-Z_]+@' "$test_dir/src/Makevars"; then
     printf '%s\n' 'configure left an unsubstituted Makevars placeholder' >&2
     exit 1
 fi
 
-for unsupported in 0.15.2 0.18.0-dev.1234+abcdef 1.0.0; do
+# Targets: Windows on arm64 from the compiler name, the macOS version from
+# MACOSX_DEPLOYMENT_TARGET, and the RZIG_ZIG_TARGET override.
+(
+    cd "$test_dir"
+    FAKE_ZIG_VERSION=0.16.0 FAKE_R_HOME="$test_dir/fake-r" R_HOME="$test_dir/fake-r" \
+    FAKE_R_CC=aarch64-w64-mingw32.static.posix-clang ZIG="$test_dir/fake tools/zig" \
+    RZIG_CONFIGURE_PLATFORM=windows sh ./configure >/dev/null
+)
+require_text "$test_dir/src/Makevars" 'ZIG_TARGET_ARG = -Dtarget=aarch64-windows-gnu'
+(
+    cd "$test_dir"
+    FAKE_ZIG_VERSION=0.16.0 FAKE_R_HOME="$test_dir/fake-r" R_HOME="$test_dir/fake-r" \
+    FAKE_R_CC='clang -arch arm64' MACOSX_DEPLOYMENT_TARGET=11.0 ZIG="$test_dir/fake tools/zig" \
+    RZIG_CONFIGURE_PLATFORM=Darwin sh ./configure >/dev/null
+)
+require_text "$test_dir/src/Makevars" 'ZIG_TARGET_ARG = -Dtarget=aarch64-macos.11.0'
+(
+    cd "$test_dir"
+    FAKE_ZIG_VERSION=0.16.0 FAKE_R_HOME="$test_dir/fake-r" R_HOME="$test_dir/fake-r" \
+    FAKE_R_CC='clang -arch arm64' ZIG="$test_dir/fake tools/zig" \
+    RZIG_CONFIGURE_PLATFORM=Darwin sh ./configure >/dev/null
+)
+require_text "$test_dir/src/Makevars" 'ZIG_TARGET_ARG = -Dtarget=aarch64-macos.13.0'
+(
+    cd "$test_dir"
+    FAKE_ZIG_VERSION=0.16.0 FAKE_R_HOME="$test_dir/fake-r" R_HOME="$test_dir/fake-r" \
+    RZIG_ZIG_TARGET=x86_64-linux-musl ZIG="$test_dir/fake tools/zig" \
+    RZIG_CONFIGURE_PLATFORM=Linux sh ./configure >/dev/null
+)
+require_text "$test_dir/src/Makevars" 'ZIG_TARGET_ARG = -Dtarget=x86_64-linux-musl'
+if (
+    cd "$test_dir"
+    FAKE_ZIG_VERSION=0.16.0 FAKE_R_HOME="$test_dir/fake-r" R_HOME="$test_dir/fake-r" \
+    RZIG_ZIG_TARGET='x86_64-linux-gnu; rm' ZIG="$test_dir/fake tools/zig" \
+    RZIG_CONFIGURE_PLATFORM=Linux sh ./configure >/dev/null 2>&1
+); then
+    printf '%s\n' 'configure accepted a malformed RZIG_ZIG_TARGET' >&2
+    exit 1
+fi
+
+# Config/rzig/mixed: R compiles every source of src/, and entry.c leaves
+# R_init_<pkg> to the package.
+printf 'Package: mixedcheck\nConfig/rzig/mixed: true\n' > "$test_dir/DESCRIPTION"
+(
+    cd "$test_dir"
+    FAKE_ZIG_VERSION=0.16.0 \
+    FAKE_R_HOME="$test_dir/fake-r" \
+    R_HOME="$test_dir/fake-r" \
+    ZIG="$test_dir/fake tools/zig" \
+    RZIG_CONFIGURE_PLATFORM=Linux \
+        sh ./configure >/dev/null
+)
+if grep -E -q '^OBJECTS' "$test_dir/src/Makevars"; then
+    printf '%s\n' 'configure set OBJECTS for a mixed package' >&2
+    exit 1
+fi
+require_text "$test_dir/src/Makevars" '$(CC) $(ALL_CPPFLAGS) -DRZIG_MIXED $(ALL_CFLAGS)'
+rm -f "$test_dir/DESCRIPTION"
+
+for unsupported in 0.15.2 0.18.0-dev.1234+abcdef 1.0.0 0.17.0-dev.12+abcdef 0.16.0-rc1; do
     if (
         cd "$test_dir"
         FAKE_ZIG_VERSION=$unsupported \
@@ -99,6 +170,38 @@ for supported in 0.16.7 0.17.0 0.17.3; do
             sh ./configure >/dev/null
     )
 done
+
+# Without ZIG, an unsupported zig on PATH must not hide a supported one in the
+# usual install locations.
+mkdir -p "$test_dir/path bin" "$test_dir/home/.local/share/zig/zig-0.16.1"
+printf '#!/bin/sh\nprintf "%%s\\n" 0.15.2\n' > "$test_dir/path bin/zig"
+printf '#!/bin/sh\nprintf "%%s\\n" 0.16.1\n' > "$test_dir/home/.local/share/zig/zig-0.16.1/zig"
+chmod +x "$test_dir/path bin/zig" "$test_dir/home/.local/share/zig/zig-0.16.1/zig"
+(
+    cd "$test_dir"
+    unset ZIG
+    PATH="$test_dir/path bin:$PATH" \
+    HOME="$test_dir/home" \
+    FAKE_R_HOME="$test_dir/fake-r" \
+    R_HOME="$test_dir/fake-r" \
+    RZIG_CONFIGURE_PLATFORM=Linux \
+        sh ./configure >/dev/null
+)
+require_text "$test_dir/src/Makevars" "ZIG = $test_dir/home/.local/share/zig/zig-0.16.1/zig"
+if (
+    cd "$test_dir"
+    unset ZIG
+    PATH="$test_dir/path bin:$PATH" \
+    HOME="$test_dir/empty-home" \
+    FAKE_R_HOME="$test_dir/fake-r" \
+    R_HOME="$test_dir/fake-r" \
+    RZIG_CONFIGURE_PLATFORM=Linux \
+        sh ./configure > "$test_dir/reject.out" 2>&1
+); then
+    printf '%s\n' 'configure accepted Zig 0.15.2 from PATH' >&2
+    exit 1
+fi
+require_text "$test_dir/reject.out" "Zig 0.15.2 found at $test_dir/path bin/zig is an unsupported release series"
 
 (
     cd "$test_dir"

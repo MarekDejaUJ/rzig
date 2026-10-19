@@ -32,6 +32,10 @@ fn render(allocator: std.mem.Allocator) ![]u8 {
         \\const std = @import("std");
         \\const c = @import("../c/abi.zig");
         \\const boundary = @import("../boundary.zig");
+        \\const class = @import("../class.zig");
+        \\const es = @import("../error_state.zig");
+        \\const Ctx = @import("../alloc.zig").Ctx;
+        \\const External = @import("../external.zig").External;
         \\
         \\
     );
@@ -40,7 +44,7 @@ fn render(allocator: std.mem.Allocator) ![]u8 {
     while (n <= MAX_ARITY) : (n += 1) {
         try out.print(allocator,
             \\/// Build a C-ABI wrapper for a function with {d} R-visible arguments.
-            \\pub fn Arity{d}(comptime func: anytype, comptime name: []const u8) type {{
+            \\pub fn Arity{d}(comptime func: anytype, comptime name: []const u8, comptime parameters: anytype) type {{
             \\    return struct {{
             \\        pub fn call(
         , .{ n, n });
@@ -51,7 +55,7 @@ fn render(allocator: std.mem.Allocator) ![]u8 {
         }
         try out.appendSlice(allocator,
             \\) callconv(.c) c.SEXP {
-            \\            return boundary.invoke(func, name, .{
+            \\            return boundary.invoke(func, name, parameters, .{
         );
         i = 0;
         while (i < n) : (i += 1) {
@@ -74,27 +78,146 @@ fn render(allocator: std.mem.Allocator) ![]u8 {
         \\    comptime visible_arity: usize,
         \\    comptime func: anytype,
         \\    comptime name: []const u8,
+        \\    comptime parameters: anytype,
         \\) type {
         \\    return switch (visible_arity) {
         \\
     );
     n = 0;
     while (n <= MAX_ARITY) : (n += 1) {
-        try out.print(allocator, "        {d} => Arity{d}(func, name),\n", .{ n, n });
+        try out.print(allocator, "        {d} => Arity{d}(func, name, parameters),\n", .{ n, n });
     }
     try out.appendSlice(allocator,
         \\        else => @compileError(
         \\            "rzig: function `" ++ name ++ "` has " ++
         \\                std.fmt.comptimePrint("{d}", .{visible_arity}) ++
         \\                " R-visible parameters; the maximum is 32.\n" ++
-        \\                "  combine related inputs into one R list argument",
+        \\                "  pass related values together, for example as one vector or matrix",
         \\        ),
         \\    };
         \\}
         \\
     );
 
+    try renderClassAdapters(allocator, &out);
     return out.toOwnedSlice(allocator);
+}
+
+/// Adapters for the classes of `src/class.zig`: one per number of R arguments
+/// of a method (besides the object) and of `init`.
+fn renderClassAdapters(allocator: std.mem.Allocator, out: *std.ArrayList(u8)) !void {
+    try out.appendSlice(allocator,
+        \\
+        \\/// Select the adapter of a method with `count` R arguments besides the object.
+        \\pub fn Method(comptime count: usize, comptime T: type, comptime name: []const u8) type {
+        \\    return switch (count) {
+        \\
+    );
+    var n: usize = 0;
+    while (n < MAX_ARITY) : (n += 1) {
+        try out.print(allocator, "        {d} => MethodAdapter{d}(T, name),\n", .{ n, n });
+    }
+    try out.appendSlice(allocator,
+        \\        else => @compileError("rzig: method `" ++ name ++ "` has more than 31 R arguments besides the object"),
+        \\    };
+        \\}
+        \\
+        \\/// Select the adapter of a constructor whose `init` has `count` R arguments.
+        \\pub fn Constructor(comptime count: usize, comptime T: type) type {
+        \\    return switch (count) {
+        \\
+    );
+    n = 0;
+    while (n <= MAX_ARITY) : (n += 1) {
+        try out.print(allocator, "        {d} => ConstructorAdapter{d}(T),\n", .{ n, n });
+    }
+    try out.appendSlice(allocator,
+        \\        else => @compileError("rzig: `init` of a class has more than 32 R arguments"),
+        \\    };
+        \\}
+        \\
+    );
+    n = 0;
+    while (n < MAX_ARITY) : (n += 1) {
+        try out.print(allocator,
+            \\
+            \\fn MethodAdapter{d}(comptime T: type, comptime name: []const u8) type {{
+            \\    const method = @field(T, name);
+            \\    const info = class.fnInfo(@TypeOf(method), name);
+            \\    const offset = class.methodOffset(T, info, name);
+            \\    return struct {{
+            \\        pub fn call(ctx: *Ctx, object: External(T)
+        , .{n});
+        try appendTypedParameters(allocator, out, n, "offset");
+        try out.appendSlice(allocator,
+            \\) class.Return(info) {
+            \\            if (comptime offset == 2) {
+            \\                return method(class.receiver(T, info, object), ctx
+        );
+        try appendArguments(allocator, out, n, true);
+        try out.appendSlice(allocator,
+            \\);
+            \\            } else {
+            \\                return method(class.receiver(T, info, object)
+        );
+        try appendArguments(allocator, out, n, true);
+        try out.appendSlice(allocator,
+            \\);
+            \\            }
+            \\        }
+            \\    };
+            \\}
+            \\
+        );
+    }
+    n = 0;
+    while (n <= MAX_ARITY) : (n += 1) {
+        try out.print(allocator,
+            \\
+            \\fn ConstructorAdapter{d}(comptime T: type) type {{
+            \\    const init = T.init;
+            \\    const info = class.fnInfo(@TypeOf(init), "init");
+            \\    const offset = class.constructorOffset(info);
+            \\    return struct {{
+            \\        pub fn call(ctx: *Ctx
+        , .{n});
+        try appendTypedParameters(allocator, out, n, "offset");
+        try out.appendSlice(allocator,
+            \\) es.Error!External(T) {
+            \\            const value = if (comptime offset == 1)
+            \\                try class.initialized(T, init(ctx
+        );
+        try appendArguments(allocator, out, n, true);
+        try out.appendSlice(allocator,
+            \\))
+            \\            else
+            \\                try class.initialized(T, init(
+        );
+        try appendArguments(allocator, out, n, false);
+        try out.appendSlice(allocator,
+            \\));
+            \\            return External(T).create(ctx, value);
+            \\        }
+            \\    };
+            \\}
+            \\
+        );
+    }
+}
+
+fn appendTypedParameters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), n: usize, comptime offset: []const u8) !void {
+    var i: usize = 0;
+    while (i < n) : (i += 1) {
+        try out.print(allocator, ", a{d}: class.Param(info, " ++ offset ++ " + {d})", .{ i, i });
+    }
+}
+
+fn appendArguments(allocator: std.mem.Allocator, out: *std.ArrayList(u8), n: usize, leading_comma: bool) !void {
+    var i: usize = 0;
+    while (i < n) : (i += 1) {
+        if (i > 0 or leading_comma) try out.appendSlice(allocator, ", ");
+        try out.print(allocator, "a{d}", .{i});
+    }
 }
 
 test "generator emits every supported arity exactly once" {
@@ -106,4 +229,6 @@ test "generator emits every supported arity exactly once" {
     try std.testing.expect(std.mem.indexOf(u8, source, "pub fn Arity32(") != null);
     try std.testing.expect(std.mem.indexOf(u8, source, "pub fn Arity33(") == null);
     try std.testing.expect(std.mem.indexOf(u8, source, "pub fn Wrapper(") != null);
+    try std.testing.expectEqual(@as(usize, MAX_ARITY), std.mem.count(u8, source, "fn MethodAdapter"));
+    try std.testing.expectEqual(@as(usize, MAX_ARITY + 1), std.mem.count(u8, source, "fn ConstructorAdapter"));
 }

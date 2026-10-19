@@ -9,6 +9,7 @@ const builtin = @import("builtin");
 const c = @import("c/abi.zig");
 const arity = @import("generated/arity.zig");
 const manifest = @import("generated/manifest.zig");
+const callable_api = @import("callable.zig");
 const boundary = @import("boundary.zig");
 const Ctx = @import("alloc.zig").Ctx;
 
@@ -18,12 +19,26 @@ pub fn wrapperForArity(
     comptime visible_arity: usize,
     comptime func: anytype,
     comptime name: []const u8,
+    comptime parameters: anytype,
 ) type {
-    return arity.Wrapper(visible_arity, func, name);
+    return arity.Wrapper(visible_arity, func, name, parameters);
 }
 
-/// Scan a module's manifest and emit one C-ABI wrapper per exported function,
+/// The R argument names of a manifest entry, or an empty tuple for a
+/// hand-written manifest without them.
+fn entryParameters(comptime entry: anytype) @TypeOf(if (@hasField(@TypeOf(entry), "parameters")) entry.parameters else .{}) {
+    return if (@hasField(@TypeOf(entry), "parameters")) entry.parameters else .{};
+}
+
+/// Scan a module's manifest and build one C-ABI wrapper per exported function,
 /// plus the registration table.
+///
+/// The wrappers are reached only through the registration table, so none of
+/// them becomes a symbol of the shared object. A wrapper exported under its R
+/// name would replace a C function of the same name inside the package (an
+/// export named `exp`, `log` or `free` would intercept the calls the framework
+/// and the C runtime make to those functions). `rzig_init` is called from the
+/// generated `entry.c` of the same package and is therefore hidden as well.
 pub fn registerModule(comptime M: type) void {
     const exports = if (@hasDecl(manifest, "Bind"))
         manifest.Bind(M).exports
@@ -31,19 +46,23 @@ pub fn registerModule(comptime M: type) void {
         manifest.exports
     else
         @compileError("rzig: generated manifest must declare Bind(root) or exports");
-    const Registration = RegistrationFor(exports);
+    const Registration = RegistrationFor(exports, M);
 
     if (!builtin.is_test) {
-        @setEvalBranchQuota(100_000);
-        inline for (exports) |entry| {
-            const Wrapper = wrapperForArity(visibleArity(entry.func), entry.func, entry.name);
-            @export(&Wrapper.call, .{ .name = entry.name, .linkage = .strong });
-        }
-        @export(&Registration.init, .{ .name = "rzig_init", .linkage = .strong });
+        @export(&Registration.init, .{
+            .name = "rzig_init",
+            .linkage = .strong,
+            .visibility = .hidden,
+        });
+        @export(&Registration.registerWith, .{
+            .name = "rzig_register",
+            .linkage = .strong,
+            .visibility = .hidden,
+        });
     }
 }
 
-fn RegistrationFor(comptime exports: anytype) type {
+fn RegistrationFor(comptime exports: anytype, comptime M: type) type {
     return struct {
         pub const call_methods = buildCallMethods(exports);
 
@@ -54,6 +73,81 @@ fn RegistrationFor(comptime exports: anytype) type {
             _ = c.R_registerRoutines(dll, null, &call_methods, null, null);
             _ = c.R_useDynamicSymbols(dll, c.FALSE);
             _ = c.R_forceSymbols(dll, c.TRUE);
+            registerCallables();
+        }
+
+        /// Register the functions of `rzig_callables` (and the interface
+        /// version) for R_GetCCallable under the package's name.
+        fn registerCallables() void {
+            if (comptime !@hasDecl(M, "rzig_callables")) return;
+            if (comptime !@hasDecl(manifest, "package")) {
+                @compileError("rzig: rzig_callables needs the package name in the generated manifest; run rzig::document()");
+            }
+            const callables = M.rzig_callables;
+            const names = comptime compat.fieldNames(@typeInfo(@TypeOf(callables)).@"struct");
+            inline for (names) |name| {
+                const function = @field(callables, name);
+                comptime callable_api.validate(@TypeOf(function), "rzig_callables." ++ name);
+                c.R_RegisterCCallable(manifest.package, name, @ptrCast(&function));
+            }
+            if (comptime @hasDecl(M, "rzig_interface_version")) {
+                const Version = struct {
+                    fn get() callconv(.c) c_int {
+                        return @intCast(@as(u32, M.rzig_interface_version));
+                    }
+                };
+                c.R_RegisterCCallable(manifest.package, callable_api.interface_version_name, @ptrCast(&Version.get));
+            }
+        }
+
+        /// Called from the package's own R_init_<pkg> in a package with C,
+        /// C++ or Fortran sources (Config/rzig/mixed): registers the
+        /// package's routines and the Zig routines together. R copies the
+        /// tables, so the merged one is released afterwards.
+        fn registerWith(
+            dll: *c.DllInfo,
+            c_methods: ?[*]const c.R_CMethodDef,
+            package_call_methods: ?[*]const c.R_CallMethodDef,
+            fortran_methods: ?[*]const c.R_FortranMethodDef,
+            external_methods: ?[*]const c.R_ExternalMethodDef,
+        ) callconv(.c) void {
+            if (builtin.is_test) return;
+            var count: usize = 0;
+            if (package_call_methods) |methods| {
+                while (methods[count].name != null) count += 1;
+            }
+            const zig_count = call_methods.len - 1;
+            const merged = std.heap.c_allocator.alloc(c.R_CallMethodDef, zig_count + count + 1) catch {
+                c.REprintf("rzig: not enough memory to register the native routines\n");
+                return;
+            };
+            defer std.heap.c_allocator.free(merged);
+            @memcpy(merged[0..zig_count], call_methods[0..zig_count]);
+            var length = zig_count;
+            if (package_call_methods) |methods| {
+                for (methods[0..count]) |method| {
+                    if (isZigRoutine(method.name.?)) {
+                        c.REprintf("rzig: the C routine %s has the name of a Zig export and is not registered\n", method.name.?);
+                        continue;
+                    }
+                    merged[length] = method;
+                    length += 1;
+                }
+            }
+            merged[length] = .{ .name = null, .fun = null, .numArgs = 0 };
+            _ = c.R_registerRoutines(dll, c_methods, merged.ptr, fortran_methods, external_methods);
+            _ = c.R_useDynamicSymbols(dll, c.FALSE);
+            // The R code of such a package may name its C routines by string.
+            _ = c.R_forceSymbols(dll, c.FALSE);
+            registerCallables();
+        }
+
+        fn isZigRoutine(name: [*:0]const u8) bool {
+            const text = std.mem.span(name);
+            inline for (exports) |entry| {
+                if (std.mem.eql(u8, text, entry.name)) return true;
+            }
+            return false;
         }
     };
 }
@@ -67,7 +161,7 @@ fn buildCallMethods(comptime exports: anytype) [exports.len + 1]c.R_CallMethodDe
         definitions[index] = .{
             .name = entry.name,
             .fun = if (builtin.is_test) null else wrapper: {
-                const Wrapper = wrapperForArity(visible_arity, entry.func, entry.name);
+                const Wrapper = wrapperForArity(visible_arity, entry.func, entry.name, entryParameters(entry));
                 break :wrapper @ptrCast(&Wrapper.call);
             },
             .numArgs = @intCast(visible_arity),
@@ -107,7 +201,7 @@ test "registration table contains wrappers and a terminating sentinel" {
         .{ .name = "test_two", .func = testTwo, .doc = "Two arguments." },
         .{ .name = "test_context", .func = testWithContext, .doc = "Injected context." },
     };
-    const Registration = RegistrationFor(exports);
+    const Registration = RegistrationFor(exports, struct {});
 
     try std.testing.expectEqual(@as(usize, 4), Registration.call_methods.len);
     try std.testing.expectEqualStrings("test_zero", std.mem.span(Registration.call_methods[0].name.?));

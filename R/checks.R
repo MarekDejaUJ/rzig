@@ -10,23 +10,30 @@
 # Types of exported functions
 
 .rzig_input_types <- c(
-  "f64", "i32", "bool", "usize", "?f64", "?i32", "?bool", "?usize",
+  "f64", "i32", "bool", "usize", "i64", "?f64", "?i32", "?bool", "?usize", "?i64", "[]consti64",
   "[]constf64", "[]consti32", "[]constbool", "[]constu8", "[]const[]constu8",
-  "Matrix", "Sexp", "Mut([]f64)"
+  "[]constLogical", "[]const?[]constu8", "?[]constu8", "Complex", "[]constComplex", "Raw", "Factor",
+  "CscMatrix",
+  "Matrix", "IntMatrix", "BoolMatrix", "Sexp", "Function",
+  "Mut([]f64)", "Mut([]i32)", "Mut(Matrix)", "Mut(IntMatrix)"
 )
 
 .rzig_vector_returns <- c(
   "[]f64", "[]constf64", "[]i32", "[]consti32", "[]bool", "[]constbool",
-  "[][]constu8", "[]const[]constu8"
+  "[]Logical", "[]constLogical", "[][]constu8", "[]const[]constu8",
+  "[]?[]constu8", "[]const?[]constu8", "[]Complex", "[]constComplex"
 )
 
 .rzig_plain_returns <- c(
-  "void", "f64", "i32", "bool", .rzig_vector_returns, "[]constu8", "List", "Sexp"
+  "void", "f64", "i32", "i64", "[]i64", "[]consti64", "bool", .rzig_vector_returns, "[]constu8", "Complex", "Raw",
+  "Factor", "List", "Sexp", "Function"
 )
 
+# The prefix `rzig.` goes first: removing the spaces of "[]const rzig.Logical"
+# first would join it to the word before it.
 .rzig_type_key <- function(type) {
-  key <- gsub("[[:space:]]+", "", type, useBytes = TRUE)
-  gsub("(^|[^A-Za-z0-9_])rzig\\.", "\\1", key, useBytes = TRUE)
+  key <- gsub("(^|[^A-Za-z0-9_])rzig\\.", "\\1", type, useBytes = TRUE)
+  gsub("[[:space:]]+", "", key, useBytes = TRUE)
 }
 
 .rzig_known_identifier <- function(identifier) {
@@ -34,7 +41,9 @@
     paste0(
       "^(f(16|32|64|80|128)|[iu][0-9]+|isize|usize|bool|void|anyopaque|",
       "anyerror|noreturn|type|anytype|comptime_int|comptime_float|const|",
-      "c_[a-z]+|Matrix|Mut|Sexp|List|Attributed|Error|Ctx)$"
+      "c_[a-z]+|Matrix|IntMatrix|BoolMatrix|CscMatrix|Logical|Complex|Raw|Record|DataFrame|Factor|External|Mut|",
+      "Sexp|List|Function|",
+      "Attributed|Error|Ctx)$"
     ),
     identifier
   )
@@ -44,6 +53,8 @@
 # author's source, which only the Zig compiler can resolve).
 .rzig_classify <- function(key, supported) {
   if (key %in% supported) return("supported")
+  # The fields of a record are checked by the compiler, which knows the struct.
+  if (grepl("^(Record|DataFrame|External)\\(.+\\)$", key)) return("supported")
   spaced <- gsub("const", " const ", key, fixed = TRUE)
   identifiers <- regmatches(spaced, gregexpr("[A-Za-z_][A-Za-z0-9_]*", spaced))[[1L]]
   if (length(identifiers) && !all(.rzig_known_identifier(identifiers))) return("local")
@@ -53,8 +64,12 @@
 .rzig_input_alternative <- function(key, type = key) {
   if (grepl("f(16|32|80|128)", key)) return(sub("f(16|32|80|128)", "f64", trimws(type)))
   if (grepl("^\\[\\]f64$", key)) return("rzig.Mut([]f64) to modify a duplicate, or []const f64 to read")
+  if (grepl("^\\[\\]i32$", key)) return("rzig.Mut([]i32) to modify a duplicate, or []const i32 to read")
+  if (startsWith(key, "Mut(")) {
+    return("rzig.Mut([]f64), rzig.Mut([]i32), rzig.Mut(rzig.Matrix) or rzig.Mut(rzig.IntMatrix)")
+  }
   if (grepl("[iu](8|16|64|128)|u32|isize", key) && !grepl("u8", key)) {
-    return("i32, or f64 for integers beyond 32 bits")
+    return("i32, i64 (a bit64::integer64 in R), or f64")
   }
   "a supported type (see ?scan_exports)"
 }
@@ -115,8 +130,11 @@
         ))
         next
       }
-      if (key == "Mut([]f64)") mutable <- mutable + 1L
-      verdict <- .rzig_classify(key, .rzig_input_types)
+      if (startsWith(key, "Mut(")) mutable <- mutable + 1L
+      # ?T accepts NULL for any input T other than rzig.Mut and optionals.
+      inner <- sub("^\\?", "", key)
+      verdict <- if (startsWith(key, "?") && !grepl("^(\\?|Mut\\()", inner) &&
+        inner %in% .rzig_input_types) "supported" else .rzig_classify(key, .rzig_input_types)
       if (verdict == "unsupported") {
         problems <- c(problems, sprintf(
           "`%s`, argument `%s`: type %s is not supported; use %s",
@@ -159,12 +177,12 @@
     }
     if (mutable > 1L) {
       problems <- c(problems, sprintf(
-        "`%s` has %d rzig.Mut([]f64) arguments; at most one is allowed", name, mutable
+        "`%s` has %d rzig.Mut arguments; at most one is allowed", name, mutable
       ))
     }
     if (mutable == 1L && payload != "void") {
       problems <- c(problems, sprintf(
-        "`%s` takes rzig.Mut([]f64) and must return void (or rzig.Error!void); the wrapper returns the duplicate",
+        "`%s` takes an rzig.Mut argument and must return void (or rzig.Error!void); the wrapper returns the duplicate",
         name
       ))
     }
@@ -225,6 +243,32 @@
   .rzig_check_result(problems)
 }
 
+.rzig_masking_packages <- c("base", "stats", "utils", "methods", "graphics", "grDevices")
+
+# Exported functions that mask a function of a base or recommended-attached
+# package when the client package is attached. This is legitimate (a package
+# may provide its own `log`), so it is reported as a note.
+.rzig_check_masking <- function(exports) {
+  notes <- character()
+  for (item in exports) {
+    if (.rzig_is_internal(item)) next
+    for (package in .rzig_masking_packages) {
+      names <- if (identical(package, "base")) {
+        ls(baseenv(), all.names = TRUE)
+      } else {
+        tryCatch(getNamespaceExports(package), error = function(error) character())
+      }
+      if (item$name %in% names) {
+        notes <- c(notes, sprintf(
+          "`%s` masks %s::%s when the package is attached", item$name, package, item$name
+        ))
+        break
+      }
+    }
+  }
+  .rzig_check_result(notes = notes)
+}
+
 # ---------------------------------------------------------------------------
 # Files managed by rzig
 
@@ -236,12 +280,23 @@
     list(file = "cleanup", template = file.path(templates, "cleanup")),
     list(file = "cleanup.win", template = file.path(templates, "cleanup.win")),
     list(file = file.path("src", "Makevars.in"), template = file.path(templates, "Makevars")),
-    list(file = file.path("src", "Makevars.win.in"), template = file.path(templates, "Makevars.win"))
+    list(file = file.path("src", "Makevars.win.in"), template = file.path(templates, "Makevars.win")),
+    list(file = file.path("src", "entry.c"), template = file.path(templates, "entry.c"), package = package)
   )
 }
 
-.rzig_same_text <- function(a, b) {
-  identical(.rzig_normalize_newlines(.rzig_read_text(a)), .rzig_normalize_newlines(.rzig_read_text(b)))
+# Compare a file with a template. With `package`, the template's @PKG@
+# placeholder is replaced the way use_rzig() writes the file.
+.rzig_same_text <- function(a, b, package = NULL) {
+  expected <- .rzig_normalize_newlines(.rzig_read_text(b))
+  if (!is.null(package) && !is.null(expected)) {
+    expected <- gsub("@PKG@", .rzig_c_identifier(package), expected, fixed = TRUE)
+  }
+  identical(.rzig_normalize_newlines(.rzig_read_text(a)), expected)
+}
+
+.rzig_c_identifier <- function(package) {
+  gsub("[^A-Za-z0-9_]", "_", package)
 }
 
 .rzig_check_scaffold <- function(path, package) {
@@ -256,16 +311,48 @@
       "missing: ", paste(missing, collapse = ", "), "; run use_rzig()"
     )))
   }
+  # The framework sources must match the installed rzig: the R side of the
+  # boundary (scan, wrappers, checks) assumes them. The build files around them
+  # (build.zig, build.zig.zon, tools/*) are templates a package author may
+  # extend, like configure and the Makevars, so a difference is only a note.
   assets <- system.file("zig", package = "rzig")
   shipped <- list.files(assets, recursive = TRUE, all.files = TRUE)
-  shipped <- shipped[!grepl("^src/|^framework/generated/manifest\\.zig$", shipped)]
-  outdated <- shipped[!vapply(shipped, function(file) {
-    target <- file.path(path, "src", "rzig", file)
-    file.exists(target) && .rzig_same_text(target, file.path(assets, file))
+  framework_files <- shipped[startsWith(shipped, "framework/") &
+    shipped != "framework/generated/manifest.zig"]
+  zig_templates <- shipped[!startsWith(shipped, "framework/") & !startsWith(shipped, "src/")]
+  # c_libraries.zon belongs to the package author once it exists.
+  authored <- "c_libraries.zon"
+  missing_framework <- framework_files[!file.exists(file.path(path, "src", "rzig", framework_files))]
+  outdated <- setdiff(framework_files, missing_framework)
+  outdated <- outdated[!vapply(outdated, function(file) {
+    .rzig_same_text(file.path(path, "src", "rzig", file), file.path(assets, file))
   }, logical(1L))]
+  missing_templates <- zig_templates[!file.exists(file.path(path, "src", "rzig", zig_templates))]
+  # The Zig downloader runs only when RZIG_DOWNLOAD_ZIG asks for it.
+  missing_optional <- intersect(missing_templates, c("tools/fetch_zig.R", "tools/imports.R"))
+  missing_templates <- setdiff(missing_templates, missing_optional)
+  if ("tools/fetch_zig.R" %in% missing_optional) {
+    notes <- c(notes, paste0(
+      "missing: ", file.path("src", "rzig", "tools", "fetch_zig.R"),
+      " (used only to download Zig during installation); run update_rzig(path)"
+    ))
+  }
+  if ("tools/imports.R" %in% missing_optional) {
+    notes <- c(notes, paste0(
+      "missing: ", file.path("src", "rzig", "tools", "imports.R"),
+      " (used only for Config/rzig/imports); run update_rzig(path)"
+    ))
+  }
+  if (length(missing_framework) || length(missing_templates)) {
+    problems <- c(problems, paste0(
+      "missing: ",
+      paste(file.path("src", "rzig", c(missing_framework, missing_templates)), collapse = ", "),
+      "; run update_rzig(path)"
+    ))
+  }
   if (length(outdated)) {
     problems <- c(problems, sprintf(
-      "%d framework file%s differ%s from rzig %s (%s); run use_rzig(path, overwrite = TRUE), which keeps src/rzig/src",
+      "%d framework file%s differ%s from rzig %s (%s); run update_rzig(path), which keeps src/rzig/src and customized build files",
       length(outdated), if (length(outdated) == 1L) "" else "s",
       if (length(outdated) == 1L) "s" else "",
       as.character(utils::packageVersion("rzig")),
@@ -275,8 +362,15 @@
   if (!is.null(package)) {
     customized <- character()
     for (pair in .rzig_template_pairs(package)) {
-      if (!.rzig_same_text(file.path(path, pair$file), pair$template)) {
+      target <- file.path(path, pair$file)
+      if (file.exists(target) && !.rzig_same_text(target, pair$template, pair$package)) {
         customized <- c(customized, pair$file)
+      }
+    }
+    present_templates <- setdiff(zig_templates, c(missing_templates, authored))
+    for (file in present_templates) {
+      if (!.rzig_same_text(file.path(path, "src", "rzig", file), file.path(assets, file))) {
+        customized <- c(customized, file.path("src", "rzig", file))
       }
     }
     if (length(customized)) {
@@ -284,6 +378,47 @@
         "differs from the rzig template: ", paste(customized, collapse = ", ")
       ))
     }
+  }
+  absent <- .rzig_c_library_files_missing(path)
+  if (length(absent)) {
+    problems <- c(problems, paste0(
+      "src/rzig/c_libraries.zon names files that do not exist: ",
+      paste(file.path("src", "rzig", absent), collapse = ", ")
+    ))
+  }
+  foreign <- .rzig_foreign_sources(path)
+  if (.rzig_is_mixed(path)) {
+    makevars_in <- .rzig_read_text(file.path(path, "src", "Makevars.in")) %||% ""
+    if (!grepl("@RZIG_OBJECTS@", makevars_in, fixed = TRUE)) {
+      problems <- c(problems, paste0(
+        "Config/rzig/mixed is set, but src/Makevars.in has no @RZIG_OBJECTS@, so only src/entry.c ",
+        "is compiled; update_rzig(path) installs the current templates"
+      ))
+    }
+    if (length(foreign)) {
+      notes <- c(notes, paste0(
+        "compiled by R's compilers (Config/rzig/mixed): ", paste(file.path("src", foreign), collapse = ", ")
+      ))
+    }
+    if (!length(.rzig_register_callers(path))) {
+      problems <- c(problems, paste0(
+        "Config/rzig/mixed leaves R_init_", .rzig_c_identifier(package), "() to the package, but no C or ",
+        "C++ source of src/ calls rzig_register(); see ?use_rzig_mixed"
+      ))
+    }
+  } else if (length(foreign)) {
+    problems <- c(problems, paste0(
+      "not compiled by the rzig build: ", paste(file.path("src", foreign), collapse = ", "),
+      "; the generated Makevars build the Zig sources and src/entry.c only; ",
+      "use_rzig_mixed(path) builds them with R's compilers"
+    ))
+  }
+  makevars <- .rzig_foreign_makevars(path)
+  if (length(makevars)) {
+    problems <- c(problems, paste0(
+      paste(makevars, collapse = " and "), " written by hand: configure overwrites ",
+      "it and cleanup removes it; move its settings into the .in templates"
+    ))
   }
   if (.Platform$OS.type != "windows") {
     scripts <- c("configure", "cleanup")
@@ -308,11 +443,11 @@
     return(.rzig_check_result("no DESCRIPTION file"))
   }
   fields <- tryCatch(read.dcf(file)[1L, ], error = function(error) NULL)
-  if (is.null(fields) || !nzchar(fields[["Package"]] %||% "")) {
+  if (is.null(fields) || !nzchar(.rzig_field(fields, "Package") %||% "")) {
     return(.rzig_check_result("DESCRIPTION has no Package field"))
   }
   problems <- character()
-  version <- fields[["Version"]] %||% ""
+  version <- .rzig_field(fields, "Version") %||% ""
   if (is.na(package_version(version, strict = FALSE))) {
     problems <- c(problems, sprintf("Version \"%s\" is not a valid package version", version))
   }
@@ -322,10 +457,46 @@
   notes <- if (length(missing)) {
     paste("R CMD check also requires", paste(missing, collapse = ", "))
   } else character()
+  if (!grepl("zig", .rzig_field(fields, "SystemRequirements") %||% "", ignore.case = TRUE)) {
+    notes <- c(notes, sprintf(
+      "SystemRequirements does not name Zig; state the supported series, for example \"Zig %s\"",
+      .rzig_zig_series_label()
+    ))
+  }
+  lines <- strsplit(.rzig_normalize_newlines(.rzig_read_text(file)), "\n", fixed = TRUE)[[1L]]
+  listed <- .rzig_description_field(lines, .rzig_extra_sources_field)$entries
+  if (!all(.rzig_extra_sources %in% listed)) {
+    notes <- c(notes, paste0(
+      .rzig_extra_sources_field, " does not list the Zig sources, so devtools::load_all() ",
+      "misses changes to them; use_rzig() adds ", paste(.rzig_extra_sources, collapse = ", ")
+    ))
+  }
+  problems <- c(problems, .rzig_check_imports(path))
+  if (isTRUE(tolower(trimws(.rzig_field(fields, "Config/rzig/download-zig") %||% "")) %in% c("true", "yes"))) {
+    notes <- c(notes, paste0(
+      "Config/rzig/download-zig: configure downloads a verified Zig when it finds none; ",
+      "CRAN does not allow that without its consent, so a package for CRAN leaves the field out"
+    ))
+  }
+  sources <- list.files(file.path(path, "src", "rzig", "src"), pattern = "\\.zig$", recursive = TRUE, full.names = TRUE)
+  uses_lapack <- any(vapply(sources, function(source) {
+    grepl("rzig\\.(Blas|Lapack)\\.", .rzig_read_text(source) %||% "")
+  }, logical(1L)))
+  if (uses_lapack && !.rzig_links_lapack(path)) {
+    notes <- c(notes, paste0(
+      "the Zig code calls rzig.Blas or rzig.Lapack, but DESCRIPTION does not ask to link them; ",
+      "run use_rzig_lapack(path)"
+    ))
+  }
   .rzig_check_result(problems, notes)
 }
 
 `%||%` <- function(x, y) if (is.null(x) || (length(x) == 1L && is.na(x))) y else x
+
+# A DESCRIPTION field from read.dcf(), or NA when the field is absent.
+.rzig_field <- function(fields, name) {
+  if (name %in% names(fields)) unname(fields[[name]]) else NA_character_
+}
 
 # ---------------------------------------------------------------------------
 # The C toolchain of R
@@ -387,4 +558,23 @@
     Windows = "Rtools (https://cran.r-project.org/bin/windows/Rtools/)",
     "a C compiler, make and the R development headers"
   )
+}
+
+# The paths that src/rzig/c_libraries.zon names (string literals ending in a C
+# source or header suffix, or under `.include`) and that do not exist. The
+# file is ZON; this reads its string literals outside comments.
+.rzig_c_library_files_missing <- function(path) {
+  file <- file.path(path, "src", "rzig", "c_libraries.zon")
+  text <- .rzig_read_text(file)
+  if (is.null(text)) return(character())
+  lines <- strsplit(.rzig_normalize_newlines(text), "\n", fixed = TRUE)[[1L]]
+  lines <- sub("//.*$", "", lines)
+  literals <- unlist(regmatches(lines, gregexpr("\"[^\"]*\"", lines)), use.names = FALSE)
+  literals <- substring(literals, 2L, nchar(literals) - 1L)
+  include <- unlist(regmatches(lines, gregexpr("\\.include[[:space:]]*=[[:space:]]*\\.\\{[^}]*\\}", lines)), use.names = FALSE)
+  directories <- unlist(regmatches(include, gregexpr("\"[^\"]*\"", include)), use.names = FALSE)
+  directories <- substring(directories, 2L, nchar(directories) - 1L)
+  files <- literals[grepl("\\.(c|h|cc|cpp|cxx|hpp|S|s)$", literals)]
+  candidates <- unique(c(files, directories))
+  candidates[!file.exists(file.path(path, "src", "rzig", candidates))]
 }

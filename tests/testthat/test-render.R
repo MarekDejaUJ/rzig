@@ -55,3 +55,22 @@ test_that("render_bindings rejects other inputs", {
   exports <- structure(list(), class = "rzig_exports", package = "ok")
   expect_error(render_bindings(exports, package = "1bad"), "package name")
 })
+
+test_that("an internal routine gets a wrapper and a native symbol but no export", {
+  source <- paste(
+    "/// A public function.", "/// @export", "pub fn shown(x: f64) f64 {", "    return x;", "}",
+    "/// A helper.", "/// @param x A value.", "/// @export internal",
+    "pub fn hidden(x: f64) f64 {", "    return x;", "}", "",
+    sep = "\n"
+  )
+  exports <- structure(rzig:::.rzig_scan_text(source), class = "rzig_exports", package = "internalpkg")
+  bindings <- render_bindings(exports)
+  expect_match(bindings$namespace, "hidden_ = \"hidden\"", fixed = TRUE)
+  expect_match(bindings$namespace, "export(\"shown\")", fixed = TRUE)
+  expect_false(grepl("export(\"hidden\")", bindings$namespace, fixed = TRUE))
+  hidden_block <- sub(".*#' A helper\\.", "", bindings$wrappers)
+  expect_match(hidden_block, "#' @noRd", fixed = TRUE)
+  expect_false(grepl("@export", hidden_block, fixed = TRUE))
+  expect_match(bindings$wrappers, "hidden <- function(x) {\n  .Call(hidden_, x)\n}", fixed = TRUE)
+  expect_match(bindings$manifest, ".name = \"hidden\"", fixed = TRUE)
+})

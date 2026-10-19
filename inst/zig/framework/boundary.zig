@@ -22,10 +22,12 @@ const compat = @import("compat.zig");
 const c = @import("c/abi.zig");
 const protect = @import("protect.zig");
 const convert = @import("convert.zig");
+const panic_api = @import("panic.zig");
 const es = @import("error_state.zig");
 const Ctx = @import("alloc.zig").Ctx;
 const rng = @import("rng.zig");
 const unwind = @import("unwind.zig");
+const rcall = @import("rcall.zig");
 
 /// Entry point used by every generated fixed-arity wrapper.
 ///
@@ -34,11 +36,13 @@ const unwind = @import("unwind.zig");
 pub fn invoke(
     comptime func: anytype,
     comptime name: []const u8,
+    comptime parameters: anytype,
     sexps: anytype,
 ) c.SEXP {
     es.reset();
+    panic_api.noteRThread();
 
-    const State = InvocationState(func, name, @TypeOf(sexps));
+    const State = InvocationState(func, name, parameters, @TypeOf(sexps));
     var state = State{
         .ctx = Ctx.init(),
         .stack = protect.Stack.init(),
@@ -53,6 +57,13 @@ pub fn invoke(
     if (state.failed) {
         state.stack.unwindAll();
         state.stack.deinit();
+
+        if (es.takeJump()) |jump| {
+            // R jumped out of R code that the call ran (rzig.Function); every
+            // Zig frame has returned, so the jump continues to its target.
+            c.R_ReleaseObject(@ptrCast(jump.token));
+            if (!jump.superseded) c.R_ContinueUnwind(@ptrCast(jump.token));
+        }
 
         if (es.takeInterrupt()) {
             // The Zig computation cannot resume after its frames have unwound,
@@ -72,13 +83,22 @@ pub fn invoke(
         c.Rf_errorcall(c.R_NilValue, "%s", message.ptr);
     }
 
+    // A jump that the exported function handled is discarded.
+    rcall.dropJump();
+
     // The arena has already been released, but the result stays protected
     // because warning delivery can allocate or become an R error.
-    while (es.takeWarning()) |warning| c.Rf_warning("%s", warning.ptr);
+    deliverWarnings();
 
     state.stack.unwindAll();
     state.stack.deinit();
     return result;
+}
+
+/// Emit the queued warnings. The boundary calls this before it returns, and
+/// rzig.Function before R code runs, inside the interception of R's jumps.
+pub fn deliverWarnings() void {
+    while (es.takeWarning()) |warning| c.Rf_warning("%s", warning.ptr);
 }
 
 /// Validate an exported function while its name, parameter positions and Zig
@@ -127,6 +147,7 @@ pub fn validateSignature(comptime func: anytype, comptime name: []const u8) void
 fn InvocationState(
     comptime func: anytype,
     comptime name: []const u8,
+    comptime parameters: anytype,
     comptime Sexps: type,
 ) type {
     return struct {
@@ -139,7 +160,7 @@ fn InvocationState(
         cleaned: bool = false,
 
         fn run(self: *Self) c.SEXP {
-            return callAndMarshal(func, name, self.sexps, &self.ctx, &self.stack) catch {
+            return callAndMarshal(func, name, parameters, self.sexps, &self.ctx, &self.stack) catch {
                 self.failed = true;
                 return c.R_NilValue;
             };
@@ -152,7 +173,8 @@ fn InvocationState(
             // PutRNGstate may allocate. At this point no Zig-owned resource is
             // live, while any successful result remains on the protect stack.
             rng.finish(rng_active);
-            _ = jumped;
+            // A jump that R did not let rzig stop (a panic) ends the call.
+            if (jumped) rcall.dropJump();
         }
     };
 }
@@ -160,12 +182,13 @@ fn InvocationState(
 fn callAndMarshal(
     comptime func: anytype,
     comptime name: []const u8,
+    comptime parameters: anytype,
     sexps: anytype,
     ctx: *Ctx,
     stack: *protect.Stack,
 ) es.Error!c.SEXP {
     var mutable_result: ?c.SEXP = null;
-    const value = try callUser(func, name, sexps, ctx, stack, &mutable_result);
+    const value = try callUser(func, name, parameters, sexps, ctx, stack, &mutable_result);
     if (mutable_result) |result| return result;
     return convert.toSexp(stack, ctx, value);
 }
@@ -173,6 +196,7 @@ fn callAndMarshal(
 fn callUser(
     comptime func: anytype,
     comptime name: []const u8,
+    comptime parameters: anytype,
     sexps: anytype,
     ctx: *Ctx,
     stack: *protect.Stack,
@@ -199,10 +223,7 @@ fn callUser(
         const Parameter = compat.paramType(info, parameter_index) orelse @compileError(
             "rzig: function `" ++ name ++ "` has a generic parameter that cannot be exported",
         );
-        const parameter_name = std.fmt.comptimePrint(
-            "argument {d} of {s}",
-            .{ visible_index + 1, name },
-        );
+        const parameter_name = comptime argumentLabel(name, parameters, supplied, visible_index);
         args[parameter_index] = if (comptime convert.isMutableInput(Parameter))
             try convert.fromMutableSexp(
                 Parameter,
@@ -221,6 +242,20 @@ fn callUser(
     }
 
     return @call(.auto, func, args);
+}
+
+/// "argument `x` of f" when the manifest names every R argument, otherwise
+/// "argument 2 of f".
+fn argumentLabel(
+    comptime name: []const u8,
+    comptime parameters: anytype,
+    comptime supplied: usize,
+    comptime visible_index: usize,
+) []const u8 {
+    if (parameters.len == supplied) {
+        return std.fmt.comptimePrint("argument `{s}` of {s}", .{ parameters[visible_index], name });
+    }
+    return std.fmt.comptimePrint("argument {d} of {s}", .{ visible_index + 1, name });
 }
 
 fn functionInfo(comptime Func: type) compat.Type.Fn {
@@ -284,11 +319,11 @@ test "user calls accept plain and context-aware signatures" {
 
     try std.testing.expectEqual(
         @as(i32, 17),
-        try callUser(testPlain, "test_plain", .{}, &ctx, &stack, &mutable_result),
+        try callUser(testPlain, "test_plain", .{}, .{}, &ctx, &stack, &mutable_result),
     );
     try std.testing.expectEqual(
         @as(i32, 3),
-        try callUser(testWithContext, "test_ctx", .{}, &ctx, &stack, &mutable_result),
+        try callUser(testWithContext, "test_ctx", .{}, .{}, &ctx, &stack, &mutable_result),
     );
 }
 
@@ -298,11 +333,11 @@ test "signature validation accepts context, supported inputs, and optional outpu
 }
 
 test "the R unwind callback path instantiates" {
-    const State = InvocationState(testPlain, "test_plain", @TypeOf(.{}));
+    const State = InvocationState(testPlain, "test_plain", .{}, @TypeOf(.{}));
     std.testing.refAllDecls(State);
     const Wrapper = struct {
         fn call() c.SEXP {
-            return invoke(testPlain, "test_plain", .{});
+            return invoke(testPlain, "test_plain", .{}, .{});
         }
     };
     std.testing.refAllDecls(Wrapper);

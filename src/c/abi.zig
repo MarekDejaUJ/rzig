@@ -81,6 +81,11 @@ pub const FUNSXP: SEXPTYPE = 99;
 
 /// Missing integer sentinel, guaranteed by R to be `INT_MIN`.
 pub const NA_INTEGER: c_int = std.math.minInt(c_int);
+/// R's complex element: real and imaginary parts.
+pub const Rcomplex = extern struct {
+    r: f64,
+    i: f64,
+};
 /// Missing logical sentinel, identical to `NA_INTEGER`.
 pub const NA_LOGICAL: c_int = std.math.minInt(c_int);
 
@@ -111,6 +116,8 @@ pub extern var R_BlankString: SEXP;
 pub extern var R_ClassSymbol: SEXP;
 /// Installed `dim` symbol.
 pub extern var R_DimSymbol: SEXP;
+/// Installed `dimnames` symbol.
+pub extern var R_DimNamesSymbol: SEXP;
 /// Installed `names` symbol.
 pub extern var R_NamesSymbol: SEXP;
 /// R's ordinary NaN value.
@@ -126,6 +133,22 @@ pub extern fn TYPEOF(x: SEXP) c_int;
 pub extern fn Rf_xlength(x: SEXP) R_xlen_t;
 /// Test whether an object is R's null singleton.
 pub extern fn Rf_isNull(x: SEXP) Rboolean;
+/// An external pointer to `p` with a tag and an object kept alive with it.
+pub extern fn R_MakeExternalPtr(p: ?*anyopaque, tag: SEXP, prot: SEXP) SEXP;
+/// The address of an external pointer; NULL after serialization.
+pub extern fn R_ExternalPtrAddr(s: SEXP) ?*anyopaque;
+/// The tag of an external pointer.
+pub extern fn R_ExternalPtrTag(s: SEXP) SEXP;
+/// Set the address of an external pointer to NULL.
+pub extern fn R_ClearExternalPtr(s: SEXP) void;
+/// A C finalizer.
+pub const R_CFinalizer_t = *const fn (SEXP) callconv(.c) void;
+/// Run `fun` when `s` is garbage collected, and at exit when `onexit`.
+pub extern fn R_RegisterCFinalizerEx(s: SEXP, fun: R_CFinalizer_t, onexit: Rboolean) void;
+/// Whether the object has a class attribute.
+pub extern fn Rf_isObject(x: SEXP) Rboolean;
+/// Whether the object is an S4 object.
+pub extern fn Rf_isS4(x: SEXP) Rboolean;
 /// Test whether an object has matrix dimensions.
 pub extern fn Rf_isMatrix(x: SEXP) Rboolean;
 /// Return R's static name for a SEXPTYPE.
@@ -146,6 +169,12 @@ pub extern fn INTEGER_ELT(x: SEXP, i: R_xlen_t) c_int;
 /// Read one logical element, including from ALTREP vectors.
 pub extern fn LOGICAL_ELT(x: SEXP, i: R_xlen_t) c_int;
 /// Copy a region of a double vector into caller-owned storage.
+/// Read-only pointer to the elements of a CPLXSXP.
+pub extern fn COMPLEX_RO(x: SEXP) [*]const Rcomplex;
+/// Writable pointer to the elements of a CPLXSXP.
+pub extern fn COMPLEX(x: SEXP) [*]Rcomplex;
+/// Writable pointer to the bytes of a RAWSXP.
+pub extern fn RAW(x: SEXP) [*]u8;
 pub extern fn REAL_GET_REGION(x: SEXP, i: R_xlen_t, n: R_xlen_t, buf: [*]f64) R_xlen_t;
 
 /// Obtain writable double-vector storage; may materialize ALTREP data.
@@ -161,8 +190,13 @@ pub extern fn STRING_ELT(x: SEXP, i: R_xlen_t) SEXP;
 pub extern fn SET_STRING_ELT(x: SEXP, i: R_xlen_t, value: SEXP) void;
 /// Allocate a CHARSXP from an explicitly sized encoded byte sequence.
 pub extern fn Rf_mkCharLenCE(bytes: [*]const u8, len: c_int, encoding: c_uint) SEXP;
-/// Translate a CHARSXP to temporary UTF-8 storage; may allocate and longjmp.
+/// Translate a CHARSXP to temporary UTF-8 storage; may allocate and longjmp,
+/// and signals an R error for a string in the "bytes" encoding.
 pub extern fn Rf_translateCharUTF8(x: SEXP) [*:0]const u8;
+/// The declared encoding of a CHARSXP (CE_NATIVE, CE_UTF8, CE_LATIN1, CE_BYTES).
+pub extern fn Rf_getCharCE(x: SEXP) c_uint;
+/// The bytes of a CHARSXP as stored, without translation.
+pub extern fn R_CHAR(x: SEXP) [*:0]const u8;
 
 /// Read one element from a generic vector.
 pub extern fn VECTOR_ELT(x: SEXP, i: R_xlen_t) SEXP;
@@ -183,6 +217,10 @@ pub extern fn Rf_getAttrib(x: SEXP, symbol: SEXP) SEXP;
 pub extern fn Rf_setAttrib(x: SEXP, symbol: SEXP, value: SEXP) SEXP;
 /// Install a NUL-terminated symbol name; may allocate and longjmp.
 pub extern fn Rf_install(name: [*:0]const u8) SEXP;
+/// Whether the class attribute of `x` contains `name`.
+pub extern fn Rf_inherits(x: SEXP, name: [*:0]const u8) Rboolean;
+/// A character vector of length 1.
+pub extern fn Rf_mkString(text: [*:0]const u8) SEXP;
 /// Construct a zero-argument R call; may allocate and longjmp.
 pub extern fn Rf_lang1(function: SEXP) SEXP;
 /// Evaluate an expression in an environment; may allocate and longjmp.
@@ -224,6 +262,33 @@ pub extern fn R_UnwindProtect(
     continuation: ?SEXP,
 ) SEXP;
 
+/// Allocate a continuation token for R_UnwindProtect; may allocate and longjmp.
+pub extern fn R_MakeUnwindCont() SEXP;
+/// Resume the jump of R kept in a continuation token; never returns.
+pub extern fn R_ContinueUnwind(continuation: SEXP) noreturn;
+/// Keep an object from garbage collection until R_ReleaseObject; may allocate and longjmp.
+pub extern fn R_PreserveObject(x: SEXP) void;
+/// End the protection that R_PreserveObject started.
+pub extern fn R_ReleaseObject(x: SEXP) void;
+/// Set the head of a pairlist cell.
+pub extern fn SETCAR(x: SEXP, value: SEXP) SEXP;
+/// Set the tag of a pairlist cell.
+pub extern fn SET_TAG(x: SEXP, tag: SEXP) void;
+/// A pairlist cell; may allocate and longjmp.
+pub extern fn Rf_cons(head: SEXP, tail: SEXP) SEXP;
+/// A call cell; may allocate and longjmp.
+pub extern fn Rf_lcons(head: SEXP, tail: SEXP) SEXP;
+/// A call with one argument; may allocate and longjmp.
+pub extern fn Rf_lang2(function: SEXP, argument: SEXP) SEXP;
+/// A new environment; may allocate and longjmp.
+pub extern fn R_NewEnv(enclosure: SEXP, hash: c_int, size: c_int) SEXP;
+/// Bind a symbol in an environment; may allocate and longjmp.
+pub extern fn Rf_defineVar(symbol: SEXP, value: SEXP, environment: SEXP) void;
+/// Look up a function by name; longjmps when there is none.
+pub extern fn Rf_findFun(symbol: SEXP, environment: SEXP) SEXP;
+/// Whether `x` is a closure, a builtin or a special.
+pub extern fn Rf_isFunction(x: SEXP) Rboolean;
+
 /// Load R's random-number state for native draws; may allocate and longjmp.
 pub extern fn GetRNGstate() void;
 /// Save R's random-number state after native draws; may allocate and longjmp.
@@ -239,6 +304,73 @@ pub extern fn exp_rand() f64;
 pub extern fn Rf_pnorm5(x: f64, mean: f64, standard_deviation: f64, lower_tail: c_int, log_probability: c_int) f64;
 /// Evaluate the normal quantile function from Rmath.
 pub extern fn Rf_qnorm5(probability: f64, mean: f64, standard_deviation: f64, lower_tail: c_int, log_probability: c_int) f64;
+/// Rmath densities, distribution functions, quantiles and generators.
+pub extern fn Rf_dnorm4(x: f64, mean: f64, sd: f64, give_log: c_int) f64;
+pub extern fn Rf_rnorm(mean: f64, sd: f64) f64;
+pub extern fn Rf_dunif(x: f64, min: f64, max: f64, give_log: c_int) f64;
+pub extern fn Rf_punif(q: f64, min: f64, max: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qunif(p: f64, min: f64, max: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_runif(min: f64, max: f64) f64;
+pub extern fn Rf_dgamma(x: f64, shape: f64, scale: f64, give_log: c_int) f64;
+pub extern fn Rf_pgamma(q: f64, shape: f64, scale: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qgamma(p: f64, shape: f64, scale: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rgamma(shape: f64, scale: f64) f64;
+pub extern fn Rf_dbeta(x: f64, shape1: f64, shape2: f64, give_log: c_int) f64;
+pub extern fn Rf_pbeta(q: f64, shape1: f64, shape2: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qbeta(p: f64, shape1: f64, shape2: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rbeta(shape1: f64, shape2: f64) f64;
+pub extern fn Rf_dbinom(x: f64, size: f64, prob: f64, give_log: c_int) f64;
+pub extern fn Rf_pbinom(q: f64, size: f64, prob: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qbinom(p: f64, size: f64, prob: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rbinom(size: f64, prob: f64) f64;
+pub extern fn Rf_dpois(x: f64, lambda: f64, give_log: c_int) f64;
+pub extern fn Rf_ppois(q: f64, lambda: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qpois(p: f64, lambda: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rpois(lambda: f64) f64;
+pub extern fn Rf_dexp(x: f64, rate: f64, give_log: c_int) f64;
+pub extern fn Rf_pexp(q: f64, rate: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qexp(p: f64, rate: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rexp(rate: f64) f64;
+pub extern fn Rf_dt(x: f64, df: f64, give_log: c_int) f64;
+pub extern fn Rf_pt(q: f64, df: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qt(p: f64, df: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rt(df: f64) f64;
+pub extern fn Rf_dchisq(x: f64, df: f64, give_log: c_int) f64;
+pub extern fn Rf_pchisq(q: f64, df: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qchisq(p: f64, df: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rchisq(df: f64) f64;
+pub extern fn Rf_df(x: f64, df1: f64, df2: f64, give_log: c_int) f64;
+pub extern fn Rf_pf(q: f64, df1: f64, df2: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qf(p: f64, df1: f64, df2: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rf(df1: f64, df2: f64) f64;
+pub extern fn Rf_dlnorm(x: f64, meanlog: f64, sdlog: f64, give_log: c_int) f64;
+pub extern fn Rf_plnorm(q: f64, meanlog: f64, sdlog: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qlnorm(p: f64, meanlog: f64, sdlog: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rlnorm(meanlog: f64, sdlog: f64) f64;
+pub extern fn Rf_dweibull(x: f64, shape: f64, scale: f64, give_log: c_int) f64;
+pub extern fn Rf_pweibull(q: f64, shape: f64, scale: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qweibull(p: f64, shape: f64, scale: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rweibull(shape: f64, scale: f64) f64;
+pub extern fn Rf_dlogis(x: f64, location: f64, scale: f64, give_log: c_int) f64;
+pub extern fn Rf_plogis(q: f64, location: f64, scale: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qlogis(p: f64, location: f64, scale: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rlogis(location: f64, scale: f64) f64;
+pub extern fn Rf_dcauchy(x: f64, location: f64, scale: f64, give_log: c_int) f64;
+pub extern fn Rf_pcauchy(q: f64, location: f64, scale: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qcauchy(p: f64, location: f64, scale: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rcauchy(location: f64, scale: f64) f64;
+pub extern fn Rf_dgeom(x: f64, prob: f64, give_log: c_int) f64;
+pub extern fn Rf_pgeom(q: f64, prob: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qgeom(p: f64, prob: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rgeom(prob: f64) f64;
+pub extern fn Rf_dhyper(x: f64, m: f64, n: f64, k: f64, give_log: c_int) f64;
+pub extern fn Rf_phyper(q: f64, m: f64, n: f64, k: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qhyper(p: f64, m: f64, n: f64, k: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rhyper(m: f64, n: f64, k: f64) f64;
+pub extern fn Rf_dnbinom(x: f64, size: f64, prob: f64, give_log: c_int) f64;
+pub extern fn Rf_pnbinom(q: f64, size: f64, prob: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_qnbinom(p: f64, size: f64, prob: f64, lower_tail: c_int, log_p: c_int) f64;
+pub extern fn Rf_rnbinom(size: f64, prob: f64) f64;
 
 /// Distinguish R's missing-real payload from other NaN values.
 pub extern fn R_IsNA(value: f64) c_int;
@@ -277,6 +409,10 @@ pub extern fn R_registerRoutines(
     fortran_routines: ?[*]const R_FortranMethodDef,
     external_routines: ?[*]const R_ExternalMethodDef,
 ) c_int;
+/// Register a C-callable function for other packages; may allocate and longjmp.
+pub extern fn R_RegisterCCallable(package: [*:0]const u8, name: [*:0]const u8, function: DL_FUNC) void;
+/// A C-callable function of a package; loads its namespace and longjmps when absent.
+pub extern fn R_GetCCallable(package: [*:0]const u8, name: [*:0]const u8) ?DL_FUNC;
 /// Enable or disable lookup of unregistered native symbols.
 pub extern fn R_useDynamicSymbols(info: *DllInfo, value: Rboolean) Rboolean;
 /// Require callers to use registered native symbols rather than strings.

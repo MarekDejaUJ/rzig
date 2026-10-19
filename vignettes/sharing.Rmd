@@ -1,0 +1,241 @@
+---
+title: "C sources, C libraries and code shared between packages"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{C sources, C libraries and code shared between packages}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(rzig)
+compiler <- find_zig(required = FALSE)
+has_zig <- isTRUE(compiler$supported)
+```
+
+A package that uses RZig can keep C, C++ or Fortran sources next to its Zig
+code, compile a C library that it ships, share a Zig module with other
+packages, and offer C-callable functions to other packages. This vignette
+shows the four forms. The scaffolds and checks are plain R; the builds run
+when a supported Zig compiler is found (this copy
+`r if (has_zig) "ran" else "skipped"` them).
+
+```{r roots}
+root <- file.path(tempdir(), "sharing")
+dir.create(root)
+lib <- file.path(root, "lib")
+dir.create(lib)
+header <- c(
+  "const rzig = @import(\"rzig\");",
+  "",
+  "pub const panic = rzig.Panic;",
+  "",
+  "comptime {",
+  "    rzig.registerModule(@This());",
+  "}",
+  ""
+)
+```
+
+## C, C++ and Fortran sources next to Zig
+
+`use_rzig()` stops when `src/` already holds such sources, because the
+generated build would not compile them. With `mixed = TRUE`, R compiles them
+with its own compilers next to the Zig library, and `src/entry.c` leaves
+`R_init_<pkg>` to the package, whose own init function registers its
+routines with `rzig_register()`, which adds the Zig routines:
+
+```{r mixed}
+mixed <- file.path(root, "mixedpkg")
+dir.create(file.path(mixed, "src"), recursive = TRUE)
+writeLines(c("Package: mixedpkg", "Version: 0.0.1"), file.path(mixed, "DESCRIPTION"))
+writeLines(c(
+  "#include <Rinternals.h>",
+  "SEXP legacy_twice(SEXP x) { return Rf_ScalarReal(2 * Rf_asReal(x)); }"
+), file.path(mixed, "src", "legacy.c"))
+try(use_rzig(mixed))
+use_rzig(mixed, mixed = TRUE)
+writeLines(c(
+  "#include <R_ext/Rdynload.h>",
+  "#include <Rinternals.h>",
+  "SEXP legacy_twice(SEXP x);",
+  "void rzig_register(DllInfo *dll, const R_CMethodDef *c_methods,",
+  "                   const R_CallMethodDef *call_methods,",
+  "                   const R_FortranMethodDef *fortran_methods,",
+  "                   const R_ExternalMethodDef *external_methods);",
+  "static const R_CallMethodDef call_methods[] = {",
+  "    {\"legacy_twice\", (DL_FUNC) &legacy_twice, 1},",
+  "    {NULL, NULL, 0}",
+  "};",
+  "void R_init_mixedpkg(DllInfo *dll) {",
+  "    rzig_register(dll, NULL, call_methods, NULL, NULL);",
+  "}"
+), file.path(mixed, "src", "init.c"))
+status <- rzig_status(mixed)
+status[status$step == "Scaffold", ]
+```
+
+## A C library compiled by Zig
+
+A package can ship the sources of a C library and list it in
+`src/rzig/c_libraries.zon`. Zig compiles the sources into the package and
+translates the header into a Zig module; nothing is downloaded:
+
+```{r c-library, comment = ""}
+clib <- file.path(root, "clibpkg")
+create_rzig_package(clib, tests = FALSE)
+vendor <- file.path(clib, "src", "rzig", "vendor", "smooth")
+dir.create(vendor, recursive = TRUE)
+writeLines("double smooth3(double a, double b, double c);", file.path(vendor, "smooth.h"))
+writeLines(c(
+  "#include \"smooth.h\"",
+  "double smooth3(double a, double b, double c) { return (a + 2 * b + c) / 4; }"
+), file.path(vendor, "smooth.c"))
+writeLines(c(
+  ".{",
+  "    .{",
+  "        .name = \"smooth\",",
+  "        .header = \"vendor/smooth/smooth.h\",",
+  "        .sources = .{\"vendor/smooth/smooth.c\"},",
+  "        .include = .{\"vendor/smooth\"},",
+  "    },",
+  "}"
+), file.path(clib, "src", "rzig", "c_libraries.zon"))
+writeLines(c(header,
+  "const smooth = @import(\"smooth\");",
+  "",
+  "/// Smooth a vector with the weights 1, 2, 1 of the C library.",
+  "/// @param x A numeric vector.",
+  "/// @return A numeric vector.",
+  "/// @export",
+  "pub fn smoothed(ctx: *rzig.Ctx, x: []const f64) rzig.Error![]f64 {",
+  "    const out = try ctx.alloc(f64, x.len);",
+  "    for (out, 0..) |*slot, i| {",
+  "        const left = x[if (i == 0) 0 else i - 1];",
+  "        const right = x[@min(i + 1, x.len - 1)];",
+  "        slot.* = smooth.smooth3(left, x[i], right);",
+  "    }",
+  "    return out;",
+  "}"
+), file.path(clib, "src", "rzig", "src", "main.zig"))
+document(clib)
+```
+
+```{r c-library-build, eval = has_zig}
+built <- build_zig(clib, lib = lib)
+built$ok
+smoothed <- getExportedValue(loadNamespace(built$package, lib.loc = lib), "smoothed")
+smoothed(c(0, 4, 0, 4))
+```
+
+## A Zig module shared between packages
+
+A package shares Zig code as a module, `inst/zig/<module>/root.zig`, which R
+installs with it. Another package imports the module: `use_rzig_import()`
+names it in `Config/rzig/imports` and the providing package in `LinkingTo`,
+so that R installs the provider first. The importing package compiles the
+module, so the two packages share no code when they run:
+
+```{r modules, comment = ""}
+provider <- file.path(root, "kernelpkg")
+create_rzig_package(provider, tests = FALSE)
+use_rzig_module(provider, "kernels")
+cat(readLines(file.path(provider, "inst", "zig", "kernels", "root.zig")), sep = "\n")
+consumer <- file.path(root, "userpkg")
+create_rzig_package(consumer, tests = FALSE)
+use_rzig_import(consumer, "kernelpkg", "kernels")
+writeLines(c(header,
+  "const kernels = @import(\"kernels\");",
+  "",
+  "/// Twice the sum, by the module of kernelpkg.",
+  "/// @param x A numeric vector.",
+  "/// @return A number.",
+  "/// @export",
+  "pub fn twice_sum(x: []const f64) f64 {",
+  "    return 2 * kernels.sum(x);",
+  "}"
+), file.path(consumer, "src", "rzig", "src", "main.zig"))
+document(consumer)
+read.dcf(file.path(consumer, "DESCRIPTION"), fields = c("LinkingTo", "Config/rzig/imports"))
+```
+
+```{r modules-build, eval = has_zig}
+old_paths <- .libPaths()
+.libPaths(c(lib, old_paths))
+build_zig(provider, lib = lib)$ok
+consumer_build <- build_zig(consumer, lib = lib)
+consumer_build$ok
+twice_sum <- getExportedValue(loadNamespace(consumer_build$package, lib.loc = lib), "twice_sum")
+twice_sum(c(1, 2, 3))
+.libPaths(old_paths)
+```
+
+## C-callable functions
+
+Compiled code of other packages can call functions that a package registers
+with `R_RegisterCCallable()`. The root Zig file lists them, each with
+`callconv(.c)`, and may declare an interface version, which callers check
+because R checks neither signatures nor versions:
+
+```{r callables, comment = ""}
+callee <- file.path(root, "calleepkg")
+create_rzig_package(callee, tests = FALSE)
+writeLines(c(header,
+  "fn clamp(x: f64, low: f64, high: f64) callconv(.c) f64 {",
+  "    return @min(@max(x, low), high);",
+  "}",
+  "",
+  "pub const rzig_callables = .{ .clamp = clamp };",
+  "pub const rzig_interface_version: u32 = 1;",
+  "",
+  "/// The interface version of the C-callable functions.",
+  "/// @return An integer.",
+  "/// @export",
+  "pub fn callee_interface() i32 {",
+  "    return 1;",
+  "}"
+), file.path(callee, "src", "rzig", "src", "main.zig"))
+document(callee)
+caller <- file.path(root, "callerpkg")
+create_rzig_package(caller, tests = FALSE)
+writeLines(c(header,
+  "const Clamp = fn (f64, f64, f64) callconv(.c) f64;",
+  "",
+  "/// Clamp values with the function of calleepkg.",
+  "/// @param x A numeric vector.",
+  "/// @return A numeric vector.",
+  "/// @export",
+  "pub fn clamped(ctx: *rzig.Ctx, x: []const f64) rzig.Error![]f64 {",
+  "    const clamp = try rzig.callable(ctx, Clamp, \"calleepkg\", \"clamp\", .{ .interface = 1 });",
+  "    const out = try ctx.alloc(f64, x.len);",
+  "    for (x, out) |value, *slot| slot.* = clamp(value, 0, 1);",
+  "    return out;",
+  "}"
+), file.path(caller, "src", "rzig", "src", "main.zig"))
+document(caller)
+```
+
+```{r callables-build, eval = has_zig}
+old_paths <- .libPaths()
+.libPaths(c(lib, old_paths))
+build_zig(callee, lib = lib)$ok
+caller_build <- build_zig(caller, lib = lib)
+caller_build$ok
+clamped <- getExportedValue(loadNamespace(caller_build$package, lib.loc = lib), "clamped")
+clamped(c(-1, 0.5, 2))
+.libPaths(old_paths)
+```
+
+`rzig.callable()` loads the namespace of the providing package, which
+`R_GetCCallable()` does not do; the calling package lists the provider in
+`Imports`.
+
+```{r cleanup, include = FALSE}
+if (has_zig) {
+  for (package in c("callerpkg", "calleepkg", "userpkg", "kernelpkg", "clibpkg")) {
+    if (package %in% loadedNamespaces()) unloadNamespace(package)
+  }
+}
+unlink(root, recursive = TRUE)
+```

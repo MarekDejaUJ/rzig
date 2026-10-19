@@ -16,6 +16,11 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
+# The Apple tool shims (xcrun) can write a cache file such as xcrun_db into
+# TMPDIR; keep it inside the directory this script removes.
+TMPDIR=$repack_dir
+export TMPDIR
+
 cd "$repack_dir"
 /usr/bin/ar -x "$archive"
 set -- ./*.o

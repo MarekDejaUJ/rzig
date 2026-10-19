@@ -4,35 +4,49 @@
 \alias{build_zig}
 \title{Compile and install a Zig-backed package, and report the first errors}
 \usage{
-build_zig(path, lib = NULL, preflight = TRUE)
+build_zig(
+  path,
+  lib = NULL,
+  preflight = TRUE,
+  optimize = Sys.getenv("RZIG_OPTIMIZE", "ReleaseSafe")
+)
 }
 \arguments{
 \item{path}{Path to the package root.}
 
 \item{lib}{The library to install into. By default a new library in the
-session temporary directory; [library()] then needs
-`lib.loc = build$library`.}
+session temporary directory; \code{\link[=library]{library()}} then needs
+\code{lib.loc = build$library}.}
 
-\item{preflight}{If `TRUE`, run the checks of [rzig_status()] first and
+\item{preflight}{If \code{TRUE}, run the checks of \code{\link[=rzig_status]{rzig_status()}} first and
 stop before compiling when one of them fails.}
+
+\item{optimize}{The optimize mode of the Zig code: \code{"ReleaseSafe"}
+(optimized, with Zig's safety checks) or \code{"Debug"} (unoptimized, with the
+same safety checks and complete stack traces, for debugging). The default
+is the environment variable \code{RZIG_OPTIMIZE}, which the generated
+Makevars also read, or \code{"ReleaseSafe"}. The modes without safety checks
+(\code{ReleaseFast}, \code{ReleaseSmall}) are not available, because the boundary
+turns failed checks into R errors; \verb{@setRuntimeSafety(false)} removes the
+checks of a single function.}
 }
 \value{
-An object of class `rzig_build`: a list with `ok` (logical),
-  `package`, `step` (`"preflight"`, `"configure"`, `"compile"`,
-  `"link"`, `"load"`, `"install"` or `NA` on success), `errors` (a data
-  frame with the columns `file`, `line`, `column`, `message` and
-  `function_name`), `problems` (failed checks before compilation),
-  `library`, `zig` (the [rzig_compiler][find_zig()] used), `seconds` and
-  `log` (the complete output of `R CMD INSTALL`). A failed build also
-  signals a warning.
+An object of class \code{rzig_build}: a list with \code{ok} (logical),
+\code{package}, \code{step} (\code{"preflight"}, \code{"configure"}, \code{"compile"},
+\code{"link"}, \code{"load"}, \code{"install"} or \code{NA} on success), \code{errors} (a data
+frame with the columns \code{file}, \code{line}, \code{column}, \code{message} and
+\code{function_name}), \code{problems} (failed checks before compilation),
+\code{library}, \code{zig} (the \link[=find_zig]{rzig_compiler} used), \code{optimize},
+\code{seconds} and \code{log} (the complete output of \verb{R CMD INSTALL}). A failed build also
+signals a warning.
 }
 \description{
-Runs the checks of [rzig_status()], then installs a copy of the package
-with `R CMD INSTALL` into a library, using the Zig compiler reported by
-[find_zig()]. The complete installation log is kept, and the errors of
+Runs the checks of \code{\link[=rzig_status]{rzig_status()}}, then installs a copy of the package
+with \verb{R CMD INSTALL} into a library, using the Zig compiler reported by
+\code{\link[=find_zig]{find_zig()}}. The complete installation log is kept, and the errors of
 the Zig compiler, the C compiler, the linker and the load test are
 extracted with their files and lines, so a failed build names its cause
-instead of the bare "non-zero exit status" of [utils::install.packages()].
+instead of the bare "non-zero exit status" of \code{\link[utils:install.packages]{utils::install.packages()}}.
 }
 \details{
 The package is built from a copy in the session temporary directory, so

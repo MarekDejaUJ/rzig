@@ -10,29 +10,36 @@ all: $(SHLIB)
 $(SHLIB): $(STATLIB)
 
 entry.o: entry.c
-	$(CC) $(ALL_CPPFLAGS) $(CPICFLAGS) -O2 -Wall -pedantic \
+	$(CC) $(ALL_CPPFLAGS) $(ALL_CFLAGS) \
 	  -c entry.c -o entry.o
 
 abi_check.o: abi_check.c
-	$(CC) $(ALL_CPPFLAGS) $(CPICFLAGS) -O2 -Wall -pedantic \
+	$(CC) $(ALL_CPPFLAGS) $(ALL_CFLAGS) \
 	  -c abi_check.c -o abi_check.o
 
-$(STATLIB): $(ZIG_DIR)/build.zig $(ZIG_DIR)/build.zig.zon \
-            $(ZIG_DIR)/src/main.zig \
-            $(ZIG_DIR)/tools/repack_macos_archive.sh
+$(STATLIB): FORCE
+	case "$${RZIG_OPTIMIZE:-ReleaseSafe}" in \
+	  ReleaseSafe) release=--release=safe ;; \
+	  Debug) release= ;; \
+	  *) echo "rzig: RZIG_OPTIMIZE must be ReleaseSafe or Debug; got $${RZIG_OPTIMIZE}" >&2; exit 1 ;; \
+	esac; \
 	cd $(ZIG_DIR) && \
-	ZIG_GLOBAL_CACHE_DIR="$(CURDIR)/$(ZIG_DIR)/.zig-global-cache" \
+	ZIG_GLOBAL_CACHE_DIR="$${RZIG_ZIG_CACHE:-$(CURDIR)/$(ZIG_DIR)/.zig-global-cache}" \
 	"$(ZIG)" build \
-	  --release=safe \
+	  $$release -j2 \
 	  $(ZIG_TARGET_ARG) \
 	  --cache-dir "$(CURDIR)/$(ZIG_DIR)/.zig-cache"
 	@if test "$$(uname -s)" = Darwin; then \
 	  sh "$(ZIG_DIR)/tools/repack_macos_archive.sh" "$(STATLIB)"; \
 	fi
 
+# make cannot see the Zig sources under $(ZIG_DIR), so `zig build` runs on
+# every installation; Zig's own cache keeps an unchanged build fast.
+FORCE:
+
 clean:
 	rm -rf $(SHLIB) $(OBJECTS) \
 	       $(ZIG_DIR)/zig-out $(ZIG_DIR)/.zig-cache \
 	       $(ZIG_DIR)/.zig-global-cache
 
-.PHONY: all clean
+.PHONY: all clean FORCE

@@ -7,31 +7,60 @@
 scan_exports(path)
 }
 \arguments{
-\item{path}{Path to a package previously initialized with [use_rzig()].}
+\item{path}{Path to a package previously initialized with \code{\link[=use_rzig]{use_rzig()}}.}
 }
 \value{
-An object of class `rzig_exports`: a list with one element per
-  exported function, each a list with `name` (the R function name),
-  `identifier` (the Zig identifier as written), `parameters` (the R
-  argument names), `parameter_types` (the Zig types of the R arguments),
-  `return_type` (the Zig return type as written), `doc` (the documentation
-  comment without the `@export` line) and `line` (the line of the
-  declaration). The attributes `package`, `path` and `source` record the
-  package name, its root and the scanned file. [as.data.frame()] turns the
-  object into a table with one row per function.
+An object of class \code{rzig_exports}: a list with one element per
+exported function, each a list with \code{name} (the R function name),
+\code{identifier} (the Zig identifier as written), \code{parameters} (the R
+argument names), \code{parameter_types} (the Zig types of the R arguments),
+\code{return_type} (the Zig return type as written), \code{doc} (the documentation
+comment without the \verb{@export} line), \code{line} (the line of the
+declaration), \code{internal} (\code{TRUE} for \verb{/// @export internal}) and \code{file}
+(the file below \code{src/rzig/src}), \code{invisible} and \code{defaults} (a named
+character vector of R expressions). The attributes \code{package}, \code{path},
+\code{source} (the entry file), \code{files} (every file scanned) and \code{unreachable}
+(marked files that \code{main.zig} does not import) record where the exports
+come from. \code{\link[=as.data.frame]{as.data.frame()}} turns the object into a
+table with one row per function.
 }
 \description{
-Reads `src/rzig/src/main.zig` and lists every public top-level Zig function
-whose documentation comment contains a line `/// @export`. The scan is pure
-R and needs no Zig compiler; the Zig compiler checks the parameter and
-return types when the package is installed.
+Reads \code{src/rzig/src/main.zig}, and every Zig file that it imports with
+\verb{pub const name = @import("file.zig");} (recursively), and lists every
+public top-level Zig function whose documentation comment contains a line
+\verb{/// @export}. A function of an imported file is registered as
+\code{name.function}; its R name is the function name. \verb{/// @export} above
+\verb{pub const twice = other.twice;} re-exports a function of a file imported as
+\code{other} under the name \code{twice}. A file imported with a plain \code{const} cannot
+be reached by the generated registration, so a marker in it is an error; a
+marked file that is not imported at all is ignored, and \code{\link[=rzig_status]{rzig_status()}}
+notes it. R names must be unique across all files.
 }
 \details{
+The marker line takes options: \verb{/// @export internal} registers the function
+without exporting its R wrapper, \verb{/// @export invisible} makes the wrapper
+return its value invisibly, and \verb{/// @export name=<R name>} gives the wrapper
+an R name other than the Zig name. Lines \verb{/// @default <argument> <R expression>} give default arguments of the wrapper, for example
+\verb{/// @default tolerance 1e-8}. A line
+\verb{/// @export internal} registers the function and generates its R wrapper
+without exporting the wrapper from the package, for native routines that the
+package's own R code calls. The scan is pure
+R and needs no Zig compiler; the Zig compiler checks the parameter and
+return types when the package is installed.
+
+A struct whose documentation comment contains \verb{/// @class} becomes an R
+class: its \verb{pub fn init} is the constructor, exported under the name of
+the struct, and every public function whose first parameter is the struct
+(\verb{self: *T}, \verb{self: *const T} or \code{self: T}) is a method, registered as the
+internal routine \code{T_method} and called as \code{x$method(...)} on an object
+\code{x}. Objects are \link[=scan_exports]{rzig.External} values (see the README);
+\code{deinit}, when declared, runs when R collects the object.
+
 A function is found when its declaration starts at the beginning of a line
-with `pub fn` and the lines directly above it are `///` documentation
-comments (blank lines and ordinary `//` comments between the comment block
+with \verb{pub fn} and the lines directly above it are \verb{///} documentation
+comments (blank lines and ordinary \verb{//} comments between the comment block
 and the declaration are ignored). The first parameter is omitted from the
-R signature when its type is `*rzig.Ctx`.
+R signature when its type is \verb{*rzig.Ctx}.
 }
 \examples{
 package_path <- tempfile("rzig-scan-", tmpdir = tempdir())

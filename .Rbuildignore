@@ -20,14 +20,12 @@
 ^tools$
 ^zig-out$
 ^docs$
-^PROMPT\.md$
-^AGENTS\.md$
-^CLAUDE\.md$
-^\.claude$
-^\.codex$
 ^cran-comments\.md$
 ^v40i08\.pdf$
 ^\.Rproj\.user$
 ^rzigcausal.*$
 ^tests/testthat/_problems$
 ^tests/testthat/testthat-problems\.rds$
+^_pkgdown\.yml$
+^pkgdown$
+^CONTRIBUTING\.md$

@@ -6,13 +6,16 @@
 #' * **DESCRIPTION**: the package name and a valid version.
 #' * **Scaffold**: the files written by [use_rzig()], framework sources that
 #'   match the installed rzig, and executable `configure` and `cleanup`
-#'   scripts.
+#'   scripts. Build files that differ from the rzig templates (`configure`,
+#'   the Makevars, `entry.c`, `build.zig`, `build.zig.zon`, `tools/`) are
+#'   noted, since a package may extend them.
 #' * **Zig source**: `src/rzig/src/main.zig` with the registration block and
 #'   the panic handler of rzig.
 #' * **Exports**: the exported functions found by [scan_exports()], with
 #'   every argument and return type that the boundary rejects, more than 32
 #'   arguments, misuse of `rzig.Mut([]f64)`, error sets other than
-#'   `rzig.Error`, and R functions of the same name elsewhere in `R/`.
+#'   `rzig.Error`, and R functions of the same name elsewhere in `R/`. An
+#'   export that masks a function of base R (for example `log`) is noted.
 #' * **Bindings**: whether the files written by [document()] match the
 #'   exports.
 #' * **Zig compiler**: a compiler of a supported release series
@@ -25,6 +28,8 @@
 #' @param path Path to the package root.
 #' @param build If `TRUE`, also compile and install the package with
 #'   [build_zig()] when every other check passes.
+#' @param lib With `build = TRUE`, the library to install into; see
+#'   [build_zig()].
 #'
 #' @return An object of class `rzig_status`: a data frame with the columns
 #'   `step`, `ok` and `detail`, one row per check, with the attributes
@@ -43,7 +48,7 @@
 #' rzig_status(package_path)
 #' unlink(package_path, recursive = TRUE)
 #' @export
-rzig_status <- function(path, build = FALSE) {
+rzig_status <- function(path, build = FALSE, lib = NULL) {
   if (length(build) != 1L || is.na(build)) {
     stop("`build` must be TRUE or FALSE", call. = FALSE)
   }
@@ -92,28 +97,51 @@ rzig_status <- function(path, build = FALSE) {
       exports <- scanned
       types <- .rzig_check_exports(exports)
       conflicts <- .rzig_check_r_conflicts(path, exports)
-      names <- vapply(exports, function(item) item$name, character(1L))
+      masking <- .rzig_check_masking(exports)
+      unreachable <- attr(exports, "unreachable", exact = TRUE)
+      if (length(unreachable)) {
+        masking$notes <- c(masking$notes, sprintf(
+          "src/rzig/src/%s contains `/// @export`, but main.zig does not import it with `pub const`; its markers are ignored",
+          unreachable
+        ))
+      }
+      names <- vapply(exports, function(item) {
+        if (.rzig_is_internal(item)) paste(item$name, "(internal)") else item$name
+      }, character(1L))
       add(
         "Exports", c(types$problems, conflicts$problems),
         paste0(
           length(exports), " function", if (length(exports) == 1L) "" else "s", ": ",
           paste(names, collapse = ", ")
         ),
-        types$notes
+        c(types$notes, masking$notes)
       )
     }
   }
 
   if (!is.null(exports) && !is.null(info) && scaffold_ok) {
-    bindings <- render_bindings(exports, info$package)
+    roxygen <- .rzig_roxygen_managed(path)
+    bindings <- render_bindings(exports, info$package, roxygen = roxygen)
     manifest <- .rzig_normalize_newlines(.rzig_read_text(.rzig_manifest_path(path)))
     wrappers <- .rzig_normalize_newlines(.rzig_read_text(.rzig_wrapper_path(path)))
     namespace <- .rzig_normalize_newlines(.rzig_read_text(file.path(path, "NAMESPACE")))
     stale <- character()
     if (!identical(manifest, bindings$manifest)) stale <- c(stale, "manifest.zig")
     if (!identical(wrappers, bindings$wrappers)) stale <- c(stale, "R/rzig-wrappers.R")
-    if (is.null(namespace) || !grepl(bindings$namespace, namespace, fixed = TRUE)) {
-      stale <- c(stale, "NAMESPACE")
+    namespace_current <- !is.null(namespace) && if (roxygen) {
+      .rzig_roxygen_namespace_current(namespace, strsplit(bindings$namespace, "\n", fixed = TRUE)[[1L]])
+    } else {
+      grepl(bindings$namespace, namespace, fixed = TRUE)
+    }
+    if (!namespace_current) stale <- c(stale, "NAMESPACE")
+    if (!roxygen) {
+      pages <- .rzig_rd_pages(exports)
+      for (file in names(pages)) {
+        target <- file.path(path, "man", file)
+        if (file.exists(target) && !.rzig_rd_generated(target)) next
+        current <- .rzig_normalize_newlines(.rzig_read_text(target))
+        if (!identical(current, pages[[file]])) stale <- c(stale, file.path("man", file))
+      }
     }
     add(
       "Bindings",
@@ -144,7 +172,7 @@ rzig_status <- function(path, build = FALSE) {
   built <- NULL
   if (isTRUE(build)) {
     if (all(result$ok)) {
-      built <- build_zig(path, preflight = FALSE)
+      built <- build_zig(path, lib = lib, preflight = FALSE)
       problems <- if (built$ok) character() else .rzig_build_summary(built)
       extra <- data.frame(
         step = "Build", ok = built$ok,
@@ -166,6 +194,11 @@ rzig_status <- function(path, build = FALSE) {
 
 #' @export
 print.rzig_status <- function(x, ...) {
+  if (!all(c("step", "ok", "detail") %in% names(x))) {
+    # A column subset is printed as the data frame it is.
+    print(as.data.frame(unclass(x), stringsAsFactors = FALSE), ...)
+    return(invisible(x))
+  }
   cat(sprintf("RZig status of package %s\n", attr(x, "package", exact = TRUE)))
   width <- max(40L, getOption("width", 80L) - 2L)
   for (index in seq_len(nrow(x))) {

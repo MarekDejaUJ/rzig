@@ -1,0 +1,2 @@
+rzig.parallelFor: worker state contains R-facing type
+pass only plain Zig data and call R APIs on the calling thread

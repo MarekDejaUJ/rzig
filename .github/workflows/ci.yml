@@ -29,10 +29,40 @@ jobs:
       - run: zig build gen
       - run: git diff --exit-code -- src/generated/arity.zig src/generated/manifest.zig tests/fixtures/rzigtest/src/rzig/framework/generated/manifest.zig examples/rzigcausal/src/rzig/framework/generated/manifest.zig
       - run: sh tools/sync_fixture.sh --check
+      # The format of record is that of Zig 0.16: the formatter of Zig 0.17
+      # rewrites @intFromEnum and @enumFromInt into builtins that 0.16 lacks.
       - run: zig fmt --check build.zig src tools tests/fixtures/rzigtest/src/rzig examples/rzigcausal/src/rzig
+        if: matrix.zig == '0.16.0'
       - run: zig build test
       - run: zig build --release=safe
+      - name: Cross-compile the framework for the targets configure maps
+        run: |
+          for target in x86_64-linux-musl aarch64-linux-musl aarch64-linux-gnu aarch64-windows-gnu x86_64-windows-gnu x86_64-macos.11.0 aarch64-macos.11.0 wasm32-emscripten; do
+            zig build --release=safe -Dtarget="$target" --prefix "$RUNNER_TEMP/cross-$target"
+          done
       - run: zig build lint
+
+  zig-master-canary:
+    # Zig's development build shows coming changes early. rzig supports only
+    # releases, so a failure of this job does not fail the workflow.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: mlugg/setup-zig@v2
+        # The development build reuses the configuration of zig build from its
+        # cache, including PATH and the path of the compiler, so a restored
+        # cache points at the Zig installation of an earlier run.
+        with: { version: master, use-cache: false }
+      - run: zig version
+      - run: zig build test
+      - run: zig build --release=safe
+      - name: Build the client template
+        run: |
+          work="$RUNNER_TEMP/client-template"
+          mkdir -p "$work"
+          cp -R inst/zig/. "$work"
+          cd "$work" && zig build -Dpkg=canary --release=safe
 
   r-check:
     strategy:
@@ -45,6 +75,21 @@ jobs:
       - uses: actions/checkout@v7
       - uses: mlugg/setup-zig@v2
         with: { version: "${{ matrix.zig }}" }
+      - name: Record the Zig executable for the R scripts
+        # find_zig() accepts ZIG only when it names the executable file. The
+        # MSYS shell of Windows reports the path without the .exe suffix.
+        run: |
+          zig_path="$(command -v zig)"
+          if [ "$RUNNER_OS" = Windows ]; then
+            zig_path="$(cygpath -m "$zig_path")"
+            case "$zig_path" in
+              *.exe) ;;
+              *) zig_path="$zig_path.exe" ;;
+            esac
+          fi
+          test -f "$zig_path"
+          echo "RZIG_CI_ZIG=$zig_path" >> "$GITHUB_ENV"
+        shell: bash
       - name: Select the Ubuntu archive mirror
         if: runner.os == 'Linux'
         run: sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
@@ -88,7 +133,19 @@ jobs:
           parity_library="$RUNNER_TEMP/rzig-parity-library"
           mkdir -p "$parity_library"
           R CMD INSTALL --library="$parity_library" rzig_*.tar.gz
-          NOT_CRAN=true ZIG="$(command -v zig)" R_LIBS="$parity_library" Rscript -e 'library(testthat); library(rzig); test_dir("tests/testthat", stop_on_failure = TRUE)'
+          NOT_CRAN=true ZIG="$RZIG_CI_ZIG" R_LIBS="$parity_library" Rscript -e 'library(testthat); library(rzig); test_dir("tests/testthat", stop_on_failure = TRUE)'
+        shell: bash
+      - name: Compare the pinned Zig archives with the Zig download index
+        if: runner.os == 'Linux' && matrix.zig == '0.16.0'
+        run: Rscript tools/check_zig_pins.R
+        shell: bash
+      - name: Check a generated client package with the CRAN settings
+        run: |
+          R_LIBS="$RUNNER_TEMP/rzig-parity-library" ZIG="$RZIG_CI_ZIG" Rscript tools/check_client_package.R
+        shell: bash
+      - name: Check a package that imports a Zig module of another package
+        run: |
+          R_LIBS="$RUNNER_TEMP/rzig-parity-library" ZIG="$RZIG_CI_ZIG" Rscript tools/check_module_import.R
         shell: bash
       - name: Check integration fixture
         run: |
@@ -132,15 +189,15 @@ jobs:
         shell: bash
       - name: Verify installation with a read-only home
         if: runner.os == 'Linux'
-        run: ZIG="$(command -v zig)" sh tools/check_readonly_home.sh rzigtest_*.tar.gz
+        run: ZIG="$RZIG_CI_ZIG" sh tools/check_readonly_home.sh rzigtest_*.tar.gz
         shell: bash
       - name: Verify use_rzig scaffolding
         if: runner.os == 'Linux'
-        run: ZIG="$(command -v zig)" sh tools/check_use_rzig.sh
+        run: ZIG="$RZIG_CI_ZIG" sh tools/check_use_rzig.sh
         shell: bash
       - name: Verify README onboarding under ten minutes
         if: runner.os == 'Linux'
-        run: ZIG="$(command -v zig)" sh tools/check_readme_onboarding.sh
+        run: ZIG="$RZIG_CI_ZIG" sh tools/check_readme_onboarding.sh
         shell: bash
       - name: Preserve real interrupt conditions
         if: runner.os != 'Windows'
@@ -150,6 +207,14 @@ jobs:
           R CMD INSTALL -l "$interrupt_library" rzigtest_*.tar.gz
           R_LIBS="$interrupt_library" sh tools/check_interrupt.sh
         shell: bash
+      - name: Run the integration fixture tests outside Valgrind
+        # Under Valgrind the fixture check skips the tests of Zig panics on the
+        # calling thread and on worker threads; they run here.
+        if: runner.os == 'Linux'
+        run: |
+          cd tests/fixtures/rzigtest/tests/testthat
+          NOT_CRAN=true R_LIBS="$RUNNER_TEMP/rzig-interrupt-library" Rscript -e 'library(testthat); library(rzigtest); test_dir(".", stop_on_failure = TRUE)'
+        shell: bash
       - name: Run GC stress suite
         if: runner.os == 'macOS'
         run: |
@@ -157,6 +222,7 @@ jobs:
           mkdir -p "$gc_library"
           R CMD INSTALL --library="$gc_library" rzigtest_*.tar.gz
           R_LIBS="$gc_library" Rscript tools/gctorture_run.R tests/abuse.R
+          R_LIBS="$gc_library" Rscript tools/gctorture_run.R tests/gctorture-callbacks.R
         shell: bash
       - name: Run causal-example GC stress
         if: runner.os == 'macOS'
@@ -203,6 +269,8 @@ jobs:
             exit 1
           fi
         shell: bash
+      - name: Check the declared R entry points against the API of R-devel
+        run: Rscript tools/check_api_symbols.R
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -211,3 +279,41 @@ jobs:
             rzig_*.tar.gz
             rzig.Rcheck/
           if-no-files-found: error
+
+  reverse-pnsbib:
+    strategy:
+      fail-fast: false
+      matrix:
+        zig: ["0.16.0", "0.17.0"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: mlugg/setup-zig@v2
+        with: { version: "${{ matrix.zig }}" }
+      - name: Select the Ubuntu archive mirror
+        run: sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "release"
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::lpSolve
+            any::digest
+            any::testthat
+            any::knitr
+            any::rmarkdown
+          working-directory: .
+      - name: Install rzig from the repository
+        run: |
+          stage_root=".rzig-reverse-stage"
+          root_source="$stage_root/rzig-r-package"
+          mkdir -p "$root_source" "$RUNNER_TEMP/rzig-reverse-library"
+          git archive HEAD | tar -x -C "$root_source"
+          mv "$root_source/src" "$stage_root/rzig-framework-source"
+          R CMD INSTALL --library="$RUNNER_TEMP/rzig-reverse-library" "$root_source"
+        shell: bash
+      - name: Update, build and test pnsbib
+        run: R_LIBS="$RUNNER_TEMP/rzig-reverse-library" ZIG="$(command -v zig)" sh tools/check_reverse_pnsbib.sh
+        shell: bash

@@ -69,6 +69,266 @@ interruptible_count <- function(iterations) {
 #' @param x A numeric vector.
 #' @return The elementwise squares.
 #' @export
+sexp_describe <- function(value) {
+  .Call(C_sexp_describe, value)
+}
+
+sexp_sum_entry <- function(value, name) {
+  .Call(C_sexp_sum_entry, value, name)
+}
+
+sexp_attribute_length <- function(value, name) {
+  .Call(C_sexp_attribute_length, value, name)
+}
+
+sexp_element_kinds <- function(value) {
+  .Call(C_sexp_element_kinds, value)
+}
+
+optim_rosenbrock <- function(method, start, with_gradient, lower, upper) {
+  .Call(C_optim_rosenbrock, method, start, with_gradient, lower, upper)
+}
+
+optim_failing <- function(start) {
+  .Call(C_optim_failing, start)
+}
+
+integrate_gaussian <- function(mean, sd, lower, upper) {
+  .Call(C_integrate_gaussian, mean, sd, lower, upper)
+}
+
+integrate_inverse <- function(lower, upper) {
+  .Call(C_integrate_inverse, lower, upper)
+}
+
+call_numeric <- function(f, x) {
+  .Call(C_call_numeric, f, x)
+}
+
+call_named <- function(f, x) {
+  .Call(C_call_named, f, x)
+}
+
+call_literals <- function(f) {
+  .Call(C_call_literals, f)
+}
+
+call_with_object <- function(f, object) {
+  .Call(C_call_with_object, f, object)
+}
+
+call_with_function <- function(outer, inner) {
+  .Call(C_call_with_function, outer, inner)
+}
+
+call_optional <- function(f) {
+  .Call(C_call_optional, f)
+}
+
+call_with_cleanup <- function(f) {
+  .Call(C_call_with_cleanup, f)
+}
+
+call_cleanups <- function() {
+  .Call(C_call_cleanups)
+}
+
+call_or_default <- function(f, fallback) {
+  .Call(C_call_or_default, f, fallback)
+}
+
+call_or_raise <- function(f) {
+  .Call(C_call_or_raise, f)
+}
+
+warn_then_call <- function(f) {
+  .Call(C_warn_then_call, f)
+}
+
+rng_around_call <- function(f) {
+  .Call(C_rng_around_call, f)
+}
+
+optim_r <- function(f, gr, start, method) {
+  .Call(C_optim_r, f, gr, start, method)
+}
+
+integrate_r <- function(f, lower, upper) {
+  .Call(C_integrate_r, f, lower, upper)
+}
+
+csc_column_sums <- function(values) {
+  .Call(C_csc_column_sums, values)
+}
+
+csc_times_vector <- function(values, x) {
+  .Call(C_csc_times_vector, values, x)
+}
+
+rmath_eval <- function(kind, name, x, values, lower, log) {
+  .Call(C_rmath_eval, kind, name, x, values, lower, log)
+}
+
+rmath_draws <- function(name, count, values) {
+  .Call(C_rmath_draws, name, count, values)
+}
+
+counter_new <- function(step) {
+  .Call(C_counter_new, step)
+}
+
+counter_add <- function(counter) {
+  .Call(C_counter_add, counter)
+}
+
+counter_same <- function(counter) {
+  .Call(C_counter_same, counter)
+}
+
+counters_released_count <- function() {
+  .Call(C_counters_released_count)
+}
+
+counter_fail_after_create <- function() {
+  .Call(C_counter_fail_after_create)
+}
+
+other_new <- function() {
+  .Call(C_other_new)
+}
+
+record_options <- function(options) {
+  .Call(C_record_options, options)
+}
+
+frame_group_means <- function(data) {
+  .Call(C_frame_group_means, data)
+}
+
+factor_reverse_levels <- function(values) {
+  .Call(C_factor_reverse_levels, values)
+}
+
+optional_length <- function(values) {
+  .Call(C_optional_length, values)
+}
+
+int64_sum <- function(values) {
+  .Call(C_int64_sum, values)
+}
+
+int64_double <- function(values) {
+  .Call(C_int64_double, values)
+}
+
+int64_or_default <- function(value) {
+  .Call(C_int64_or_default, value)
+}
+
+long_count <- function(count) {
+  .Call(C_long_count, count)
+}
+
+complex_modulus <- function(values) {
+  .Call(C_complex_modulus, values)
+}
+
+complex_conjugate <- function(values) {
+  .Call(C_complex_conjugate, values)
+}
+
+complex_product <- function(a, b) {
+  .Call(C_complex_product, a, b)
+}
+
+raw_xor <- function(bytes, key) {
+  .Call(C_raw_xor, bytes, key)
+}
+
+logical_tally <- function(values) {
+  .Call(C_logical_tally, values)
+}
+
+logical_not <- function(values) {
+  .Call(C_logical_not, values)
+}
+
+upper_or_na <- function(values) {
+  .Call(C_upper_or_na, values)
+}
+
+label_or_default <- function(label) {
+  .Call(C_label_or_default, label)
+}
+
+na_real <- function() {
+  .Call(C_na_real)
+}
+
+na_integer <- function() {
+  .Call(C_na_integer)
+}
+
+na_logical <- function() {
+  .Call(C_na_logical)
+}
+
+int_matrix_sum <- function(values) {
+  .Call(C_int_matrix_sum, values)
+}
+
+bool_matrix_row_counts <- function(values) {
+  .Call(C_bool_matrix_row_counts, values)
+}
+
+matrix_add_column_index <- function(values, step) {
+  .Call(C_matrix_add_column_index, values, step)
+}
+
+int_matrix_negate_diagonal <- function(values) {
+  .Call(C_int_matrix_negate_diagonal, values)
+}
+
+int_add_in_place <- function(values, step) {
+  .Call(C_int_add_in_place, values, step)
+}
+
+named_matrix <- function(nrow, ncol, row_names, column_names) {
+  .Call(C_named_matrix, nrow, ncol, row_names, column_names)
+}
+
+console_lines <- function(count) {
+  invisible(.Call(C_console_lines, count))
+}
+
+console_wide <- function(width) {
+  invisible(.Call(C_console_wide, width))
+}
+
+progress_steps <- function(total, show) {
+  .Call(C_progress_steps, total, show)
+}
+
+parallel_sum <- function(values) {
+  .Call(C_parallel_sum, values)
+}
+
+parallel_uniforms <- function(count) {
+  .Call(C_parallel_uniforms, count)
+}
+
+parallel_out_of_bounds <- function(values) {
+  .Call(C_parallel_out_of_bounds, values)
+}
+
+parallel_count <- function(count) {
+  .Call(C_parallel_count, count)
+}
+
+parallel_thread_count <- function(count) {
+  .Call(C_parallel_thread_count, count)
+}
+
 parallel_square <- function(x) {
   .Call(C_parallel_square, x)
 }
