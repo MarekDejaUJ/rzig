@@ -8,6 +8,22 @@
 # Needs rzig installed and a supported Zig compiler (ZIG or PATH).
 
 stopifnot(requireNamespace("rzig", quietly = TRUE))
+
+# system2(env = ) puts the variables on the command line, and R on Windows
+# ignores NAME=value arguments before CMD; the variables are therefore set in
+# this process for the duration of the call, as build_zig() does.
+with_environment <- function(environment, code) {
+  names <- sub("=.*$", "", environment)
+  values <- substring(environment, nchar(names) + 2L)
+  old <- Sys.getenv(names, unset = NA, names = TRUE)
+  do.call(Sys.setenv, as.list(stats::setNames(values, names)))
+  on.exit({
+    unset <- is.na(old)
+    if (any(unset)) Sys.unsetenv(names[unset])
+    if (any(!unset)) do.call(Sys.setenv, as.list(old[!unset]))
+  }, add = TRUE)
+  force(code)
+}
 compiler <- rzig::find_zig()
 work <- tempfile("rzig-module-check-")
 dir.create(work)
@@ -83,8 +99,9 @@ old <- setwd(work)
 on.exit(setwd(old), add = TRUE)
 r <- file.path(R.home("bin"), "R")
 # The compiler flags of a developer's ~/.R/Makevars are not CRAN's.
-build <- system2(r, c("CMD", "build", "userpkg"), stdout = TRUE, stderr = TRUE,
-  env = c(paste0("R_LIBS=", paste(c(lib, old_paths), collapse = .Platform$path.sep)), "R_MAKEVARS_USER=/dev/null"))
+build <- with_environment(
+  c(paste0("R_LIBS=", paste(c(lib, old_paths), collapse = .Platform$path.sep)), "R_MAKEVARS_USER=/dev/null"),
+  system2(r, c("CMD", "build", "userpkg"), stdout = TRUE, stderr = TRUE))
 cat(build, sep = "\n")
 stopifnot(is.null(attr(build, "status")))
 tarball <- list.files(work, pattern = "^userpkg_.*\\.tar\\.gz$")
@@ -104,8 +121,8 @@ environment <- c(
   "_R_CHECK_FUTURE_FILE_TIMESTAMPS_=false",
   "_R_CHECK_RD_VALIDATE_RD2HTML_=false"
 )
-check <- system2(r, c("CMD", "check", "--as-cran", "--no-manual", tarball),
-  stdout = TRUE, stderr = TRUE, env = environment)
+check <- with_environment(environment, system2(r,
+  c("CMD", "check", "--as-cran", "--no-manual", tarball), stdout = TRUE, stderr = TRUE))
 log <- readLines(file.path(work, "userpkg.Rcheck", "00check.log"))
 cat(log, sep = "\n")
 flagged <- grep("\\.\\.\\. (NOTE|WARNING|ERROR)", log, value = TRUE)

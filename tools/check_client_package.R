@@ -11,6 +11,22 @@
 # Needs rzig installed and a supported Zig compiler (ZIG or PATH).
 
 stopifnot(requireNamespace("rzig", quietly = TRUE))
+
+# system2(env = ) puts the variables on the command line, and R on Windows
+# ignores NAME=value arguments before CMD; the variables are therefore set in
+# this process for the duration of the call, as build_zig() does.
+with_environment <- function(environment, code) {
+  names <- sub("=.*$", "", environment)
+  values <- substring(environment, nchar(names) + 2L)
+  old <- Sys.getenv(names, unset = NA, names = TRUE)
+  do.call(Sys.setenv, as.list(stats::setNames(values, names)))
+  on.exit({
+    unset <- is.na(old)
+    if (any(unset)) Sys.unsetenv(names[unset])
+    if (any(!unset)) do.call(Sys.setenv, as.list(old[!unset]))
+  }, add = TRUE)
+  force(code)
+}
 compiler <- rzig::find_zig()
 work <- tempfile("rzig-client-check-")
 dir.create(work)
@@ -49,8 +65,8 @@ environment <- c(
   "_R_CHECK_FUTURE_FILE_TIMESTAMPS_=false",
   "_R_CHECK_RD_VALIDATE_RD2HTML_=false"
 )
-check <- system2(r, c("CMD", "check", "--as-cran", "--no-manual", tarball),
-  stdout = TRUE, stderr = TRUE, env = environment)
+check <- with_environment(environment, system2(r,
+  c("CMD", "check", "--as-cran", "--no-manual", tarball), stdout = TRUE, stderr = TRUE))
 log <- readLines(file.path(work, "clientpkg.Rcheck", "00check.log"))
 cat(log, sep = "\n")
 flagged <- grep("\\.\\.\\. (NOTE|WARNING|ERROR)", log, value = TRUE)
