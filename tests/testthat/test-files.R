@@ -72,7 +72,7 @@ test_that("a package with exports in several files builds and runs", {
   result <- build_zig(path)
   expect_true(result$ok)
   output <- run_r(paste(
-    sprintf("library(multibuild, lib.loc = '%s')", result$library),
+    sprintf("library(multibuild, lib.loc = %s)", deparse(result$library)),
     "stopifnot(twice(4) == 8, triple(2) == 6, multibuild:::square(3) == 9, !exists('square'))",
     "cat('files ok')", sep = "; "))
   expect_null(attr(output, "status"))

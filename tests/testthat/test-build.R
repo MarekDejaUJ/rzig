@@ -142,7 +142,7 @@ test_that("exports named like C library functions do not replace them", {
   result <- build_zig(path)
   expect_true(result$ok)
   script <- paste(
-    sprintf("library(clashpkg, lib.loc = '%s', warn.conflicts = FALSE)", result$library),
+    sprintf("library(clashpkg, lib.loc = %s, warn.conflicts = FALSE)", deparse(result$library)),
     "stopifnot(all.equal(clashpkg::exp(1), base::exp(1)), all.equal(clashpkg::log(2), base::log(2)))",
     "stopifnot(clashpkg::sqrt(4) == 2, clashpkg::free(3) == 3, clashpkg::malloc(1) == 2)",
     "stopifnot(clashpkg::memcpy(1) == 3, identical(hello_zig('R'), 'Hello, R!'))",
@@ -204,7 +204,7 @@ test_that("an in-place installation rebuilds after an edit of a helper Zig file"
       stdout = TRUE, stderr = TRUE, env = paste0("ZIG=", find_zig()$path)))
     expect_null(attr(out, "status"))
   }
-  value <- function() run_r(sprintf("library(inplacepkg, lib.loc = '%s'); cat(value())", lib))
+  value <- function() run_r(sprintf("library(inplacepkg, lib.loc = %s); cat(value())", deparse(lib)))
   install()
   expect_identical(as.character(value()), "1")
   set_constant(path, "2.0")
@@ -218,12 +218,13 @@ test_that("devtools::load_all() recompiles after an edit of a helper Zig file", 
   skip_if_not_installed("pkgload")
   skip_if_not_installed("pkgbuild")
   path <- inplace_package("loadallpkg")
+  # deparse() escapes the backslashes of Windows paths inside the R code.
   code <- sprintf(paste(
-    "Sys.setenv(ZIG = '%s')",
-    "pkgload::load_all('%s', quiet = TRUE); a <- value()",
-    "writeLines(c('pub fn constant() f64 {', '    return 3.0;', '}'), file.path('%s', 'src', 'rzig', 'src', 'helper.zig'))",
-    "pkgload::load_all('%s', quiet = TRUE); b <- value()",
-    "cat(a, b)", sep = "; "), find_zig()$path, path, path, path)
+    "Sys.setenv(ZIG = %s)",
+    "pkgload::load_all(%s, quiet = TRUE); a <- value()",
+    "writeLines(c('pub fn constant() f64 {', '    return 3.0;', '}'), file.path(%s, 'src', 'rzig', 'src', 'helper.zig'))",
+    "pkgload::load_all(%s, quiet = TRUE); b <- value()",
+    "cat(a, b)", sep = "; "), deparse(find_zig()$path), deparse(path), deparse(path), deparse(path))
   result <- run_r(code)
   expect_null(attr(result, "status"))
   expect_match(as.character(result), "1 3", fixed = TRUE)
@@ -260,7 +261,7 @@ test_that("an internal routine is callable from the package but not exported", {
   result <- build_zig(path)
   expect_true(result$ok)
   output <- run_r(paste(
-    sprintf("library(internalpkg, lib.loc = '%s')", result$library),
+    sprintf("library(internalpkg, lib.loc = %s)", deparse(result$library)),
     "stopifnot(quadruple(2) == 8, !exists('twice_internal'), internalpkg:::twice_internal(3) == 6)",
     "stopifnot(.Call(internalpkg:::twice_internal_, 5) == 10, !'twice_internal' %in% getNamespaceExports('internalpkg'))",
     "cat('internal ok')", sep = "; "))
@@ -284,7 +285,7 @@ test_that("a package works when roxygen2 regenerated its NAMESPACE last", {
   result <- build_zig(path)
   expect_true(result$ok)
   output <- run_r(paste(
-    sprintf("library(roxbuild, lib.loc = '%s')", result$library),
+    sprintf("library(roxbuild, lib.loc = %s)", deparse(result$library)),
     "stopifnot(identical(hello_zig('roxygen'), 'Hello, roxygen!'))", "cat('roxygen ok')", sep = "; "))
   expect_null(attr(output, "status"))
   expect_match(as.character(output), "roxygen ok", fixed = TRUE)
