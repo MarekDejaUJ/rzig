@@ -207,6 +207,14 @@ jobs:
           R CMD INSTALL -l "$interrupt_library" rzigtest_*.tar.gz
           R_LIBS="$interrupt_library" sh tools/check_interrupt.sh
         shell: bash
+      - name: Run the integration fixture tests outside Valgrind
+        # Under Valgrind the fixture check skips the tests of Zig panics on the
+        # calling thread and on worker threads; they run here.
+        if: runner.os == 'Linux'
+        run: |
+          cd tests/fixtures/rzigtest/tests/testthat
+          NOT_CRAN=true R_LIBS="$RUNNER_TEMP/rzig-interrupt-library" Rscript -e 'library(testthat); library(rzigtest); test_dir(".", stop_on_failure = TRUE)'
+        shell: bash
       - name: Run GC stress suite
         if: runner.os == 'macOS'
         run: |
