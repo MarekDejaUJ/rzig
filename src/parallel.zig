@@ -130,11 +130,12 @@ fn runIndexed(ctx: *Ctx, count: usize, context: anytype, comptime body: anytype)
     };
     panic.beginWorkers();
     var spawned: usize = 0;
+    var spawn_failed = false;
     while (spawned < thread_count) : (spawned += 1) {
         threads[spawned] = std.Thread.spawn(.{}, Runner.run, .{&runner}) catch {
+            spawn_failed = true;
             runner.cancel.store(true, .monotonic);
-            for (threads[0..spawned]) |thread| thread.join();
-            return es.raise("rzig: unable to start a parallel worker", .{});
+            break;
         };
     }
     var interrupted = false;
@@ -143,18 +144,31 @@ fn runIndexed(ctx: *Ctx, count: usize, context: anytype, comptime body: anytype)
         // the wait for it ends at the timeout.
         const finished = runner.completion.wait(spawned -| panic.workerExits(), interrupt_probe_ms);
         if (finished + panic.workerExits() >= spawned) break;
-        if (!interrupted) {
+        if (!interrupted and !spawn_failed) {
             interrupt.checkInterrupt() catch {
                 interrupted = true;
                 runner.cancel.store(true, .monotonic);
             };
         }
     }
-    for (threads[0..spawned]) |thread| thread.join();
+    releaseThreads(threads[0..spawned]);
+    if (spawn_failed) return es.raise("rzig: unable to start a parallel worker", .{});
     if (panic.workerPanicked()) |message| {
         return es.raise("rzig: a parallel worker failed and its work was abandoned: {s}", .{message});
     }
     if (interrupted) return es.Error.RZigError;
+}
+
+/// Release the worker threads once every worker has finished or ended after a
+/// panic. A worker that panicked ended its thread inside the panic handler,
+/// before its thread function returned, and std.Thread.join() asserts that
+/// return on Windows, so the threads are detached there after a panic; no
+/// worker touches the shared state any more.
+fn releaseThreads(threads: []const std.Thread) void {
+    const detach = builtin.os.tag == .windows and panic.workerExits() > 0;
+    for (threads) |thread| {
+        if (detach) thread.detach() else thread.join();
+    }
 }
 
 /// The longest time the calling thread waits for worker threads without
