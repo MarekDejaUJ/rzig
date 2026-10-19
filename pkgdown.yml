@@ -1,0 +1,16 @@
+pandoc: 3.8.3
+pkgdown: 2.2.1
+pkgdown_sha: ~
+articles:
+  distributing: distributing.html
+  exports: exports.html
+  numerics: numerics.html
+  parallel: parallel.html
+  porting-rcpp: porting-rcpp.html
+  rzig: rzig.html
+  sharing: sharing.html
+  updating: updating.html
+last_built: 2026-10-19T11:31Z
+urls:
+  reference: https://marekdejauj.github.io/rzig/reference
+  article: https://marekdejauj.github.io/rzig/articles
